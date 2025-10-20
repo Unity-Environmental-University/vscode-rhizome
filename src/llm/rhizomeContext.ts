@@ -61,6 +61,7 @@ export function formatContextAsSystemPrompt(context: RhizomeContext): string {
  *
  * TODO: implement decision logging
  * User Story: decisions stay in knowledge graph
+ * Depends on: RhizomeBackend abstraction
  */
 export async function logDecisionToRhizome(
 	action: string,
@@ -69,6 +70,16 @@ export async function logDecisionToRhizome(
 	context: RhizomeContext
 ): Promise<void> {
 	throw new NotImplementedError();
-	// TODO: call rhizome record command
-	// TODO: pass persona, phase, basis (from code context)
+	// TODO: import { getRhizomeBackend } from '../rhizome/rhizomeBackend';
+	// TODO: const backend = await getRhizomeBackend();
+	// TODO: await backend.record({
+	//   action,
+	//   object,
+	//   what,
+	//   persona: context.persona?.name,
+	//   role: context.persona?.role,
+	//   phase: context.persona?.phase,
+	//   basis: context.decision?.basis,
+	//   gap: context.decision?.gaps,
+	// });
 }
