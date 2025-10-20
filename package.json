@@ -1,8 +1,16 @@
 {
   "name": "vscode-rhizome",
   "displayName": "vscode-rhizome",
-  "description": "Mindful development support with distributed rhizome persona chorus",
+  "description": "Mindful development support with Socratic guidance (don-socratic) and distributed rhizome persona chorus",
   "version": "0.0.1",
+  "keywords": [
+    "mindfulness",
+    "socratic",
+    "personas",
+    "development",
+    "guidance",
+    "reflection"
+  ],
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -16,6 +24,11 @@
   "contributes": {
     "commands": [
       {
+        "command": "vscode-rhizome.donSocratic",
+        "title": "Ask don-socratic",
+        "description": "Invoke Socratic questioning on current code or design"
+      },
+      {
         "command": "vscode-rhizome.stub",
         "title": "Stub this function"
       },
@@ -23,7 +36,16 @@
         "command": "vscode-rhizome.stubInfer",
         "title": "Stub this function (with LLM inference)"
       }
-    ]
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "vscode-rhizome.donSocratic",
+          "group": "1_modification",
+          "when": "editorHasSelection"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run esbuild-base -- --minify",

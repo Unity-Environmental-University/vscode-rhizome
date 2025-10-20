@@ -21,6 +21,41 @@ import * as vscode from 'vscode';
 export function activate(context: vscode.ExtensionContext) {
 	console.log('vscode-rhizome activated');
 
+	// ======================================
+	// CORE FEATURE: don-socratic guidance
+	// ======================================
+	// The don is always listening. When you select code and ask,
+	// he brings Socratic questioning to bear on what you're building.
+	//
+	// TODO: Implement don-socratic command
+	let donSocraticDisposable = vscode.commands.registerCommand('vscode-rhizome.donSocratic', async () => {
+		const editor = vscode.window.activeTextEditor;
+		if (!editor) {
+			vscode.window.showErrorMessage('No active editor');
+			return;
+		}
+
+		const selection = editor.selection;
+		const selectedText = editor.document.getText(selection);
+
+		if (!selectedText) {
+			vscode.window.showErrorMessage('Please select code to question');
+			return;
+		}
+
+		// TODO: Load don-socratic persona from .rhizome/
+		// TODO: Pass selected code to don
+		// TODO: Generate Socratic questions about the selection
+		// TODO: Display in output panel or webview
+
+		vscode.window.showInformationMessage('don-socratic command not yet implemented');
+	});
+
+	context.subscriptions.push(donSocraticDisposable);
+
+	// ======================================
+	// STUB GENERATION
+	// ======================================
 	// don-socratic asks:
 	// When someone invokes the stub command, what needs to happen?
 	// 1. Find the @rhizome stub comment?
@@ -53,15 +88,6 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	context.subscriptions.push(stubDisposable);
-
-	// don-socratic asks:
-	// Is registering a command enough?
-	// How does the user discover this command?
-	// Should it be in the command palette?
-	// Should it be in a right-click context menu?
-	// Should it BOTH?
-	//
-	// TODO: Make stub command discoverable
 }
 
 export function deactivate() {}
