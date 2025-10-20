@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+// TODO: import { startMCPServer } from './llm/mcpServer';
+// TODO: import { LLMClientFactory } from './llm/llmClient';
 
 /**
  * @rhizome stub
@@ -9,6 +11,15 @@ import * as vscode from 'vscode';
  */
 export function activate(context: vscode.ExtensionContext) {
 	console.log('vscode-rhizome activated');
+
+	// TODO: Initialize LLM layer
+	// Questions: which provider? config from settings or .rhizome?
+	// User Story: "Understand Before Commit", LLM-powered inference
+
+	// TODO: Start MCP server
+	// Listens for @rhizome commands in comments
+	// Forwards to LLM with rhizome context
+	// User Stories: all (persona-aware LLM help)
 
 	// TODO: Register stub command
 	// Command: vscode-rhizome.stub
