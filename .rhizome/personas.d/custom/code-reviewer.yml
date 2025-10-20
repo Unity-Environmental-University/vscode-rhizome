@@ -1,0 +1,10 @@
+name: code-reviewer
+parent: bro
+domain: vscode-extension
+description: Reviews code changes with evidence and guardrails for mindful decisions
+modes:
+  - executor
+  - challenger
+  - balance
+created_at: 2025-10-20T17:49:17Z
+repo_specific: true

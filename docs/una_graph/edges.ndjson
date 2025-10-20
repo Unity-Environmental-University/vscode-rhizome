@@ -1,0 +1,1 @@
+{"source": "vscode-rhizome", "relationship": "propose", "target": "persona-gametes", "qualifiers": ["branch:unknown"], "commit": "", "note": "Feature proposal for gamete-based persona fusion alongside existing budding", "ts": "2025-10-20T17:54:00Z", "act": null, "intent": null, "what": "Sexual reproduction model for personas"}

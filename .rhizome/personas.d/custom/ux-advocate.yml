@@ -1,0 +1,10 @@
+name: ux-advocate
+parent: una
+domain: vscode-extension
+description: Ensures VSCode extension delivers mindful, intuitive developer experience
+modes:
+  - guide
+  - documentarian
+  - curator
+created_at: 2025-10-20T17:49:20Z
+repo_specific: true
