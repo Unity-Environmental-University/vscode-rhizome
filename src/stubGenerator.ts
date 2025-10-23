@@ -163,7 +163,7 @@ export function findStubComments(code: string, language: string): Array<{
 	//   - START WITH REGEX. You can extract function signature with a simple pattern.
 	//   - REGEX IS 80% SOLUTION: works for the cases above.
 	//   - ONLY USE AST (@babel/parser, Python ast) if regex breaks on real code.
-	//   - AST ADDS COMPLEXITY: don't pay that cost until you need it.
+		//   - AST ADDS COMPLEXITY: don't pay that cost until you need it.
 	//
 	// REGEX PATTERN FOR FUNCTION SIGNATURE:
 	//   TypeScript/JavaScript:
