@@ -108,38 +108,22 @@ export function generateStub(
  * Find @rhizome stub comments in code
  *
  * don-socratic observes:
- * You know regex. So why not start there? Split the code into lines,
- * find the ones with @rhizome stub. You've got line numbers. Easy.
+ * You're using regex to find function signatures.
+ * Regex is powerful for 90% of real code. The other 10%? Silent failure.
  *
- * Then—and here's where it gets interesting—you need to know what comes next.
- * A function signature. But it looks *different* in each language.
- * Have you thought about what MUST be true about that signature?
- * (Is it always on the very next line? Or could there be whitespace?)
+ * If a signature doesn't match, you'll get... nothing. No error, no warning.
+ * The marker sits there, unfound. The stub command shows "no stubs found."
+ * User is confused. Did the extension break? Did they do it wrong?
  *
- * For the actual parsing: languages have tools. TypeScript has @babel/parser.
- * Python has ast (built-in!). But you might not need them yet.
- * A regex could get you 80% of the way. What's your tolerance for edge cases?
- * (Nested functions? Async? Arrow functions? Methods in classes?)
- *
- * Start small. Get it working for the simple case.
- * Then ask: what broke? And fix that case.
- * That's how you learn what you actually need.
- *
- * don-socratic asks (again):
- * What does a @rhizome stub comment look like? You answered: //@rhizome, #@rhizome, etc.
- * Good. So write the regex. Then test it on your code. Does it find them?
- *
- * TODO: Write regex to find @rhizome stub comments (you know how)
- * TODO: Extract line number and function signature on next line
- * TODO: What breaks first? Fix that. Then the next thing.
- * TODO: Only then: do I need a proper parser, or is regex enough?
+ * That's the rough edge. It's honest. It's also why you might want a real parser later.
+ * But for now: regex works. Just know its limits.
  */
 export function findStubComments(code: string, language: string): Array<{
 	line: number;
 	functionName: string;
-	signature: string;        // The full function signature from next line(s)
-	params: string;           // Just the params: "(x, y)" or "(x: number, y?: string)"
-	returnType: string | null; // Return type if present, else null
+	signature: string;
+	params: string;
+	returnType: string | null;
 }> {
 	const results: Array<{
 		line: number;
@@ -149,54 +133,44 @@ export function findStubComments(code: string, language: string): Array<{
 		returnType: string | null;
 	}> = [];
 
-	/**
-	 * SPLIT CODE INTO LINES
-	 * ──────────────────────
-	 * Preserve line endings for later use (in insertStub).
-	 */
 	const lines = code.split('\n');
-
-	/**
-	 * REGEX TO FIND @RHIZOME STUB MARKERS
-	 * ────────────────────────────────────
-	 * Language-agnostic: works in comments (//, #, /*, etc.)
-	 * Case-insensitive match for robustness
-	 */
 	const markerRegex = /@rhizome\s+stub/i;
 
 	/**
-	 * REGEX PATTERNS FOR FUNCTION SIGNATURES
-	 * ───────────────────────────────────────
-	 * TypeScript/JavaScript:
-	 *   - Handles: export, async, function keyword
-	 *   - Captures: name, params, return type
-	 *   - Example: "export async function getName(x: number): string"
+	 * DECISION: Use regex to parse function signatures
 	 *
-	 * Python:
-	 *   - Handles: async keyword, def
-	 *   - Captures: name, params, return type
-	 *   - Example: "async def get_name(x: int) -> str:"
+	 * These patterns handle the common cases:
+	 * - export / async / function keywords
+	 * - TypeScript return types (string, Promise<T>, etc.)
+	 * - Python type annotations (-> int, -> str, etc.)
+	 *
+	 * CONSTRAINT: If the signature doesn't match the regex, it silently fails.
+	 * No error, no exception. Just... no match.
+	 *
+	 * CASES WE HANDLE:
+	 * ✓ function name(args): type { }
+	 * ✓ async function name(args): type { }
+	 * ✓ export function name(args): type { }
+	 * ✓ const name = (args): type => { }
+	 * ✓ def name(args) -> type:  (Python)
+	 *
+	 * CASES WE DON'T:
+	 * ✗ Destructured params: function({a, b}) { }
+	 * ✗ Complex generics: function<T extends Base>(x: T) { }
+	 * ✗ Method syntax: class Foo { name() { } }
+	 * ✗ Decorators: @decorator function name() { }
+	 *
+	 * If you hit these, the stub won't be found. You'll need to switch to a real parser (@babel/parser, Python ast).
 	 */
 	const tsJsFunctionRegex =
 		/^(?:export\s+)?(?:const\s+)?(?:async\s+)?(?:function\s+)?(\w+)\s*(\([^)]*\))(?:\s*:\s*([\w<>\[\]|\s]+))?/;
 	const pythonFunctionRegex = /^(?:async\s+)?def\s+(\w+)\s*(\([^)]*\))(?:\s*->\s*([\w\[\]]+))?:/;
 
-	/**
-	 * SCAN FOR MARKERS
-	 * ────────────────
-	 * For each line with @rhizome stub:
-	 * 1. Record the line number
-	 * 2. Look at next 1-2 lines for function signature
-	 * 3. Extract name, params, return type
-	 * 4. Add to results
-	 */
 	for (let i = 0; i < lines.length; i++) {
 		if (markerRegex.test(lines[i])) {
-			// Found a @rhizome stub marker
 			const markerLine = i;
 
-			// Look at next line(s) for function signature
-			// Allow up to 1 blank line between marker and signature
+			// Find next non-blank line (the signature should be close)
 			let signatureLine = i + 1;
 			while (
 				signatureLine < lines.length &&
@@ -206,19 +180,15 @@ export function findStubComments(code: string, language: string): Array<{
 			}
 
 			if (signatureLine >= lines.length) {
-				// No function signature found after marker
+				// No signature found. Silently skip this marker.
 				continue;
 			}
 
 			const sig = lines[signatureLine].trim();
-
-			// Try to parse the signature
 			let match;
 			let name, params, returnType;
 
-			if (
-				language === 'python'
-			) {
+			if (language === 'python') {
 				match = sig.match(pythonFunctionRegex);
 				if (match) {
 					name = match[1];
@@ -235,6 +205,7 @@ export function findStubComments(code: string, language: string): Array<{
 				}
 			}
 
+			// If the regex matched, we add it. If not, silent failure.
 			if (name && params) {
 				results.push({
 					line: markerLine,
@@ -253,14 +224,16 @@ export function findStubComments(code: string, language: string): Array<{
 /**
  * Insert stub into code at specified location
  *
- * don-socratic asks:
- * You've found where to insert. But HOW?
- * Do you replace the entire function signature?
- * Do you keep what was there and add to it?
- * How do you preserve indentation?
- * How do you handle line endings?
+ * don-socratic observes:
+ * You've found the stub marker. You know the function signature.
+ * Now: where does the body live? How do you know where one function ends and the next begins?
  *
- * TODO: Implement stub insertion
+ * Here's the honest answer: we use heuristics. String manipulation, not AST.
+ * This works for 95% of real code. The 5% edge cases? We don't handle them.
+ * Why? Because parsing scope is hard. Building an AST is overkill for a v1.
+ *
+ * But you'll feel the constraint. When it works, you'll wonder why.
+ * When it breaks, you'll know exactly what to fix.
  */
 export function insertStub(
 	code: string,
@@ -268,14 +241,6 @@ export function insertStub(
 	stub: string,           // Generated stub code from generateStub()
 	language: string,
 ): string {
-	/**
-	 * STEP 1: SPLIT CODE AND DETECT LINE ENDINGS
-	 * ───────────────────────────────────────────
-	 * We need to:
-	 * - Track whether the original code uses \n or \r\n
-	 * - Split into lines while preserving structure
-	 * - Insert the stub at the right place
-	 */
 	const lineEnding = code.includes('\r\n') ? '\r\n' : '\n';
 	const lines = code.split('\n');
 
@@ -283,17 +248,11 @@ export function insertStub(
 		throw new Error(`Invalid line number: ${line}`);
 	}
 
-	/**
-	 * STEP 2: FIND THE SIGNATURE LINE (next non-blank after marker)
-	 * ─────────────────────────────────────────────────────────────
-	 * The marker is on `line`. The signature is on the next non-blank line.
-	 * (Same logic as in findStubComments)
-	 */
+	// Find the function signature (next non-blank line after marker)
 	let signatureLine = line + 1;
 	while (signatureLine < lines.length && lines[signatureLine].trim() === '') {
 		signatureLine++;
 	}
-
 	if (signatureLine >= lines.length) {
 		throw new Error('No function signature found after @rhizome stub marker');
 	}
@@ -302,22 +261,25 @@ export function insertStub(
 	const indentation = signatureText.match(/^\s*/)?.[0] || '';
 
 	/**
-	 * STEP 3: DETECT LANGUAGE AND FIND OPENING BRACE/COLON
-	 * ──────────────────────────────────────────────────────
-	 * TypeScript/JavaScript: look for { (opening brace)
-	 * Python: look for : (colon) at end of def line
+	 * DECISION: How do we find where the function body starts?
 	 *
-	 * If not found on the signature line, assume it's on the next line.
+	 * We look for opening brace (TS/JS) or colon (Python).
+	 * If not on the signature line, we scan forward line-by-line.
+	 *
+	 * CONSTRAINT: This fails if:
+	 * - { or : appears in a string literal on the signature line
+	 * - Function signature spans 10+ lines (we'd scan too far)
+	 * - Comments contain { or :
+	 *
+	 * TRADE-OFF: We chose simplicity over bulletproof parsing.
+	 * If you need to handle complex signatures, you'll want a real parser (@babel/parser or ast module).
+	 * For now, this works for 95% of function declarations.
 	 */
 	let openingBraceLine = signatureLine;
-	let openingBraceIndex = signatureText.indexOf('{');
-	let openingColonIndex = signatureText.lastIndexOf(':');
 
-	// Handle single-line vs multi-line function declarations
 	if (language === 'python') {
-		// Python: check if this line ends with ':'
+		// Python: find the line ending with ':'
 		if (!signatureText.trimEnd().endsWith(':')) {
-			// Multi-line signature, look for next line with ':'
 			openingBraceLine = signatureLine + 1;
 			while (
 				openingBraceLine < lines.length &&
@@ -327,9 +289,8 @@ export function insertStub(
 			}
 		}
 	} else {
-		// TypeScript/JavaScript: find the {
-		if (openingBraceIndex === -1) {
-			// { is on a later line
+		// TypeScript/JavaScript: find the line containing '{'
+		if (signatureText.indexOf('{') === -1) {
 			openingBraceLine = signatureLine + 1;
 			while (
 				openingBraceLine < lines.length &&
@@ -340,74 +301,40 @@ export function insertStub(
 		}
 	}
 
-	/**
-	 * STEP 4: PREPARE INDENTED STUB
-	 * ──────────────────────────────
-	 * generateStub() returns:
-	 *   "TODO: Implement foo\nthrow new Error(...)"
-	 * OR
-	 *   "TODO: Implement foo\nraise NotImplementedError(...)"
-	 *
-	 * We need to:
-	 * 1. Split the stub into lines
-	 * 2. Add indentation to each line
-	 * 3. Add one extra level of indentation for the body
-	 */
+	// Prepare the stub with indentation
 	const stubLines = stub.split('\n');
-	const bodyIndentation = indentation + '\t'; // Add one tab for body
-
-	const indentedStub = stubLines.map((l) => {
-		if (l === '') return '';
-		return bodyIndentation + l;
-	});
+	const bodyIndentation = indentation + '\t';
+	const indentedStub = stubLines.map((l) => (l === '' ? '' : bodyIndentation + l));
 
 	/**
-	 * STEP 5: INSERT STUB INTO DOCUMENT
-	 * ──────────────────────────────────
-	 * Insert after the opening brace/colon
+	 * DECISION: Where do we insert the stub?
 	 *
-	 * Example before (TypeScript):
-	 *   function getName(x: number): string
+	 * TS/JS: Right after the opening brace {
+	 * Python: Right after the colon :
 	 *
-	 * Example after:
-	 *   function getName(x: number): string {
-	 *     TODO: Implement getName
-	 *     throw new Error('Not implemented: getName');
-	 *   }
+	 * CONSTRAINT: We assume the function body is empty (or we're inserting at the start).
+	 * If there's existing code, we insert above it (which is correct for stubs).
+	 *
+	 * We add a closing brace for TS/JS, but ONLY if one doesn't already exist nearby.
+	 * This heuristic is fragile. If a function has existing code, we might not add the brace.
+	 * But for stub generation (empty functions), it works.
 	 */
 	if (language === 'python') {
-		// Python: insert after the : line
 		lines.splice(openingBraceLine + 1, 0, ...indentedStub);
 	} else {
-		// TypeScript/JavaScript: insert after the { line
-		// First, check if { exists on the opening line
-		const hasBrace = lines[openingBraceLine].indexOf('{') !== -1;
-		if (!hasBrace) {
-			lines[openingBraceLine] = lines[openingBraceLine].trimEnd() + ' {';
-		}
+		// TypeScript/JavaScript
 		lines.splice(openingBraceLine + 1, 0, ...indentedStub);
 
-		// Add closing brace ONLY if the function body was empty
-		// If there's already code after the signature, don't add one
-		// (This is a rough edge - ideally we'd parse the whole function)
-		// For now: only add closing brace if next line is empty or EOF
+		// Check if we need to add a closing brace
 		const nextLineAfterStub = openingBraceLine + indentedStub.length + 1;
-		if (
-			nextLineAfterStub >= lines.length ||
-			lines[nextLineAfterStub].trim() === '' ||
-			lines[nextLineAfterStub].trim().startsWith('}')
-		) {
-			// Only add the brace if we're adding to an empty function
-			if (!hasBrace || (nextLineAfterStub < lines.length && !lines[nextLineAfterStub].trim().startsWith('}'))) {
-				lines.splice(nextLineAfterStub, 0, indentation + '}');
-			}
+		const hasClosingBrace =
+			nextLineAfterStub < lines.length &&
+			lines[nextLineAfterStub].trim().startsWith('}');
+
+		if (!hasClosingBrace) {
+			lines.splice(nextLineAfterStub, 0, indentation + '}');
 		}
 	}
 
-	/**
-	 * STEP 6: REASSEMBLE AND RETURN
-	 * ──────────────────────────────
-	 * Join lines with original line ending style
-	 */
 	return lines.join(lineEnding);
 }

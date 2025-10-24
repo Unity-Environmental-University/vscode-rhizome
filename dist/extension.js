@@ -120,8 +120,6 @@ function insertStub(code, line, stub, language) {
   const signatureText = lines[signatureLine];
   const indentation = signatureText.match(/^\s*/)?.[0] || "";
   let openingBraceLine = signatureLine;
-  let openingBraceIndex = signatureText.indexOf("{");
-  let openingColonIndex = signatureText.lastIndexOf(":");
   if (language === "python") {
     if (!signatureText.trimEnd().endsWith(":")) {
       openingBraceLine = signatureLine + 1;
@@ -130,7 +128,7 @@ function insertStub(code, line, stub, language) {
       }
     }
   } else {
-    if (openingBraceIndex === -1) {
+    if (signatureText.indexOf("{") === -1) {
       openingBraceLine = signatureLine + 1;
       while (openingBraceLine < lines.length && lines[openingBraceLine].indexOf("{") === -1) {
         openingBraceLine++;
@@ -139,24 +137,15 @@ function insertStub(code, line, stub, language) {
   }
   const stubLines = stub.split("\n");
   const bodyIndentation = indentation + "	";
-  const indentedStub = stubLines.map((l) => {
-    if (l === "")
-      return "";
-    return bodyIndentation + l;
-  });
+  const indentedStub = stubLines.map((l) => l === "" ? "" : bodyIndentation + l);
   if (language === "python") {
     lines.splice(openingBraceLine + 1, 0, ...indentedStub);
   } else {
-    const hasBrace = lines[openingBraceLine].indexOf("{") !== -1;
-    if (!hasBrace) {
-      lines[openingBraceLine] = lines[openingBraceLine].trimEnd() + " {";
-    }
     lines.splice(openingBraceLine + 1, 0, ...indentedStub);
     const nextLineAfterStub = openingBraceLine + indentedStub.length + 1;
-    if (nextLineAfterStub >= lines.length || lines[nextLineAfterStub].trim() === "" || lines[nextLineAfterStub].trim().startsWith("}")) {
-      if (!hasBrace || nextLineAfterStub < lines.length && !lines[nextLineAfterStub].trim().startsWith("}")) {
-        lines.splice(nextLineAfterStub, 0, indentation + "}");
-      }
+    const hasClosingBrace = nextLineAfterStub < lines.length && lines[nextLineAfterStub].trim().startsWith("}");
+    if (!hasClosingBrace) {
+      lines.splice(nextLineAfterStub, 0, indentation + "}");
     }
   }
   return lines.join(lineEnding);
