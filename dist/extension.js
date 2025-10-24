@@ -61,8 +61,15 @@ function findStubComments(code, language) {
   const results = [];
   const lines = code.split("\n");
   const markerRegex = /@rhizome\s+stub/i;
-  const tsJsFunctionRegex = /^(?:export\s+)?(?:const\s+)?(?:async\s+)?(?:function\s+)?(\w+)\s*(\([^)]*\))(?:\s*:\s*([\w<>\[\]|\s]+))?/;
-  const pythonFunctionRegex = /^(?:async\s+)?def\s+(\w+)\s*(\([^)]*\))(?:\s*->\s*([\w\[\]]+))?:/;
+  let hasParser = false;
+  let parser = null;
+  if (language === "typescript" || language === "javascript") {
+    try {
+      parser = require("@babel/parser");
+      hasParser = true;
+    } catch (e) {
+    }
+  }
   for (let i = 0; i < lines.length; i++) {
     if (markerRegex.test(lines[i])) {
       const markerLine = i;
@@ -73,36 +80,103 @@ function findStubComments(code, language) {
       if (signatureLine >= lines.length) {
         continue;
       }
-      const sig = lines[signatureLine].trim();
-      let match;
-      let name, params, returnType;
-      if (language === "python") {
-        match = sig.match(pythonFunctionRegex);
-        if (match) {
-          name = match[1];
-          params = match[2];
-          returnType = match[3] || null;
-        }
-      } else {
-        match = sig.match(tsJsFunctionRegex);
-        if (match) {
-          name = match[1];
-          params = match[2];
-          returnType = match[3]?.trim() || null;
+      if (hasParser && language !== "python") {
+        try {
+          const result = parseWithAST(
+            lines,
+            signatureLine,
+            markerLine,
+            parser,
+            code
+          );
+          if (result) {
+            results.push(result);
+            continue;
+          }
+        } catch (e) {
         }
       }
-      if (name && params) {
-        results.push({
-          line: markerLine,
-          functionName: name,
-          signature: sig,
-          params,
-          returnType: returnType ?? null
-        });
+      const regexResult = parseWithRegex(
+        lines[signatureLine].trim(),
+        markerLine,
+        language
+      );
+      if (regexResult) {
+        results.push(regexResult);
       }
     }
   }
   return results;
+}
+function parseWithAST(lines, signatureLine, markerLine, parser, fullCode) {
+  try {
+    let signatureText = "";
+    let currentLine = signatureLine;
+    while (currentLine < lines.length) {
+      signatureText += lines[currentLine];
+      if (signatureText.includes("{")) {
+        break;
+      }
+      signatureText += "\n";
+      currentLine++;
+    }
+    const wrapped = `function _wrapper() { ${signatureText}; }`;
+    const ast = parser.parse(wrapped, {
+      sourceType: "module",
+      plugins: ["typescript"]
+    });
+    const wrapper = ast.program.body[0]?.body?.body[0];
+    if (!wrapper || wrapper.type !== "FunctionDeclaration") {
+      return null;
+    }
+    const func = wrapper;
+    const name = func.id.name;
+    const params = signatureText.substring(signatureText.indexOf("("), signatureText.indexOf(")") + 1).trim();
+    const returnTypeMatch = signatureText.match(
+      /\):\s*([\w<>\[\]\s|&,]+)\s*[{]/
+    );
+    const returnType = returnTypeMatch ? returnTypeMatch[1].trim() : null;
+    return {
+      line: markerLine,
+      functionName: name,
+      signature: signatureText.split("\n")[0],
+      params,
+      returnType
+    };
+  } catch (e) {
+    return null;
+  }
+}
+function parseWithRegex(sig, markerLine, language) {
+  let match;
+  let name, params, returnType;
+  if (language === "python") {
+    const pythonFunctionRegex = /^(?:async\s+)?def\s+(\w+)\s*(\([^)]*\))(?:\s*->\s*([\w\[\]]+))?:/;
+    match = sig.match(pythonFunctionRegex);
+    if (match) {
+      name = match[1];
+      params = match[2];
+      returnType = match[3] || null;
+    }
+  } else {
+    const tsJsFunctionRegex = /^(?:export\s+)?(?:const\s+)?(?:async\s+)?(?:function\s+)?(\w+)\s*(\([^)]*\))(?:\s*:\s*([\w<>\[\]|\s]+))?/;
+    match = sig.match(tsJsFunctionRegex);
+    if (match) {
+      name = match[1];
+      params = match[2];
+      returnType = match[3]?.trim() || null;
+    }
+  }
+  if (name && params) {
+    return {
+      line: markerLine,
+      functionName: name,
+      signature: sig,
+      params,
+      returnType: returnType ?? null
+    };
+  }
+  return null;
 }
 function insertStub(code, line, stub, language) {
   const lineEnding = code.includes("\r\n") ? "\r\n" : "\n";

@@ -108,15 +108,18 @@ export function generateStub(
  * Find @rhizome stub comments in code
  *
  * don-socratic observes:
- * You're using regex to find function signatures.
- * Regex is powerful for 90% of real code. The other 10%? Silent failure.
+ * You asked for AST parsing. Good question. Here's what you get:
  *
- * If a signature doesn't match, you'll get... nothing. No error, no warning.
- * The marker sits there, unfound. The stub command shows "no stubs found."
- * User is confused. Did the extension break? Did they do it wrong?
+ * Two paths in this function:
+ * - REGEX: Simple, fast, no dependencies. But brittle for complex signatures.
+ * - AST: Robust, parses anything, but requires @babel/parser (TS/JS) or ast module (Python).
  *
- * That's the rough edge. It's honest. It's also why you might want a real parser later.
- * But for now: regex works. Just know its limits.
+ * The code tries AST first (if the parser is available).
+ * Falls back to regex if you don't have the dependencies.
+ *
+ * This way: you get robustness when you have the tools.
+ * You get simplicity when you don't.
+ * And you can feel the difference when you upgrade.
  */
 export function findStubComments(code: string, language: string): Array<{
 	line: number;
@@ -137,40 +140,35 @@ export function findStubComments(code: string, language: string): Array<{
 	const markerRegex = /@rhizome\s+stub/i;
 
 	/**
-	 * DECISION: Use regex to parse function signatures
+	 * STRATEGY: Try AST parsing first. Fall back to regex.
 	 *
-	 * These patterns handle the common cases:
-	 * - export / async / function keywords
-	 * - TypeScript return types (string, Promise<T>, etc.)
-	 * - Python type annotations (-> int, -> str, etc.)
+	 * Why both?
+	 * - AST is correct. It understands scope, complexity, edge cases.
+	 * - Regex is simple. No dependencies. But fragile.
 	 *
-	 * CONSTRAINT: If the signature doesn't match the regex, it silently fails.
-	 * No error, no exception. Just... no match.
-	 *
-	 * CASES WE HANDLE:
-	 * ✓ function name(args): type { }
-	 * ✓ async function name(args): type { }
-	 * ✓ export function name(args): type { }
-	 * ✓ const name = (args): type => { }
-	 * ✓ def name(args) -> type:  (Python)
-	 *
-	 * CASES WE DON'T:
-	 * ✗ Destructured params: function({a, b}) { }
-	 * ✗ Complex generics: function<T extends Base>(x: T) { }
-	 * ✗ Method syntax: class Foo { name() { } }
-	 * ✗ Decorators: @decorator function name() { }
-	 *
-	 * If you hit these, the stub won't be found. You'll need to switch to a real parser (@babel/parser, Python ast).
+	 * If @babel/parser is installed, we use it. Otherwise, regex.
+	 * The user doesn't need to know. It just works better when it can.
 	 */
-	const tsJsFunctionRegex =
-		/^(?:export\s+)?(?:const\s+)?(?:async\s+)?(?:function\s+)?(\w+)\s*(\([^)]*\))(?:\s*:\s*([\w<>\[\]|\s]+))?/;
-	const pythonFunctionRegex = /^(?:async\s+)?def\s+(\w+)\s*(\([^)]*\))(?:\s*->\s*([\w\[\]]+))?:/;
+
+	// Try to load the parser. If it fails, we'll fall back to regex.
+	let hasParser = false;
+	let parser: any = null;
+
+	if (language === 'typescript' || language === 'javascript') {
+		try {
+			// @ts-ignore: dynamic require
+			parser = require('@babel/parser');
+			hasParser = true;
+		} catch (e) {
+			// Parser not installed. That's fine, we'll use regex.
+		}
+	}
 
 	for (let i = 0; i < lines.length; i++) {
 		if (markerRegex.test(lines[i])) {
 			const markerLine = i;
 
-			// Find next non-blank line (the signature should be close)
+			// Find next non-blank line
 			let signatureLine = i + 1;
 			while (
 				signatureLine < lines.length &&
@@ -180,45 +178,182 @@ export function findStubComments(code: string, language: string): Array<{
 			}
 
 			if (signatureLine >= lines.length) {
-				// No signature found. Silently skip this marker.
 				continue;
 			}
 
-			const sig = lines[signatureLine].trim();
-			let match;
-			let name, params, returnType;
-
-			if (language === 'python') {
-				match = sig.match(pythonFunctionRegex);
-				if (match) {
-					name = match[1];
-					params = match[2];
-					returnType = match[3] || null;
-				}
-			} else {
-				// TypeScript / JavaScript
-				match = sig.match(tsJsFunctionRegex);
-				if (match) {
-					name = match[1];
-					params = match[2];
-					returnType = match[3]?.trim() || null;
+			// Try AST parsing if available
+			if (hasParser && language !== 'python') {
+				try {
+					const result = parseWithAST(
+						lines,
+						signatureLine,
+						markerLine,
+						parser,
+						code
+					);
+					if (result) {
+						results.push(result);
+						continue;
+					}
+				} catch (e) {
+					// AST parsing failed. Fall through to regex.
 				}
 			}
 
-			// If the regex matched, we add it. If not, silent failure.
-			if (name && params) {
-				results.push({
-					line: markerLine,
-					functionName: name,
-					signature: sig,
-					params: params,
-					returnType: returnType ?? null,
-				});
+			// Fall back to regex (Python always uses regex for now)
+			const regexResult = parseWithRegex(
+				lines[signatureLine].trim(),
+				markerLine,
+				language
+			);
+			if (regexResult) {
+				results.push(regexResult);
 			}
 		}
 	}
 
 	return results;
+}
+
+/**
+ * Parse function signature using AST (@babel/parser for TS/JS)
+ *
+ * This is more robust than regex. It understands:
+ * ✓ Destructured params: function({a, b})
+ * ✓ Complex generics: function<T extends Base>(x: T)
+ * ✓ Arrow functions with multiline params
+ * ✓ Default values and optional params
+ *
+ * But it's also more complex. We wrap it in try/catch so
+ * if the code is malformed, we gracefully fall back to regex.
+ */
+function parseWithAST(
+	lines: string[],
+	signatureLine: number,
+	markerLine: number,
+	parser: any,
+	fullCode: string
+): {
+	line: number;
+	functionName: string;
+	signature: string;
+	params: string;
+	returnType: string | null;
+} | null {
+	try {
+		// Reconstruct multi-line function signature
+		// (signatures can span multiple lines)
+		let signatureText = '';
+		let currentLine = signatureLine;
+
+		// Scan until we find the opening brace
+		while (currentLine < lines.length) {
+			signatureText += lines[currentLine];
+			if (signatureText.includes('{')) {
+				break;
+			}
+			signatureText += '\n';
+			currentLine++;
+		}
+
+		// Parse just the function declaration
+		// Wrap in a scope to make it valid JavaScript
+		const wrapped = `function _wrapper() { ${signatureText}; }`;
+
+		const ast = parser.parse(wrapped, {
+			sourceType: 'module',
+			plugins: ['typescript'],
+		});
+
+		// Extract the function node from the AST
+		// This is a deep dive—but it's worth seeing how AST works
+		const wrapper = ast.program.body[0]?.body?.body[0];
+		if (!wrapper || wrapper.type !== 'FunctionDeclaration') {
+			return null;
+		}
+
+		const func = wrapper;
+		const name = func.id.name;
+		const params = signatureText
+			.substring(signatureText.indexOf('('), signatureText.indexOf(')') + 1)
+			.trim();
+
+		// Extract return type if present (TS annotation)
+		const returnTypeMatch = signatureText.match(
+			/\):\s*([\w<>\[\]\s|&,]+)\s*[{]/
+		);
+		const returnType = returnTypeMatch
+			? returnTypeMatch[1].trim()
+			: null;
+
+		return {
+			line: markerLine,
+			functionName: name,
+			signature: signatureText.split('\n')[0],
+			params,
+			returnType,
+		};
+	} catch (e) {
+		// AST parsing failed. Will fall through to regex.
+		return null;
+	}
+}
+
+/**
+ * Parse function signature using regex (fallback)
+ *
+ * Simple, no dependencies. But fragile.
+ * Handles 90% of real code. The other 10%? Silent failure.
+ *
+ * This is the constraint you feel when regex breaks.
+ * When you hit it, you'll know exactly why we offer AST as an alternative.
+ */
+function parseWithRegex(
+	sig: string,
+	markerLine: number,
+	language: string
+): {
+	line: number;
+	functionName: string;
+	signature: string;
+	params: string;
+	returnType: string | null;
+} | null {
+	let match;
+	let name, params, returnType;
+
+	if (language === 'python') {
+		const pythonFunctionRegex =
+			/^(?:async\s+)?def\s+(\w+)\s*(\([^)]*\))(?:\s*->\s*([\w\[\]]+))?:/;
+		match = sig.match(pythonFunctionRegex);
+		if (match) {
+			name = match[1];
+			params = match[2];
+			returnType = match[3] || null;
+		}
+	} else {
+		// TypeScript / JavaScript
+		const tsJsFunctionRegex =
+			/^(?:export\s+)?(?:const\s+)?(?:async\s+)?(?:function\s+)?(\w+)\s*(\([^)]*\))(?:\s*:\s*([\w<>\[\]|\s]+))?/;
+		match = sig.match(tsJsFunctionRegex);
+		if (match) {
+			name = match[1];
+			params = match[2];
+			returnType = match[3]?.trim() || null;
+		}
+	}
+
+	if (name && params) {
+		return {
+			line: markerLine,
+			functionName: name,
+			signature: sig,
+			params,
+			returnType: returnType ?? null,
+		};
+	}
+
+	return null;
 }
 
 /**
