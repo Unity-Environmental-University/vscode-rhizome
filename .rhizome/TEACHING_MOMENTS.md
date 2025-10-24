@@ -1,16 +1,19 @@
 # Teaching Moments in vscode-rhizome
 
-These are places in the code where the implementation works, but there's a deliberate choice to leave room for learning. Not TODOs. Not bugs. **Intentional rough edges that invite improvement.**
+**Spoken by: don-socratic**
 
-When someone reads this code, they should *feel* these moments and think "I could refactor that" — which is the point.
+Before you proceed, help me understand. You've read the code and noticed something. A pattern. A constraint. A choice we made that seems... incomplete.
+
+Good. That's not a bug. That's an invitation to think.
+
+Below are four places where the code works, but we left the edges rough. Not TODOs. Questions. When you feel the friction, pause and ask yourself what I'm asking you here.
 
 ---
 
-## 1. Repetitive outputChannel calls (extension.ts:87-131)
+## 1. Eight `.appendLine()` calls (extension.ts:87-131)
 
-**Location:** `donSocratic` command handler
+Look at the `donSocratic` command handler. What do you notice about the output channel calls?
 
-**What's there:**
 ```typescript
 outputChannel.appendLine('='.repeat(60));
 outputChannel.appendLine('don-socratic');
@@ -19,25 +22,24 @@ outputChannel.appendLine('Selected code:');
 outputChannel.appendLine('');
 outputChannel.appendLine(selectedText);
 outputChannel.appendLine('');
-// ... and more
+// ... more of the same
 ```
 
-**Teaching moment:** The repetition screams "extract a helper function." Eight `.appendLine()` calls in sequence, with a clear pattern (blank line, content, blank line).
+**My questions for you:**
 
-**What to learn:**
-- Recognize the pattern (section headers, labeled content, spacing)
-- Extract `section()`, `label()`, `raw()` helper functions
-- See how removing the noise makes the intent clearer
+- Do you see a pattern in how we structure the output? (Section headers, labeled content, spacing?)
+- If you extract that pattern into a helper function, what would you call it? `section()`? `label()`?
+- How would the code read differently if you pulled that out?
+- What would you *gain* by removing this repetition? What might you *lose*?
 
-**Why we left it:** Repetition is its own teacher. A comment wouldn't hit as hard as reading the pattern and thinking "I could fix that."
+**Why we left it this way:** Repetition is honest. It shows you the pattern without hiding it in abstraction. You'll feel it and think "I could fix that." That's the moment worth having.
 
 ---
 
 ## 2. Nested if/else for optional fields (stubGenerator.ts:67-75)
 
-**Location:** `generateStub()` function, building the TODO comment
+Look at how we build the TODO comment in `generateStub()`:
 
-**What's there:**
 ```typescript
 if (options?.timestamp) {
     todoComment += ` (stubbed ${options.timestamp}`;
@@ -50,70 +52,103 @@ if (options?.timestamp) {
 }
 ```
 
-**Teaching moment:** This works, but it's nested and a bit clunky. You could use nullish coalescing (`??`), optional chaining (`?.`), or template literals more idiomatically.
+**My questions for you:**
 
-**What to learn:**
-- Recognize when optional chaining is idiomatic vs when it adds noise
-- See the tradeoff: nested logic is explicit but verbose
-- Consider: could `returnType ?? null` or similar patterns make this clearer?
+- This works. But is it the clearest way to express what's happening?
+- What if you tried nullish coalescing (`??`) or optional chaining (`?.`)? How would that change the code?
+- Would it be more readable, or just more clever?
+- What's the tradeoff between explicit nesting and idiomatic TypeScript?
 
-**Why we left it:** The current code is readable. Making it "clever" might obscure the intent. But the opportunity is there to make it more concise without losing clarity.
+**Why we left it this way:** Explicit is often better than clever. But the opportunity is there. You might find a way that's both clear *and* concise. Or you might decide the nesting is fine. Either way, you'll have thought about it.
 
 ---
 
 ## 3. Silent regex failure (stubGenerator.ts:147-163)
 
-**Location:** `findStubComments()` function, regex pattern matching
+Look at `findStubComments()`. If a function signature doesn't match the regex, what happens?
 
-**What's there:**
-The function silently returns an empty array if a signature doesn't match the regex. No error, no warning.
+```typescript
+const sig = lines[signatureLine].trim();
+let match;
+let name, params, returnType;
 
-**Teaching moment:** This is the most important one. When the regex doesn't match, the user gets no feedback. The marker sits there unfound. "No stubs found" in the UI, but the user doesn't know *why*.
+if (language === 'python') {
+    match = sig.match(pythonFunctionRegex);
+    if (match) {
+        name = match[1];
+        // ...
+    }
+}
 
-**What to learn:**
-- Recognize silent failures in your code
-- Think about user experience: how would you know it failed?
-- Consider: should we emit a warning? Log which signatures failed to parse?
-- Future: when would you swap regex for a real parser (@babel/parser, Python ast)?
+// If the regex matched, we add it. If not, silent failure.
+if (name && params) {
+    results.push({ /* ... */ });
+}
+```
 
-**Why we left it:** Because this is the constraint you'll *feel* when you use the extension. You'll hit it, wonder why, and then you'll know exactly what to fix. That's real learning.
+**My questions for you:**
 
----
+- What happens if the regex doesn't match? (Answer: nothing. We return an empty array.)
+- How would a user know their `@rhizome stub` marker wasn't found? Would they see an error? A warning?
+- If I put a marker on a function with a destructured parameter or complex generic type, what would happen?
+- What would you need to do to give the user better feedback?
 
-## 4. insertStub heuristics (stubGenerator.ts:292-331)
-
-**Location:** `insertStub()` function, finding the function body scope
-
-**What's there:**
-We use line-by-line scanning to find `{` or `:` instead of parsing the actual scope. We assume the function body is empty or we're inserting at the start.
-
-**Teaching moment:** This is a 95/5 solution. It works for most real code. The 5% breaks silently (you get an extra brace in the wrong place, or the stub doesn't insert where you expect).
-
-**What to learn:**
-- Recognize the heuristic approach vs. the "right" approach (AST parsing)
-- Understand the tradeoff: simple string manipulation vs. proper scope parsing
-- Think: when does heuristic-based code fail, and what's the cost?
-- Future: could you build an AST-based version? What library would you use?
-
-**Why we left it:** You'll use this command, and when it works, you'll wonder why. When it breaks on a weird function signature, you'll know exactly where to improve it.
+**Why we left it this way:** This is the constraint you'll *feel* when you use the extension. You'll put a marker on some code, run the command, and get "no stubs found." You'll wonder why. Then you'll read this file and understand: regex is powerful but brittle. And you'll know exactly what to reach for next—either better error messages, or a real parser like @babel/parser.
 
 ---
 
-## How to Use This
+## 4. insertStub uses heuristics, not parsing (stubGenerator.ts:292-331)
 
-When you (or another developer) reads the code and thinks:
+How does `insertStub()` know where the function body starts?
 
-- "Why are there so many `.appendLine()` calls?" → See Teaching Moment #1
-- "This if/else could be shorter" → See Teaching Moment #2
-- "What happens if the regex doesn't match?" → See Teaching Moment #3
-- "How does this handle complex function scopes?" → See Teaching Moment #4
+```typescript
+if (language === 'python') {
+    if (!signatureText.trimEnd().endsWith(':')) {
+        openingBraceLine = signatureLine + 1;
+        while (
+            openingBraceLine < lines.length &&
+            !lines[openingBraceLine].trimEnd().endsWith(':')
+        ) {
+            openingBraceLine++;
+        }
+    }
+} else {
+    if (signatureText.indexOf('{') === -1) {
+        // scan forward for {
+    }
+}
+```
 
-Each moment is encoded here so the learning isn't lost. And the code stays honest—not cluttered with TODOs, but readable with intentional rough edges.
+**My questions for you:**
+
+- We're looking for `{` or `:` by scanning lines. What happens if those characters appear in a string literal on the signature line?
+- What happens if a function signature spans 15 lines?
+- We assume the function body is empty or we're inserting at the start. What breaks if someone already has code there?
+- What would you need to know about the *entire* function scope to insert correctly? How would you find that?
+
+**Why we left it this way:** This is a 95/5 solution. It works for 95% of real code. The other 5%—complex signatures, existing implementations, edge cases—will teach you why parsing is hard. You'll hit the wall and think: "I need a real AST parser here." And then you'll understand exactly what that means and why you need it. That's worth more than me telling you upfront.
 
 ---
 
-## The Philosophy
+## How to read this
 
-**Don't solve it yet. Make it visible. Let someone read the code and think: "I could improve that."**
+When you're using the extension, or reading the code, and you think:
 
-That's better teaching than any comment. The itch to refactor is the itch to learn.
+- "Why eight `.appendLine()` calls?" → Read #1. Then ask: could I improve this?
+- "This if/else looks clunky" → Read #2. Then ask: what would be clearer?
+- "What if my marker doesn't work?" → Read #3. Then ask: why is it silent?
+- "Does this work for all functions?" → Read #4. Then ask: what would break?
+
+These moments are here because they're worth thinking about. Not because they're broken. Not because they need fixing *right now*.
+
+They're here because you'll learn more by feeling the constraint than by being told the answer.
+
+---
+
+## The Principle
+
+The unexamined code is not worth shipping.
+
+I've left these edges rough on purpose. When you're ready—when you've felt the friction—you'll know what to improve and why it matters.
+
+That's teaching. That's learning.
