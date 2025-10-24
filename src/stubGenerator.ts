@@ -380,15 +380,28 @@ export function insertStub(
 		lines.splice(openingBraceLine + 1, 0, ...indentedStub);
 	} else {
 		// TypeScript/JavaScript: insert after the { line
-		// First, ensure { exists on the opening line
-		if (lines[openingBraceLine].indexOf('{') === -1) {
+		// First, check if { exists on the opening line
+		const hasBrace = lines[openingBraceLine].indexOf('{') !== -1;
+		if (!hasBrace) {
 			lines[openingBraceLine] = lines[openingBraceLine].trimEnd() + ' {';
 		}
 		lines.splice(openingBraceLine + 1, 0, ...indentedStub);
 
-		// Add closing brace if it's not already there
-		// (Simple case: assume we're adding it)
-		lines.splice(openingBraceLine + indentedStub.length + 1, 0, indentation + '}');
+		// Add closing brace ONLY if the function body was empty
+		// If there's already code after the signature, don't add one
+		// (This is a rough edge - ideally we'd parse the whole function)
+		// For now: only add closing brace if next line is empty or EOF
+		const nextLineAfterStub = openingBraceLine + indentedStub.length + 1;
+		if (
+			nextLineAfterStub >= lines.length ||
+			lines[nextLineAfterStub].trim() === '' ||
+			lines[nextLineAfterStub].trim().startsWith('}')
+		) {
+			// Only add the brace if we're adding to an empty function
+			if (!hasBrace || (nextLineAfterStub < lines.length && !lines[nextLineAfterStub].trim().startsWith('}'))) {
+				lines.splice(nextLineAfterStub, 0, indentation + '}');
+			}
+		}
 	}
 
 	/**

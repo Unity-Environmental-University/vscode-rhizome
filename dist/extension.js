@@ -147,11 +147,17 @@ function insertStub(code, line, stub, language) {
   if (language === "python") {
     lines.splice(openingBraceLine + 1, 0, ...indentedStub);
   } else {
-    if (lines[openingBraceLine].indexOf("{") === -1) {
+    const hasBrace = lines[openingBraceLine].indexOf("{") !== -1;
+    if (!hasBrace) {
       lines[openingBraceLine] = lines[openingBraceLine].trimEnd() + " {";
     }
     lines.splice(openingBraceLine + 1, 0, ...indentedStub);
-    lines.splice(openingBraceLine + indentedStub.length + 1, 0, indentation + "}");
+    const nextLineAfterStub = openingBraceLine + indentedStub.length + 1;
+    if (nextLineAfterStub >= lines.length || lines[nextLineAfterStub].trim() === "" || lines[nextLineAfterStub].trim().startsWith("}")) {
+      if (!hasBrace || nextLineAfterStub < lines.length && !lines[nextLineAfterStub].trim().startsWith("}")) {
+        lines.splice(nextLineAfterStub, 0, indentation + "}");
+      }
+    }
   }
   return lines.join(lineEnding);
 }
