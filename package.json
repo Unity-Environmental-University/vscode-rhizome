@@ -29,6 +29,11 @@
         "description": "Invoke Socratic questioning on current code or design"
       },
       {
+        "command": "vscode-rhizome.inlineQuestion",
+        "title": "Ask don-socratic (inline)",
+        "description": "Question your code inline without leaving editor"
+      },
+      {
         "command": "vscode-rhizome.stub",
         "title": "Stub this function"
       },
@@ -41,6 +46,11 @@
       "editor/context": [
         {
           "command": "vscode-rhizome.donSocratic",
+          "group": "1_modification",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "vscode-rhizome.inlineQuestion",
           "group": "1_modification",
           "when": "editorHasSelection"
         }

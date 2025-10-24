@@ -15065,53 +15065,88 @@ function insertStub(code, line, stub, language) {
 }
 
 // src/extension.ts
+async function queryPersona(text, persona, timeoutMs = 3e4) {
+  try {
+    const { execSync } = require("child_process");
+    const response = execSync(`rhizome query --persona ${persona}`, {
+      input: text,
+      encoding: "utf-8",
+      timeout: timeoutMs
+    });
+    return response;
+  } catch (error) {
+    throw new Error(`Rhizome query failed: ${error.message}`);
+  }
+}
+function formatPersonaOutput(channel, personaName, selectedCode, response) {
+  channel.appendLine("=".repeat(60));
+  channel.appendLine(personaName);
+  channel.appendLine("=".repeat(60));
+  channel.appendLine("Selected code:");
+  channel.appendLine("");
+  channel.appendLine(selectedCode);
+  channel.appendLine("");
+  channel.appendLine("--- Waiting for persona response ---");
+  channel.appendLine("");
+  channel.appendLine("");
+  channel.appendLine(`Response from ${personaName}:`);
+  channel.appendLine("");
+  channel.appendLine(response);
+}
+function getActiveSelection() {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showErrorMessage("No active editor");
+    return null;
+  }
+  const selectedText = editor.document.getText(editor.selection);
+  if (!selectedText) {
+    vscode.window.showErrorMessage("Please select code to question");
+    return null;
+  }
+  return { editor, selectedText };
+}
+function detectLanguage(languageId) {
+  if (languageId === "typescript" || languageId === "javascript") {
+    return "typescript";
+  }
+  if (languageId === "python") {
+    return "python";
+  }
+  return null;
+}
+async function askPersonaAboutSelection(persona, personaDisplayName) {
+  const selection = getActiveSelection();
+  if (!selection)
+    return;
+  const { selectedText } = selection;
+  await vscode.window.showInformationMessage(`Asking ${personaDisplayName}...`);
+  const outputChannel = vscode.window.createOutputChannel("vscode-rhizome");
+  outputChannel.show(true);
+  try {
+    const response = await queryPersona(selectedText, persona);
+    formatPersonaOutput(outputChannel, personaDisplayName, selectedText, response);
+  } catch (error) {
+    outputChannel.appendLine("");
+    outputChannel.appendLine("Error calling rhizome CLI:");
+    outputChannel.appendLine(error.message);
+    outputChannel.appendLine("");
+    outputChannel.appendLine("Make sure rhizome is installed and in your PATH.");
+  }
+}
 function activate(context) {
   console.log("vscode-rhizome activated");
   let donSocraticDisposable = vscode.commands.registerCommand("vscode-rhizome.donSocratic", async () => {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) {
-      vscode.window.showErrorMessage("No active editor");
-      return;
-    }
-    const selection = editor.selection;
-    const selectedText = editor.document.getText(selection);
-    if (!selectedText) {
-      vscode.window.showErrorMessage("Please select code to question");
-      return;
-    }
-    await vscode.window.showInformationMessage("Asking don-socratic...");
-    const outputChannel = vscode.window.createOutputChannel("vscode-rhizome");
-    outputChannel.show(true);
-    outputChannel.appendLine("=".repeat(60));
-    outputChannel.appendLine("don-socratic");
-    outputChannel.appendLine("=".repeat(60));
-    outputChannel.appendLine("Selected code:");
-    outputChannel.appendLine("");
-    outputChannel.appendLine(selectedText);
-    outputChannel.appendLine("");
-    outputChannel.appendLine("--- Waiting for persona response ---");
-    outputChannel.appendLine("");
-    try {
-      const { execSync } = require("child_process");
-      const response = execSync(`rhizome query --persona don-socratic`, {
-        input: selectedText,
-        encoding: "utf-8",
-        timeout: 3e4
-        // 30 second timeout
-      });
-      outputChannel.appendLine("");
-      outputChannel.appendLine("Response from don-socratic:");
-      outputChannel.appendLine("");
-      outputChannel.appendLine(response);
-    } catch (error) {
-      outputChannel.appendLine("");
-      outputChannel.appendLine("Error calling rhizome CLI:");
-      outputChannel.appendLine(error.message);
-      outputChannel.appendLine("");
-      outputChannel.appendLine("Make sure rhizome is installed and in your PATH.");
-    }
+    await askPersonaAboutSelection("don-socratic", "don-socratic");
   });
   context.subscriptions.push(donSocraticDisposable);
+  let inlineQuestionDisposable = vscode.commands.registerCommand(
+    "vscode-rhizome.inlineQuestion",
+    async () => {
+      await askPersonaAboutSelection("don-socratic", "don-socratic (inline)");
+    }
+  );
+  context.subscriptions.push(inlineQuestionDisposable);
   let stubDisposable = vscode.commands.registerCommand("vscode-rhizome.stub", async () => {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
@@ -15120,10 +15155,11 @@ function activate(context) {
     }
     const document = editor.document;
     const code = document.getText();
-    const ext = document.languageId;
-    const language = ext === "typescript" || ext === "javascript" ? "typescript" : ext === "python" ? "python" : null;
+    const language = detectLanguage(document.languageId);
     if (!language) {
-      vscode.window.showErrorMessage(`Unsupported language: ${ext}. Use TypeScript, JavaScript, or Python.`);
+      vscode.window.showErrorMessage(
+        `Unsupported language: ${document.languageId}. Use TypeScript, JavaScript, or Python.`
+      );
       return;
     }
     const stubs = findStubComments(code, language);

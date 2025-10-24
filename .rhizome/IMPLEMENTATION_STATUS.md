@@ -1,7 +1,7 @@
 # vscode-rhizome Implementation Status
 
-**As of:** 2025-10-24
-**Status:** Core functionality implemented and tested
+**As of:** 2025-10-24 (Session 2)
+**Status:** Core functionality implemented, helper functions encapsulated, inline questioning added
 
 ## What's Working
 
@@ -27,25 +27,57 @@
 - Preserves indentation (both tabs and spaces)
 - ✅ Mostly working; rough edge on closing brace logic (see TODOs below)
 
-### 2. Extension Commands (both wired and live)
+### 2. Extension Commands (refactored with encapsulation)
 
-**donSocratic command**
+**Encapsulated Helper Functions:**
+
+**queryPersona(text, persona, timeoutMs)**
+- Extracted: rhizome CLI I/O logic into pure function
+- Takes code text + persona name, returns response
+- Handles errors and wraps them for the caller
+- ✅ Decoupled from command handler
+
+**formatPersonaOutput(channel, personaName, selectedCode, response)**
+- Extracted: output formatting logic (removes 8 repetitive appendLine calls)
+- Centralizes the structure: header, code, separator, response
+- Teaching moment: This pattern itself is an invitation to think about abstraction
+- ✅ Reusable across multiple persona queries
+
+**getActiveSelection()**
+- Extracted: editor selection validation (shared by both don-socratic and inline question)
+- Returns { editor, selectedText } or null
+- Handles both "no editor" and "no selection" errors
+- ✅ Reduces duplication
+
+**detectLanguage(languageId)**
+- Extracted: language detection from VSCode languageId
+- Shared by both stub generation and inline questioning
+- Returns 'typescript' | 'javascript' | 'python' | null
+- ✅ Single source of truth
+
+**askPersonaAboutSelection(persona, personaDisplayName)**
+- Extracted: complete persona query workflow
+- Used by both "ask don-socratic" and "ask inline question" commands
+- Calls getActiveSelection(), queryPersona(), formatPersonaOutput()
+- ✅ DRY: both commands use same flow
+
+**donSocratic command (refactored)**
 - Select code → right-click → "Ask don-socratic"
-- Calls `rhizome query --persona don-socratic` with selected text as stdin
-- Shows response in output channel
-- Error handling: catches rhizome errors and shows helpful message
-- ⚠️ Rough edges:
-  - No timeout wrapper
-  - Assumes rhizome in PATH
-  - No response parsing (shows raw output)
-  - Uses `require('child_process')` inline (should extract to helper)
+- Now just: `await askPersonaAboutSelection('don-socratic', 'don-socratic')`
+- ✅ Clean, focused, 1 line of real logic
 
-**stub command**
+**inlineQuestion command (NEW)**
+- Select code → right-click → "Ask don-socratic (inline)"
+- Same as donSocratic but marked as "(inline)" for user feedback
+- Reuses exact same workflow via askPersonaAboutSelection()
+- ✅ Fully working, no code duplication
+
+**stub command (slightly refactored)**
+- Now uses `detectLanguage()` helper for consistency
 - Detects language from file extension (typescript, javascript, python)
 - Finds all @rhizome stub comments in file
 - If multiple: user selects which one via quick pick
 - Generates stub, inserts into file, applies workspace edit
-- Shows success message
 - ✅ Fully working end-to-end
 
 ## What's Not Yet Done

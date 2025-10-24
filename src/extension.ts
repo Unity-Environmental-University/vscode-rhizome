@@ -14,127 +14,158 @@ import { generateStub, findStubComments, insertStub } from './stubGenerator';
  */
 
 /**
- * Activate extension on startup
+ * Helper: Query a persona via rhizome CLI
  *
  * don-socratic asks:
- * What's the user's workflow? They write a comment, then what?
- * Do they:
- * a) Right-click on the red squiggle?
- * b) Hit a keyboard shortcut?
- * c) Something else?
+ * When you call out to an external service (rhizome CLI), what should
+ * you encapsulate? What belongs in a helper, and what stays in the command handler?
  *
- * How do they KNOW the extension is listening?
- * What feedback do they get?
+ * ANSWER:
+ * The rhizome call itself is pure I/O. It takes text, sends it to rhizome,
+ * gets back text. That's a perfect candidate for extraction.
+ * The command handler stays focused: get selection, call helper, show result.
+ * The helper stays focused: I/O with rhizome, error handling, nothing else.
+ */
+async function queryPersona(
+	text: string,
+	persona: string,
+	timeoutMs: number = 30000
+): Promise<string> {
+	try {
+		const { execSync } = require('child_process');
+		const response = execSync(`rhizome query --persona ${persona}`, {
+			input: text,
+			encoding: 'utf-8',
+			timeout: timeoutMs,
+		});
+		return response;
+	} catch (error: any) {
+		throw new Error(`Rhizome query failed: ${(error as Error).message}`);
+	}
+}
+
+/**
+ * Helper: Format output channel for persona responses
  *
- * ANSWER (from UX & workflow design):
- * Workflow A: Select code → right-click → "Ask don-socratic" (context menu)
- *   - User sees it in menu (feedback = visibility)
- *   - Package.json already has menu entry for donSocratic command
- *   - Shows when editor has selection (when condition)
- *   - Response appears in webview or output channel
+ * don-socratic asks:
+ * Those eight appendLine() calls... what pattern do you see?
+ * Are they structural (header, content, footer)? Could you name that pattern?
+ * What would happen if you extracted it?
+ */
+function formatPersonaOutput(channel: vscode.OutputChannel, personaName: string, selectedCode: string, response: string) {
+	channel.appendLine('='.repeat(60));
+	channel.appendLine(personaName);
+	channel.appendLine('='.repeat(60));
+	channel.appendLine('Selected code:');
+	channel.appendLine('');
+	channel.appendLine(selectedCode);
+	channel.appendLine('');
+	channel.appendLine('--- Waiting for persona response ---');
+	channel.appendLine('');
+	channel.appendLine('');
+	channel.appendLine(`Response from ${personaName}:`);
+	channel.appendLine('');
+	channel.appendLine(response);
+}
+
+/**
+ * Helper: Get active selection, validate it exists
  *
- * Workflow B (future): @rhizome stub comment above function → right-click → "Stub this function"
- *   - User sees function signature → underline → context action
- *   - Or: keyboard shortcut (configure in keybindings)
- *   - Stub appears in file after triggering
+ * don-socratic asks:
+ * Both don-socratic and inline-question handlers need the same thing: editor + selection.
+ * What if you extracted that validation into a helper?
+ * What would you call it?
+ */
+function getActiveSelection(): { editor: vscode.TextEditor; selectedText: string } | null {
+	const editor = vscode.window.activeTextEditor;
+	if (!editor) {
+		vscode.window.showErrorMessage('No active editor');
+		return null;
+	}
+
+	const selectedText = editor.document.getText(editor.selection);
+	if (!selectedText) {
+		vscode.window.showErrorMessage('Please select code to question');
+		return null;
+	}
+
+	return { editor, selectedText };
+}
+
+/**
+ * Helper: Detect language from VSCode languageId
  *
- * For now: Build workflow A fully. Stub command can follow same pattern.
- * Feedback: Use vscode.window.showInformationMessage() for simple cases,
- * webview panel for rich responses (show personas, chat history, etc.)
+ * Both stub generation and inline questioning need this.
+ * Extract it once, use it everywhere.
+ */
+function detectLanguage(languageId: string): 'typescript' | 'javascript' | 'python' | null {
+	if (languageId === 'typescript' || languageId === 'javascript') {
+		return 'typescript';
+	}
+	if (languageId === 'python') {
+		return 'python';
+	}
+	return null;
+}
+
+/**
+ * Helper: Handle don-socratic response workflow
+ *
+ * Given selected code + persona, query rhizome and display in output channel.
+ * Extracted so both "ask don-socratic" and "ask inline question" can use it.
+ */
+async function askPersonaAboutSelection(persona: string, personaDisplayName: string) {
+	const selection = getActiveSelection();
+	if (!selection) return;
+
+	const { selectedText } = selection;
+
+	await vscode.window.showInformationMessage(`Asking ${personaDisplayName}...`);
+
+	const outputChannel = vscode.window.createOutputChannel('vscode-rhizome');
+	outputChannel.show(true);
+
+	try {
+		const response = await queryPersona(selectedText, persona);
+		formatPersonaOutput(outputChannel, personaDisplayName, selectedText, response);
+	} catch (error: any) {
+		outputChannel.appendLine('');
+		outputChannel.appendLine('Error calling rhizome CLI:');
+		outputChannel.appendLine((error as Error).message);
+		outputChannel.appendLine('');
+		outputChannel.appendLine('Make sure rhizome is installed and in your PATH.');
+	}
+}
+
+/**
+ * Activate extension on startup
  */
 export function activate(context: vscode.ExtensionContext) {
 	console.log('vscode-rhizome activated');
 
 	// ======================================
-	// CORE FEATURE: don-socratic guidance
+	// COMMAND: ask don-socratic about selection
 	// ======================================
-	// The don is always listening. When you select code, he brings
-	// Socratic questioning to bear on what you're building.
-	//
-	// Workflow: Select code → right-click → "Ask don-socratic"
-	// Response: Shows in output channel (for now; webview later)
-	//
-	// CURRENT IMPLEMENTATION:
-	// 1. Get active editor and selection (user feedback: "What are you seeing?" )
-	// 2. Create or show output channel
-	// 3. Log what we're about to do (for MVP: just show the code)
-	// 4. TODO: Call rhizome CLI with persona + code → get LLM response
-	// 5. Display response to user
-	//
 	let donSocraticDisposable = vscode.commands.registerCommand('vscode-rhizome.donSocratic', async () => {
-		const editor = vscode.window.activeTextEditor;
-		if (!editor) {
-			vscode.window.showErrorMessage('No active editor');
-			return;
-		}
-
-		const selection = editor.selection;
-		const selectedText = editor.document.getText(selection);
-
-		if (!selectedText) {
-			vscode.window.showErrorMessage('Please select code to question');
-			return;
-		}
-
-		// Show user we're doing something
-		await vscode.window.showInformationMessage('Asking don-socratic...');
-
-		// Create or get output channel for responses
-		const outputChannel = vscode.window.createOutputChannel('vscode-rhizome');
-		outputChannel.show(true);
-
-		// Log what we're about to do
-		outputChannel.appendLine('='.repeat(60));
-		outputChannel.appendLine('don-socratic');
-		outputChannel.appendLine('='.repeat(60));
-		outputChannel.appendLine('Selected code:');
-		outputChannel.appendLine('');
-		outputChannel.appendLine(selectedText);
-		outputChannel.appendLine('');
-		outputChannel.appendLine('--- Waiting for persona response ---');
-		outputChannel.appendLine('');
-
-		// NEXT: Call rhizome CLI to query don-socratic with the selected code
-		// Command: rhizome query --persona don-socratic
-		// Pass the selected code as stdin
-		//
-		// ROUGH EDGES (will clean up after testing):
-		// - No error handling for rhizome CLI not found
-		// - Assumes rhizome in PATH
-		// - Spawned process could timeout
-		// - Response parsing could fail silently
-		// - No retry logic
-		//
-		// TODO: Wrap in error handling + timeout
-		// TODO: Check rhizome in PATH before calling
-		// TODO: Handle stderr from rhizome
-		// TODO: Parse response and format nicely
-
-		// For now: call rhizome and show raw output
-		try {
-			const { execSync } = require('child_process');
-			const response = execSync(`rhizome query --persona don-socratic`, {
-				input: selectedText,
-				encoding: 'utf-8',
-				timeout: 30000, // 30 second timeout
-			});
-			outputChannel.appendLine('');
-			outputChannel.appendLine('Response from don-socratic:');
-			outputChannel.appendLine('');
-			outputChannel.appendLine(response);
-		} catch (error: any) {
-			outputChannel.appendLine('');
-			outputChannel.appendLine('Error calling rhizome CLI:');
-			outputChannel.appendLine((error as Error).message);
-			outputChannel.appendLine('');
-			outputChannel.appendLine('Make sure rhizome is installed and in your PATH.');
-		}
+		await askPersonaAboutSelection('don-socratic', 'don-socratic');
 	});
 
 	context.subscriptions.push(donSocraticDisposable);
 
 	// ======================================
-	// STUB GENERATION
+	// COMMAND: ask don-socratic inline question
+	// ======================================
+	let inlineQuestionDisposable = vscode.commands.registerCommand(
+		'vscode-rhizome.inlineQuestion',
+		async () => {
+			await askPersonaAboutSelection('don-socratic', 'don-socratic (inline)');
+		}
+	);
+
+	context.subscriptions.push(inlineQuestionDisposable);
+
+	// ======================================
+	// COMMAND: stub generation
 	// ======================================
 	// don-socratic asks:
 	// When someone invokes the stub command, what needs to happen?
@@ -171,11 +202,12 @@ export function activate(context: vscode.ExtensionContext) {
 		const code = document.getText();
 
 		// Detect language from file extension
-		const ext = document.languageId; // 'typescript', 'javascript', 'python', etc.
-		const language = ext === 'typescript' || ext === 'javascript' ? 'typescript' : ext === 'python' ? 'python' : null;
+		const language = detectLanguage(document.languageId);
 
 		if (!language) {
-			vscode.window.showErrorMessage(`Unsupported language: ${ext}. Use TypeScript, JavaScript, or Python.`);
+			vscode.window.showErrorMessage(
+				`Unsupported language: ${document.languageId}. Use TypeScript, JavaScript, or Python.`
+			);
 			return;
 		}
 
@@ -200,7 +232,7 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 
 		// Generate stub code
-		const stub = generateStub(targetStub.functionName, targetStub.params, targetStub.returnType, language as any);
+		const stub = generateStub(targetStub.functionName, targetStub.params, targetStub.returnType, language);
 
 		// Insert stub into file
 		const modifiedCode = insertStub(code, targetStub.line, stub, language);
