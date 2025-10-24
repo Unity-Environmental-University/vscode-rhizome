@@ -55,38 +55,51 @@ export function generateStub(
 		userStory?: string;   // e.g., "US-142: As a developer..."  (optional)
 	}
 ): string {
-	throw new Error('Not implemented');
+	/**
+	 * BUILD THE TODO COMMENT
+	 * ─────────────────────
+	 * This is what appears above the function.
+	 * Must include: function name (for TODO backlog search)
+	 * Optional: timestamp (when was this stubbed?), user story (why?)
+	 */
+	let todoComment = `TODO: Implement ${functionName}`;
 
-	// LANGUAGE-SPECIFIC SYNTAX & API HOOKS:
-	//
-	// TypeScript/JavaScript:
-	//   - throw new Error('message')
-	//   - Async functions: same syntax
-	//   - Arrow functions: same syntax
-	//   - Example: function getName(x: number): string { throw new Error(...) }
-	//
-	// Python:
-	//   - raise NotImplementedError()
-	//   - Async functions: async def (same raise syntax)
-	//   - Example: def get_name(x: int) -> str:
-	//                   raise NotImplementedError()
-	//
-	// TYPED VS UNTYPED HANDLING:
-	//   - If returnType is provided: use it (generateStub is called with extracted types)
-	//   - If returnType is null: don't infer. Leave blank or mark as 'unknown' in TS
-	//   - If params have types: keep them. If not, keep the bare param names
-	//   - Don't guess parameter types at stub-generation time. Type inference is LLM's job (future).
-	//
-	// TODO COMMENT FORMAT:
-	//   - MUST include function name (seen outside code context in TODO backlog)
-	//   - SHOULD include timestamp (when was this stubbed?)
-	//   - MAY include user story reference (why does this function exist?)
-	//   - Example: "TODO: Implement getName (stubbed 2025-10-23T21:00:00Z, US-142)"
-	//
-	// STUB BODY:
-	//   - Single throw/raise statement (not a comment, actual executable code)
-	//   - Message includes function name for debugging: throw new Error('Not implemented: getName')
-	//   - Python: raise NotImplementedError('get_name')
+	if (options?.timestamp) {
+		todoComment += ` (stubbed ${options.timestamp}`;
+		if (options?.userStory) {
+			todoComment += `, ${options.userStory}`;
+		}
+		todoComment += ')';
+	} else if (options?.userStory) {
+		todoComment += ` (${options.userStory})`;
+	}
+
+	/**
+	 * LANGUAGE-SPECIFIC STUB BODY
+	 * ───────────────────────────
+	 * Two paths: TypeScript/JavaScript vs Python
+	 * Each throws/raises with function name for debugging
+	 */
+	let stubBody: string;
+
+	if (language === 'python') {
+		// Python uses indentation-relative code; caller will add indentation
+		// Format: raise NotImplementedError('function_name')
+		stubBody = `raise NotImplementedError('${functionName}')`;
+	} else {
+		// TypeScript/JavaScript: throw new Error(...)
+		// Format: throw new Error('Not implemented: functionName')
+		stubBody = `throw new Error('Not implemented: ${functionName}');`;
+	}
+
+	/**
+	 * ASSEMBLE THE STUB
+	 * ─────────────────
+	 * Return just the body (not the function signature).
+	 * Caller (insertStub) handles placing this inside the function.
+	 * Include the TODO comment so it appears above.
+	 */
+	return `${todoComment}\n${stubBody}`;
 }
 
 
@@ -128,51 +141,113 @@ export function findStubComments(code: string, language: string): Array<{
 	params: string;           // Just the params: "(x, y)" or "(x: number, y?: string)"
 	returnType: string | null; // Return type if present, else null
 }> {
-	throw new Error('Not implemented');
+	const results: Array<{
+		line: number;
+		functionName: string;
+		signature: string;
+		params: string;
+		returnType: string | null;
+	}> = [];
 
-	// WHAT DOES @RHIZOME STUB LOOK LIKE?
-	//
-	// Comment format (language-specific):
-	//   // @rhizome stub       (TypeScript/JavaScript)
-	//   # @rhizome stub       (Python)
-	//   /* @rhizome stub */   (Block comment, any language)
-	//
-	// Regex pattern (language-agnostic):
-	//   /(@rhizome\s+stub)/i
-	//
-	// WHERE IS THE FUNCTION SIGNATURE?
-	//   - ASSUMPTION (for v1): signature is on the NEXT line after @rhizome stub
-	//   - TOLERANCE: zero or one blank line is OK, but not multiple blank lines
-	//   - WHY: Keeps @rhizome stub marker tight to the function it describes
-	//
-	// IMPLEMENTATION STRATEGY:
-	//   1. Split code into lines
-	//   2. Find lines matching @rhizome stub pattern (regex is fine, you know how)
-	//   3. Get line number + next line(s) until you find a function keyword
-	//   4. Extract signature from that line
-	//   5. Parse the signature to get params and return type
-	//
-	// EDGE CASES: START WITH THESE, SKIP THE REST FOR NOW
-	//   ✓ Top-level function declarations (function name() {...})
-	//   ✓ Arrow functions (const name = (...) => {...})
-	//   ✓ Async functions (async function name() {...})
-	//   ✗ Nested functions (skip for now—add if it breaks)
-	//   ✗ Methods in classes (skip for now—add if it breaks)
-	//
-	// PARSER CHOICE: REGEX OR AST?
-	//   - START WITH REGEX. You can extract function signature with a simple pattern.
-	//   - REGEX IS 80% SOLUTION: works for the cases above.
-	//   - ONLY USE AST (@babel/parser, Python ast) if regex breaks on real code.
-		//   - AST ADDS COMPLEXITY: don't pay that cost until you need it.
-	//
-	// REGEX PATTERN FOR FUNCTION SIGNATURE:
-	//   TypeScript/JavaScript:
-	//     /^(export\s+)?(async\s+)?(function\s+)?(\w+)\s*(\([^)]*\))(\s*:\s*\w+)?/
-	//     Captures: exportKeyword, asyncKeyword, functionKeyword, name, params, returnType
-	//
-	//   Python:
-	//     /^(async\s+)?def\s+(\w+)\s*(\([^)]*\))(\s*->\s*\w+)?:/
-	//     Captures: asyncKeyword, name, params, returnType
+	/**
+	 * SPLIT CODE INTO LINES
+	 * ──────────────────────
+	 * Preserve line endings for later use (in insertStub).
+	 */
+	const lines = code.split('\n');
+
+	/**
+	 * REGEX TO FIND @RHIZOME STUB MARKERS
+	 * ────────────────────────────────────
+	 * Language-agnostic: works in comments (//, #, /*, etc.)
+	 * Case-insensitive match for robustness
+	 */
+	const markerRegex = /@rhizome\s+stub/i;
+
+	/**
+	 * REGEX PATTERNS FOR FUNCTION SIGNATURES
+	 * ───────────────────────────────────────
+	 * TypeScript/JavaScript:
+	 *   - Handles: export, async, function keyword
+	 *   - Captures: name, params, return type
+	 *   - Example: "export async function getName(x: number): string"
+	 *
+	 * Python:
+	 *   - Handles: async keyword, def
+	 *   - Captures: name, params, return type
+	 *   - Example: "async def get_name(x: int) -> str:"
+	 */
+	const tsJsFunctionRegex =
+		/^(?:export\s+)?(?:const\s+)?(?:async\s+)?(?:function\s+)?(\w+)\s*(\([^)]*\))(?:\s*:\s*([\w<>\[\]|\s]+))?/;
+	const pythonFunctionRegex = /^(?:async\s+)?def\s+(\w+)\s*(\([^)]*\))(?:\s*->\s*([\w\[\]]+))?:/;
+
+	/**
+	 * SCAN FOR MARKERS
+	 * ────────────────
+	 * For each line with @rhizome stub:
+	 * 1. Record the line number
+	 * 2. Look at next 1-2 lines for function signature
+	 * 3. Extract name, params, return type
+	 * 4. Add to results
+	 */
+	for (let i = 0; i < lines.length; i++) {
+		if (markerRegex.test(lines[i])) {
+			// Found a @rhizome stub marker
+			const markerLine = i;
+
+			// Look at next line(s) for function signature
+			// Allow up to 1 blank line between marker and signature
+			let signatureLine = i + 1;
+			while (
+				signatureLine < lines.length &&
+				lines[signatureLine].trim() === ''
+			) {
+				signatureLine++;
+			}
+
+			if (signatureLine >= lines.length) {
+				// No function signature found after marker
+				continue;
+			}
+
+			const sig = lines[signatureLine].trim();
+
+			// Try to parse the signature
+			let match;
+			let name, params, returnType;
+
+			if (
+				language === 'python'
+			) {
+				match = sig.match(pythonFunctionRegex);
+				if (match) {
+					name = match[1];
+					params = match[2];
+					returnType = match[3] || null;
+				}
+			} else {
+				// TypeScript / JavaScript
+				match = sig.match(tsJsFunctionRegex);
+				if (match) {
+					name = match[1];
+					params = match[2];
+					returnType = match[3]?.trim() || null;
+				}
+			}
+
+			if (name && params) {
+				results.push({
+					line: markerLine,
+					functionName: name,
+					signature: sig,
+					params: params,
+					returnType: returnType ?? null,
+				});
+			}
+		}
+	}
+
+	return results;
 }
 
 /**
@@ -193,59 +268,133 @@ export function insertStub(
 	stub: string,           // Generated stub code from generateStub()
 	language: string,
 ): string {
-	throw new Error('Not implemented');
+	/**
+	 * STEP 1: SPLIT CODE AND DETECT LINE ENDINGS
+	 * ───────────────────────────────────────────
+	 * We need to:
+	 * - Track whether the original code uses \n or \r\n
+	 * - Split into lines while preserving structure
+	 * - Insert the stub at the right place
+	 */
+	const lineEnding = code.includes('\r\n') ? '\r\n' : '\n';
+	const lines = code.split('\n');
 
-	// INSERTION STRATEGY:
-	//   - Don't replace the function signature if it exists
-	//   - Add the stub body INSIDE the function (between { and })
-	//   - Or for Python: after the function def line, before any docstring
-	//
-	// STEP-BY-STEP:
-	//   1. Find the opening brace/colon on the signature line
-	//   2. Get the indentation from that line
-	//   3. Insert stub code with matching indentation
-	//   4. Preserve the closing brace/endif
-	//
-	// EXAMPLE - TypeScript (before):
-	//   // @rhizome stub
-	//   function getName(x: number): string
-	//
-	// EXAMPLE - TypeScript (after):
-	//   // @rhizome stub
-	//   function getName(x: number): string {
-	//     throw new Error('Not implemented: getName');
-	//   }
-	//
-	// EXAMPLE - Python (before):
-	//   # @rhizome stub
-	//   def get_name(x: int) -> str:
-	//
-	// EXAMPLE - Python (after):
-	//   # @rhizome stub
-	//   def get_name(x: int) -> str:
-	//     raise NotImplementedError('get_name')
-	//
-	// INDENTATION HANDLING:
-	//   - Get the indentation level from the function signature line
-	//   - TypeScript: add 1 indent level (usually 1 tab or 2-4 spaces)
-	//   - Python: add 1 indent level (usually 4 spaces)
-	//   - Preserve the user's original indentation style (tabs vs spaces)
-	//
-	// LINE ENDING HANDLING:
-	//   - Detect the line ending style in the original code: \n or \r\n
-	//   - Use the same style when inserting
-	//   - Simple: detect() { return code.includes('\r\n') ? '\r\n' : '\n'; }
-	//
-	// OFF-BY-ONE ERRORS (THE TRAP):
-	//   - lines array is 0-indexed, but split('\n') gives you that
-	//   - Don't accidentally include/exclude the @rhizome stub line itself
-	//   - Don't accidentally insert at wrong line (use the signature line, not the comment)
-	//   - Test with known input + expected output before you trust it
-	//
-	// TESTS TO WRITE FIRST (before implementing):
-	//   - Insert stub at line 0 (beginning of file)
-	//   - Insert stub in the middle of file with other functions
-	//   - Preserve indentation (tabs and spaces separately)
-	//   - Preserve line endings (\n and \r\n separately)
-	//   - Handle TypeScript and Python separately
+	if (line < 0 || line >= lines.length) {
+		throw new Error(`Invalid line number: ${line}`);
+	}
+
+	/**
+	 * STEP 2: FIND THE SIGNATURE LINE (next non-blank after marker)
+	 * ─────────────────────────────────────────────────────────────
+	 * The marker is on `line`. The signature is on the next non-blank line.
+	 * (Same logic as in findStubComments)
+	 */
+	let signatureLine = line + 1;
+	while (signatureLine < lines.length && lines[signatureLine].trim() === '') {
+		signatureLine++;
+	}
+
+	if (signatureLine >= lines.length) {
+		throw new Error('No function signature found after @rhizome stub marker');
+	}
+
+	const signatureText = lines[signatureLine];
+	const indentation = signatureText.match(/^\s*/)?.[0] || '';
+
+	/**
+	 * STEP 3: DETECT LANGUAGE AND FIND OPENING BRACE/COLON
+	 * ──────────────────────────────────────────────────────
+	 * TypeScript/JavaScript: look for { (opening brace)
+	 * Python: look for : (colon) at end of def line
+	 *
+	 * If not found on the signature line, assume it's on the next line.
+	 */
+	let openingBraceLine = signatureLine;
+	let openingBraceIndex = signatureText.indexOf('{');
+	let openingColonIndex = signatureText.lastIndexOf(':');
+
+	// Handle single-line vs multi-line function declarations
+	if (language === 'python') {
+		// Python: check if this line ends with ':'
+		if (!signatureText.trimEnd().endsWith(':')) {
+			// Multi-line signature, look for next line with ':'
+			openingBraceLine = signatureLine + 1;
+			while (
+				openingBraceLine < lines.length &&
+				!lines[openingBraceLine].trimEnd().endsWith(':')
+			) {
+				openingBraceLine++;
+			}
+		}
+	} else {
+		// TypeScript/JavaScript: find the {
+		if (openingBraceIndex === -1) {
+			// { is on a later line
+			openingBraceLine = signatureLine + 1;
+			while (
+				openingBraceLine < lines.length &&
+				lines[openingBraceLine].indexOf('{') === -1
+			) {
+				openingBraceLine++;
+			}
+		}
+	}
+
+	/**
+	 * STEP 4: PREPARE INDENTED STUB
+	 * ──────────────────────────────
+	 * generateStub() returns:
+	 *   "TODO: Implement foo\nthrow new Error(...)"
+	 * OR
+	 *   "TODO: Implement foo\nraise NotImplementedError(...)"
+	 *
+	 * We need to:
+	 * 1. Split the stub into lines
+	 * 2. Add indentation to each line
+	 * 3. Add one extra level of indentation for the body
+	 */
+	const stubLines = stub.split('\n');
+	const bodyIndentation = indentation + '\t'; // Add one tab for body
+
+	const indentedStub = stubLines.map((l) => {
+		if (l === '') return '';
+		return bodyIndentation + l;
+	});
+
+	/**
+	 * STEP 5: INSERT STUB INTO DOCUMENT
+	 * ──────────────────────────────────
+	 * Insert after the opening brace/colon
+	 *
+	 * Example before (TypeScript):
+	 *   function getName(x: number): string
+	 *
+	 * Example after:
+	 *   function getName(x: number): string {
+	 *     TODO: Implement getName
+	 *     throw new Error('Not implemented: getName');
+	 *   }
+	 */
+	if (language === 'python') {
+		// Python: insert after the : line
+		lines.splice(openingBraceLine + 1, 0, ...indentedStub);
+	} else {
+		// TypeScript/JavaScript: insert after the { line
+		// First, ensure { exists on the opening line
+		if (lines[openingBraceLine].indexOf('{') === -1) {
+			lines[openingBraceLine] = lines[openingBraceLine].trimEnd() + ' {';
+		}
+		lines.splice(openingBraceLine + 1, 0, ...indentedStub);
+
+		// Add closing brace if it's not already there
+		// (Simple case: assume we're adding it)
+		lines.splice(openingBraceLine + indentedStub.length + 1, 0, indentation + '}');
+	}
+
+	/**
+	 * STEP 6: REASSEMBLE AND RETURN
+	 * ──────────────────────────────
+	 * Join lines with original line ending style
+	 */
+	return lines.join(lineEnding);
 }

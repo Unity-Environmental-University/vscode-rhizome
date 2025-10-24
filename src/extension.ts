@@ -94,11 +94,41 @@ export function activate(context: vscode.ExtensionContext) {
 		outputChannel.appendLine('--- Waiting for persona response ---');
 		outputChannel.appendLine('');
 
-		// TODO: Call rhizome CLI: rhizome ask --persona don-socratic <selected code>
-		// TODO: Parse JSON response
-		// TODO: Display in output channel
-		// For now, placeholder:
-		outputChannel.appendLine('(Persona-LLM integration coming soon)');
+		// NEXT: Call rhizome CLI to query don-socratic with the selected code
+		// Command: rhizome query --persona don-socratic
+		// Pass the selected code as stdin
+		//
+		// ROUGH EDGES (will clean up after testing):
+		// - No error handling for rhizome CLI not found
+		// - Assumes rhizome in PATH
+		// - Spawned process could timeout
+		// - Response parsing could fail silently
+		// - No retry logic
+		//
+		// TODO: Wrap in error handling + timeout
+		// TODO: Check rhizome in PATH before calling
+		// TODO: Handle stderr from rhizome
+		// TODO: Parse response and format nicely
+
+		// For now: call rhizome and show raw output
+		try {
+			const { execSync } = require('child_process');
+			const response = execSync(`rhizome query --persona don-socratic`, {
+				input: selectedText,
+				encoding: 'utf-8',
+				timeout: 30000, // 30 second timeout
+			});
+			outputChannel.appendLine('');
+			outputChannel.appendLine('Response from don-socratic:');
+			outputChannel.appendLine('');
+			outputChannel.appendLine(response);
+		} catch (error: any) {
+			outputChannel.appendLine('');
+			outputChannel.appendLine('Error calling rhizome CLI:');
+			outputChannel.appendLine((error as Error).message);
+			outputChannel.appendLine('');
+			outputChannel.appendLine('Make sure rhizome is installed and in your PATH.');
+		}
 	});
 
 	context.subscriptions.push(donSocraticDisposable);
