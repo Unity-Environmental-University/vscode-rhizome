@@ -24,6 +24,11 @@
   "contributes": {
     "commands": [
       {
+        "command": "vscode-rhizome.init",
+        "title": "Initialize Rhizome",
+        "description": "Set up rhizome context in workspace"
+      },
+      {
         "command": "vscode-rhizome.donSocratic",
         "title": "Ask don-socratic",
         "description": "Invoke Socratic questioning on current code or design"

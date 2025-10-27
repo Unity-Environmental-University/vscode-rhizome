@@ -109,6 +109,42 @@ function detectLanguage(languageId: string): 'typescript' | 'javascript' | 'pyth
 }
 
 /**
+ * Helper: Initialize rhizome context in workspace root
+ *
+ * don-socratic asks:
+ * What does it mean for a tool to be "initialized"?
+ * What state needs to exist before it can work?
+ * How should the tool handle missing initialization?
+ *
+ * If .rhizome doesn't exist in workspace root, run `rhizome init`
+ * to set up the local context directory.
+ */
+async function initializeRhizomeIfNeeded(workspaceRoot: string): Promise<boolean> {
+	const rhizomePath = vscode.Uri.joinPath(vscode.Uri.file(workspaceRoot), '.rhizome');
+	try {
+		await vscode.workspace.fs.stat(rhizomePath);
+		// .rhizome exists, all good
+		return true;
+	} catch {
+		// .rhizome doesn't exist, try to initialize
+		try {
+			vscode.window.showInformationMessage('Initializing rhizome in workspace...');
+			const { execSync } = require('child_process');
+			execSync('rhizome init', {
+				cwd: workspaceRoot,
+				encoding: 'utf-8',
+				timeout: 10000,
+			});
+			vscode.window.showInformationMessage('Rhizome initialized in workspace');
+			return true;
+		} catch (error: any) {
+			vscode.window.showErrorMessage(`Failed to initialize rhizome: ${(error as Error).message}`);
+			return false;
+		}
+	}
+}
+
+/**
  * Helper: Handle don-socratic response workflow
  *
  * Given selected code + persona, query rhizome and display in output channel.
@@ -119,6 +155,19 @@ async function askPersonaAboutSelection(persona: string, personaDisplayName: str
 	if (!selection) return;
 
 	const { selectedText } = selection;
+
+	// Ensure rhizome is initialized before querying
+	const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+	if (!workspaceRoot) {
+		vscode.window.showErrorMessage('No workspace folder open');
+		return;
+	}
+
+	const initialized = await initializeRhizomeIfNeeded(workspaceRoot);
+	if (!initialized) {
+		vscode.window.showErrorMessage('Could not initialize rhizome. Check workspace permissions.');
+		return;
+	}
 
 	await vscode.window.showInformationMessage(`Asking ${personaDisplayName}...`);
 
@@ -142,6 +191,24 @@ async function askPersonaAboutSelection(persona: string, personaDisplayName: str
  */
 export function activate(context: vscode.ExtensionContext) {
 	console.log('vscode-rhizome activated');
+
+	// ======================================
+	// COMMAND: initialize rhizome in workspace
+	// ======================================
+	let initDisposable = vscode.commands.registerCommand('vscode-rhizome.init', async () => {
+		const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+		if (!workspaceRoot) {
+			vscode.window.showErrorMessage('No workspace folder open');
+			return;
+		}
+
+		const initialized = await initializeRhizomeIfNeeded(workspaceRoot);
+		if (initialized) {
+			vscode.window.showInformationMessage('Rhizome is ready in this workspace');
+		}
+	});
+
+	context.subscriptions.push(initDisposable);
 
 	// ======================================
 	// COMMAND: ask don-socratic about selection

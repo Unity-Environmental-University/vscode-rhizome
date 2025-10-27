@@ -15115,11 +15115,43 @@ function detectLanguage(languageId) {
   }
   return null;
 }
+async function initializeRhizomeIfNeeded(workspaceRoot) {
+  const rhizomePath = vscode.Uri.joinPath(vscode.Uri.file(workspaceRoot), ".rhizome");
+  try {
+    await vscode.workspace.fs.stat(rhizomePath);
+    return true;
+  } catch {
+    try {
+      vscode.window.showInformationMessage("Initializing rhizome in workspace...");
+      const { execSync } = require("child_process");
+      execSync("rhizome init", {
+        cwd: workspaceRoot,
+        encoding: "utf-8",
+        timeout: 1e4
+      });
+      vscode.window.showInformationMessage("Rhizome initialized in workspace");
+      return true;
+    } catch (error) {
+      vscode.window.showErrorMessage(`Failed to initialize rhizome: ${error.message}`);
+      return false;
+    }
+  }
+}
 async function askPersonaAboutSelection(persona, personaDisplayName) {
   const selection = getActiveSelection();
   if (!selection)
     return;
   const { selectedText } = selection;
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!workspaceRoot) {
+    vscode.window.showErrorMessage("No workspace folder open");
+    return;
+  }
+  const initialized = await initializeRhizomeIfNeeded(workspaceRoot);
+  if (!initialized) {
+    vscode.window.showErrorMessage("Could not initialize rhizome. Check workspace permissions.");
+    return;
+  }
   await vscode.window.showInformationMessage(`Asking ${personaDisplayName}...`);
   const outputChannel = vscode.window.createOutputChannel("vscode-rhizome");
   outputChannel.show(true);
@@ -15136,6 +15168,18 @@ async function askPersonaAboutSelection(persona, personaDisplayName) {
 }
 function activate(context) {
   console.log("vscode-rhizome activated");
+  let initDisposable = vscode.commands.registerCommand("vscode-rhizome.init", async () => {
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot) {
+      vscode.window.showErrorMessage("No workspace folder open");
+      return;
+    }
+    const initialized = await initializeRhizomeIfNeeded(workspaceRoot);
+    if (initialized) {
+      vscode.window.showInformationMessage("Rhizome is ready in this workspace");
+    }
+  });
+  context.subscriptions.push(initDisposable);
   let donSocraticDisposable = vscode.commands.registerCommand("vscode-rhizome.donSocratic", async () => {
     await askPersonaAboutSelection("don-socratic", "don-socratic");
   });
