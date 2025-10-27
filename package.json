@@ -67,15 +67,20 @@
     "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node",
     "esbuild": "npm run esbuild-base -- --sourcemap",
     "esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "mocha --require ts-node/register --extensions ts src/**/*.test.ts",
+    "test:watch": "mocha --require ts-node/register --extensions ts --watch src/**/*.test.ts"
   },
   "dependencies": {
     "@babel/parser": "^7.23.0"
   },
   "devDependencies": {
+    "@types/mocha": "^10.0.0",
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.85.0",
     "esbuild": "^0.19.0",
+    "mocha": "^10.0.0",
+    "ts-node": "^10.0.0",
     "typescript": "^5.3.0"
   }
 }

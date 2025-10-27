@@ -1,0 +1,73 @@
+{
+  "id": "fp-1761567687",
+  "title": "Test vscode-rhizome with comprehensive coverage",
+  "requester": "Test suite design and implementation",
+  "workflow": "kitchen_table",
+  "targets": [
+    "User story: Sketch two test scenarios (stub generation",
+    "don-socratic querying)"
+  ],
+  "stories": [
+    {
+      "as": "developer testing vscode-rhizome",
+      "i_want": "two clear test scenarios",
+      "so_that": "I understand what to test and how"
+    }
+  ],
+  "created_at": "2025-10-27T12:21:27Z",
+  "status": "active",
+  "require_approval": false,
+  "approval": {
+    "state": "approved",
+    "by": null,
+    "at": null,
+    "notes": null
+  },
+  "steps": [
+    {
+      "id": 1,
+      "title": "Scenario 1: Test stub generation (empty function → stub with TODO + throw)",
+      "status": "done"
+    },
+    {
+      "id": 2,
+      "title": "Scenario 2: Test don-socratic query (with/without OpenAI key, with/without rhizome init)",
+      "status": "done"
+    },
+    {
+      "id": 3,
+      "title": "Ask don-socratic: what patterns can be extracted into a reusable testing library?",
+      "status": "done"
+    }
+  ],
+  "log": [],
+  "personas": {
+    "active": [
+      "rhizome"
+    ],
+    "conducting": "rhizome",
+    "voices": {
+      "una": {
+        "active": true,
+        "mode": "guide",
+        "archive": []
+      },
+      "bro": {
+        "active": true,
+        "mode": "executor",
+        "archive": []
+      },
+      "root": {
+        "active": true,
+        "mode": "reasoner",
+        "archive": []
+      }
+    }
+  },
+  "phase": {
+    "current": "kitchen_table",
+    "entered_at": "2025-10-27T12:21:27Z",
+    "transitions": []
+  },
+  "sprouts": []
+}
