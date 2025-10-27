@@ -15115,11 +15115,98 @@ function detectLanguage(languageId) {
   }
   return null;
 }
+function isRhizomeInstalled() {
+  try {
+    const { execSync } = require("child_process");
+    execSync("rhizome --version", {
+      encoding: "utf-8",
+      timeout: 2e3,
+      stdio: "pipe"
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+async function ensureOpenAIKeyConfigured(workspaceRoot) {
+  const configPath = vscode.Uri.joinPath(vscode.Uri.file(workspaceRoot), ".rhizome", "config.json");
+  try {
+    if (process.env.OPENAI_API_KEY) {
+      return true;
+    }
+    const configExists = await vscode.workspace.fs.stat(configPath);
+    if (configExists) {
+      const configContent = await vscode.workspace.fs.readFile(configPath);
+      const config = JSON.parse(new TextDecoder().decode(configContent));
+      if (config.ai?.openai_key) {
+        process.env.OPENAI_API_KEY = config.ai.openai_key;
+        return true;
+      }
+    }
+  } catch {
+  }
+  const key = await vscode.window.showInputBox({
+    prompt: "Enter your OpenAI API key (stored locally in .rhizome/config.json)",
+    password: true,
+    ignoreFocusOut: true
+  });
+  if (!key) {
+    vscode.window.showWarningMessage("OpenAI API key is required for don-socratic");
+    return false;
+  }
+  try {
+    const rhizomePath = vscode.Uri.joinPath(vscode.Uri.file(workspaceRoot), ".rhizome");
+    const configPath2 = vscode.Uri.joinPath(rhizomePath, "config.json");
+    let config = {};
+    try {
+      const existing = await vscode.workspace.fs.readFile(configPath2);
+      config = JSON.parse(new TextDecoder().decode(existing));
+    } catch {
+    }
+    if (!config.ai)
+      config.ai = {};
+    config.ai.openai_key = key;
+    const configContent = new TextEncoder().encode(JSON.stringify(config, null, 2));
+    await vscode.workspace.fs.writeFile(configPath2, configContent);
+    process.env.OPENAI_API_KEY = key;
+    await addToGitignore(workspaceRoot, ".rhizome/config.json");
+    vscode.window.showInformationMessage("OpenAI API key configured and stored securely");
+    return true;
+  } catch (error) {
+    vscode.window.showErrorMessage(`Failed to save API key: ${error.message}`);
+    return false;
+  }
+}
+async function addToGitignore(workspaceRoot, entry) {
+  const gitignorePath = vscode.Uri.joinPath(vscode.Uri.file(workspaceRoot), ".gitignore");
+  let content = "";
+  try {
+    const existing = await vscode.workspace.fs.readFile(gitignorePath);
+    content = new TextDecoder().decode(existing);
+  } catch {
+  }
+  if (!content.includes(entry)) {
+    content += (content.endsWith("\n") ? "" : "\n") + entry + "\n";
+    const encoded = new TextEncoder().encode(content);
+    await vscode.workspace.fs.writeFile(gitignorePath, encoded);
+  }
+}
 async function initializeRhizomeIfNeeded(workspaceRoot) {
+  if (!isRhizomeInstalled()) {
+    const response = await vscode.window.showErrorMessage(
+      "rhizome CLI not found. Install it to use vscode-rhizome.",
+      "View Installation Guide"
+    );
+    if (response === "View Installation Guide") {
+      vscode.env.openExternal(vscode.Uri.parse("https://github.com/your-rhizome-repo#installation"));
+    }
+    return false;
+  }
   const rhizomePath = vscode.Uri.joinPath(vscode.Uri.file(workspaceRoot), ".rhizome");
   try {
     await vscode.workspace.fs.stat(rhizomePath);
-    return true;
+    const keyConfigured = await ensureOpenAIKeyConfigured(workspaceRoot);
+    return keyConfigured;
   } catch {
     try {
       vscode.window.showInformationMessage("Initializing rhizome in workspace...");
@@ -15130,7 +15217,8 @@ async function initializeRhizomeIfNeeded(workspaceRoot) {
         timeout: 1e4
       });
       vscode.window.showInformationMessage("Rhizome initialized in workspace");
-      return true;
+      const keyConfigured = await ensureOpenAIKeyConfigured(workspaceRoot);
+      return keyConfigured;
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to initialize rhizome: ${error.message}`);
       return false;

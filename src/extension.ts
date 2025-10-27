@@ -109,6 +109,122 @@ function detectLanguage(languageId: string): 'typescript' | 'javascript' | 'pyth
 }
 
 /**
+ * Helper: Check if rhizome CLI is available
+ */
+function isRhizomeInstalled(): boolean {
+	try {
+		const { execSync } = require('child_process');
+		execSync('rhizome --version', {
+			encoding: 'utf-8',
+			timeout: 2000,
+			stdio: 'pipe',
+		});
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Helper: Offer to collect and store OpenAI key
+ *
+ * don-socratic asks:
+ * Where should secrets live? In code? In env? In config files?
+ * How do you keep them secure while making them accessible?
+ * What happens the first time a tool needs a secret?
+ */
+async function ensureOpenAIKeyConfigured(workspaceRoot: string): Promise<boolean> {
+	const configPath = vscode.Uri.joinPath(vscode.Uri.file(workspaceRoot), '.rhizome', 'config.json');
+
+	try {
+		// Check if key is already configured (env var or config file)
+		if (process.env.OPENAI_API_KEY) {
+			return true;
+		}
+
+		const configExists = await vscode.workspace.fs.stat(configPath);
+		if (configExists) {
+			const configContent = await vscode.workspace.fs.readFile(configPath);
+			const config = JSON.parse(new TextDecoder().decode(configContent));
+			if (config.ai?.openai_key) {
+				// Load key from config into env for this session
+				process.env.OPENAI_API_KEY = config.ai.openai_key;
+				return true;
+			}
+		}
+	} catch {
+		// Config file doesn't exist or can't be read, that's fine
+	}
+
+	// No key found, ask user
+	const key = await vscode.window.showInputBox({
+		prompt: 'Enter your OpenAI API key (stored locally in .rhizome/config.json)',
+		password: true,
+		ignoreFocusOut: true,
+	});
+
+	if (!key) {
+		vscode.window.showWarningMessage('OpenAI API key is required for don-socratic');
+		return false;
+	}
+
+	// Save key to local config
+	try {
+		const rhizomePath = vscode.Uri.joinPath(vscode.Uri.file(workspaceRoot), '.rhizome');
+		const configPath = vscode.Uri.joinPath(rhizomePath, 'config.json');
+
+		let config: any = {};
+		try {
+			const existing = await vscode.workspace.fs.readFile(configPath);
+			config = JSON.parse(new TextDecoder().decode(existing));
+		} catch {
+			// File doesn't exist, start fresh
+		}
+
+		// Ensure nested structure exists
+		if (!config.ai) config.ai = {};
+		config.ai.openai_key = key;
+
+		// Write config
+		const configContent = new TextEncoder().encode(JSON.stringify(config, null, 2));
+		await vscode.workspace.fs.writeFile(configPath, configContent);
+
+		// Set env var for this session
+		process.env.OPENAI_API_KEY = key;
+
+		// Add .rhizome/config.json to .gitignore
+		await addToGitignore(workspaceRoot, '.rhizome/config.json');
+
+		vscode.window.showInformationMessage('OpenAI API key configured and stored securely');
+		return true;
+	} catch (error: any) {
+		vscode.window.showErrorMessage(`Failed to save API key: ${(error as Error).message}`);
+		return false;
+	}
+}
+
+/**
+ * Helper: Add entry to .gitignore if not already there
+ */
+async function addToGitignore(workspaceRoot: string, entry: string): Promise<void> {
+	const gitignorePath = vscode.Uri.joinPath(vscode.Uri.file(workspaceRoot), '.gitignore');
+
+	let content = '';
+	try {
+		const existing = await vscode.workspace.fs.readFile(gitignorePath);
+		content = new TextDecoder().decode(existing);
+	} catch {
+		// .gitignore doesn't exist, we'll create it
+	}
+
+	if (!content.includes(entry)) {
+		content += (content.endsWith('\n') ? '' : '\n') + entry + '\n';
+		const encoded = new TextEncoder().encode(content);
+		await vscode.workspace.fs.writeFile(gitignorePath, encoded);
+	}
+}
+
+/**
  * Helper: Initialize rhizome context in workspace root
  *
  * don-socratic asks:
@@ -120,11 +236,24 @@ function detectLanguage(languageId: string): 'typescript' | 'javascript' | 'pyth
  * to set up the local context directory.
  */
 async function initializeRhizomeIfNeeded(workspaceRoot: string): Promise<boolean> {
+	// Check if rhizome is installed
+	if (!isRhizomeInstalled()) {
+		const response = await vscode.window.showErrorMessage(
+			'rhizome CLI not found. Install it to use vscode-rhizome.',
+			'View Installation Guide'
+		);
+		if (response === 'View Installation Guide') {
+			vscode.env.openExternal(vscode.Uri.parse('https://github.com/your-rhizome-repo#installation'));
+		}
+		return false;
+	}
+
 	const rhizomePath = vscode.Uri.joinPath(vscode.Uri.file(workspaceRoot), '.rhizome');
 	try {
 		await vscode.workspace.fs.stat(rhizomePath);
-		// .rhizome exists, all good
-		return true;
+		// .rhizome exists, check for key config
+		const keyConfigured = await ensureOpenAIKeyConfigured(workspaceRoot);
+		return keyConfigured;
 	} catch {
 		// .rhizome doesn't exist, try to initialize
 		try {
@@ -136,7 +265,10 @@ async function initializeRhizomeIfNeeded(workspaceRoot: string): Promise<boolean
 				timeout: 10000,
 			});
 			vscode.window.showInformationMessage('Rhizome initialized in workspace');
-			return true;
+
+			// Now ask for key
+			const keyConfigured = await ensureOpenAIKeyConfigured(workspaceRoot);
+			return keyConfigured;
 		} catch (error: any) {
 			vscode.window.showErrorMessage(`Failed to initialize rhizome: ${(error as Error).message}`);
 			return false;
