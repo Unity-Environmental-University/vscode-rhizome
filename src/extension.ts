@@ -16,6 +16,27 @@ import { ensureLocalBinOnPath, getCandidateLocations, isRhizomeInstalled } from 
  */
 
 /**
+ * Telemetry: Log structured events for debugging user workflows
+ *
+ * Format: [COMPONENT] PHASE: MESSAGE
+ * Phases: START, STEP, SUCCESS, ERROR, RESULT
+ *
+ * Examples:
+ * [WORKFLOW] START: User asked persona
+ * [WORKFLOW] STEP: Selection obtained (245 chars)
+ * [WORKFLOW] STEP: Personas loaded (47 total)
+ * [WORKFLOW] STEP: Persona picked (dev-guide)
+ * [WORKFLOW] STEP: Query started
+ * [WORKFLOW] SUCCESS: Got response (1235 chars)
+ * [WORKFLOW] RESULT: Comments inserted (file modified)
+ */
+function telemetry(component: string, phase: string, message: string, data?: Record<string, any>) {
+	const timestamp = new Date().toISOString().split('T')[1];
+	const dataStr = data ? ` | ${JSON.stringify(data)}` : '';
+	console.log(`[${component}] ${phase}: ${message}${dataStr}`);
+}
+
+/**
  * Helper: Query a persona via rhizome CLI
  *
  * don-socratic asks:
@@ -226,7 +247,7 @@ async function getAvailablePersonas(): Promise<Map<string, string>> {
 				cwd: cwd, // Run in workspace context
 			});
 
-			console.log(`[getAvailablePersonas] Got JSON output`);
+			console.log(`[getAvailablePersonas] ✓ JSON PATH: Got structured JSON from 'rhizome persona list --json'`);
 			const personasObj = JSON.parse(jsonOutput);
 			const personas = new Map<string, string>();
 
@@ -236,7 +257,7 @@ async function getAvailablePersonas(): Promise<Map<string, string>> {
 				console.log(`[getAvailablePersonas] Parsed: ${name} => ${role.substring(0, 50)}`);
 			}
 
-			console.log(`[getAvailablePersonas] ========== FETCH PERSONAS END (SUCCESS) ==========`);
+			console.log(`[getAvailablePersonas] ========== FETCH PERSONAS END (JSON PATH - SUCCESS) ==========`);
 			console.log(`[getAvailablePersonas] Total personas found: ${personas.size}`);
 			console.log(`[getAvailablePersonas] Personas list:`, Array.from(personas.keys()).join(', '));
 
@@ -707,33 +728,57 @@ async function initializeRhizomeIfNeeded(workspaceRoot: string): Promise<boolean
  * Extracted so both "ask don-socratic" and "ask inline question" can use it.
  */
 async function askPersonaAboutSelection(persona: string, personaDisplayName: string) {
+	telemetry('QUERY', 'START', `Asking ${persona} to analyze code`);
+
 	const selection = getActiveSelection();
-	if (!selection) return;
+	if (!selection) {
+		telemetry('QUERY', 'ERROR', 'No selection found');
+		return;
+	}
 
 	const { selectedText } = selection;
+	telemetry('QUERY', 'STEP', 'Selection verified', {
+		length: selectedText.length,
+		persona: persona,
+	});
 
 	// Ensure rhizome is initialized before querying
 	const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 	if (!workspaceRoot) {
+		telemetry('QUERY', 'ERROR', 'No workspace folder');
 		vscode.window.showErrorMessage('No workspace folder open');
 		return;
 	}
 
+	telemetry('QUERY', 'STEP', 'Initializing rhizome if needed...');
 	const initialized = await initializeRhizomeIfNeeded(workspaceRoot);
 	if (!initialized) {
+		telemetry('QUERY', 'ERROR', 'Rhizome initialization failed');
 		vscode.window.showErrorMessage('Could not initialize rhizome. Check workspace permissions.');
 		return;
 	}
+	telemetry('QUERY', 'STEP', 'Rhizome initialized');
 
-	await vscode.window.showInformationMessage(`Asking ${personaDisplayName}...`);
-
+	telemetry('QUERY', 'STEP', 'Creating output channel...');
 	const outputChannel = vscode.window.createOutputChannel('vscode-rhizome');
 	outputChannel.show(true);
 
 	try {
+		telemetry('QUERY', 'STEP', 'Calling queryPersona...');
 		const response = await queryPersona(selectedText, persona, 30000, workspaceRoot);
+		telemetry('QUERY', 'SUCCESS', 'Got response from persona', {
+			persona: persona,
+			responseLength: response.length,
+		});
+
+		telemetry('QUERY', 'STEP', 'Formatting response for output...');
 		formatPersonaOutput(outputChannel, personaDisplayName, selectedText, response);
+		telemetry('QUERY', 'RESULT', 'Response displayed in output pane');
 	} catch (error: any) {
+		telemetry('QUERY', 'ERROR', 'Query failed', {
+			persona: persona,
+			error: (error as Error).message,
+		});
 		outputChannel.appendLine('');
 		outputChannel.appendLine('Error calling rhizome CLI:');
 		outputChannel.appendLine((error as Error).message);
@@ -1107,33 +1152,61 @@ export function activate(context: vscode.ExtensionContext) {
 	// COMMAND: ask any persona (dynamic picker)
 	// ======================================
 	let askPersonaDisposable = vscode.commands.registerCommand('vscode-rhizome.askPersona', async () => {
-		console.log('[askPersona] Command invoked');
+		telemetry('WORKFLOW', 'START', 'User invoked "Ask a persona" command');
+
+		// Step 1: Get selection
 		const selection = getActiveSelection();
 		if (!selection) {
-			console.log('[askPersona] No selection found');
+			telemetry('WORKFLOW', 'ERROR', 'No text selected', { action: 'abort' });
+			vscode.window.showErrorMessage('Please select some code first');
+			return;
+		}
+		const { selectedText } = selection;
+		telemetry('WORKFLOW', 'STEP', 'Selection obtained', {
+			length: selectedText.length,
+			preview: selectedText.substring(0, 50) + (selectedText.length > 50 ? '...' : ''),
+		});
+
+		// Step 2: Fetch personas
+		telemetry('WORKFLOW', 'STEP', 'Fetching available personas...');
+		const personas = await getAvailablePersonas();
+		telemetry('WORKFLOW', 'STEP', 'Personas loaded', {
+			total: personas.size,
+			names: Array.from(personas.keys()).slice(0, 5).join(', ') + (personas.size > 5 ? ', ...' : ''),
+		});
+
+		if (personas.size === 0) {
+			telemetry('WORKFLOW', 'ERROR', 'No personas available', { action: 'abort' });
+			vscode.window.showErrorMessage('No personas available. Check rhizome installation.');
 			return;
 		}
 
-		console.log('[askPersona] Got selection, fetching personas');
-		// Get available personas
-		const personas = await getAvailablePersonas();
-		console.log('[askPersona] Available personas:', Array.from(personas.keys()));
 		const personaOptions = Array.from(personas.entries()).map(([name, role]) => ({
 			label: name,
 			description: role,
 		}));
 
-		// Show quick picker
-		console.log('[askPersona] Showing quick picker');
+		// Step 3: Show picker
+		telemetry('WORKFLOW', 'STEP', 'Showing quick picker');
 		const picked = await vscode.window.showQuickPick(personaOptions, {
 			placeHolder: 'Choose a persona to question your code',
 			matchOnDescription: true,
 		});
-		console.log('[askPersona] User picked:', picked?.label);
 
-		if (!picked) return;
+		if (!picked) {
+			telemetry('WORKFLOW', 'STEP', 'User cancelled persona selection');
+			return;
+		}
 
+		telemetry('WORKFLOW', 'STEP', 'Persona selected', {
+			persona: picked.label,
+			role: picked.description,
+		});
+
+		// Step 4: Query persona
+		telemetry('WORKFLOW', 'STEP', 'Calling queryPersona...');
 		await askPersonaAboutSelection(picked.label, picked.label);
+		telemetry('WORKFLOW', 'SUCCESS', 'Ask persona command completed');
 	});
 
 	context.subscriptions.push(askPersonaDisposable);
@@ -1247,27 +1320,40 @@ export function activate(context: vscode.ExtensionContext) {
 	let documentWithPersonaDisposable = vscode.commands.registerCommand(
 		'vscode-rhizome.documentWithPersona',
 		async () => {
-			console.log('[documentWithPersona] Command invoked');
+			telemetry('DOCUMENT', 'START', 'User invoked "Document with persona" command');
+
+			// Step 1: Get selection
 			const selection = getActiveSelection();
 			if (!selection) {
-				console.log('[documentWithPersona] No selection found');
+				telemetry('DOCUMENT', 'ERROR', 'No text selected', { action: 'abort' });
+				vscode.window.showErrorMessage('Please select some code first');
 				return;
 			}
 
 			const { editor, selectedText } = selection;
 			const document = editor.document;
-			console.log('[documentWithPersona] Selected text:', selectedText.substring(0, 50) + '...');
+			telemetry('DOCUMENT', 'STEP', 'Selection obtained', {
+				length: selectedText.length,
+				file: document.fileName,
+				language: document.languageId,
+			});
 
-			// Get available personas
+			// Step 2: Fetch personas
+			telemetry('DOCUMENT', 'STEP', 'Fetching available personas...');
 			const personasMap = await getAvailablePersonas();
-			console.log('[documentWithPersona] Available personas:', Array.from(personasMap.keys()));
+			telemetry('DOCUMENT', 'STEP', 'Personas loaded', {
+				total: personasMap.size,
+				names: Array.from(personasMap.keys()).slice(0, 5).join(', '),
+			});
+
 			if (personasMap.size === 0) {
-				console.log('[documentWithPersona] No personas available');
+				telemetry('DOCUMENT', 'ERROR', 'No personas available', { action: 'abort' });
 				vscode.window.showErrorMessage('No personas available. Check rhizome installation.');
 				return;
 			}
 
-			// Show quick pick to choose persona
+			// Step 3: Show picker
+			telemetry('DOCUMENT', 'STEP', 'Showing quick picker');
 			const personaOptions = Array.from(personasMap.entries()).map(([name, role]) => ({
 				label: name,
 				description: role || `Ask ${name} to document this`,
@@ -1277,31 +1363,39 @@ export function activate(context: vscode.ExtensionContext) {
 			});
 
 			if (!picked) {
-				console.log('[documentWithPersona] User cancelled persona selection');
+				telemetry('DOCUMENT', 'STEP', 'User cancelled persona selection');
 				return;
 			}
-			console.log('[documentWithPersona] Selected persona:', picked.label);
+			telemetry('DOCUMENT', 'STEP', 'Persona selected', {
+				persona: picked.label,
+				role: picked.description,
+			});
 
-			// Ensure rhizome is initialized
+			// Step 4: Initialize rhizome
+			telemetry('DOCUMENT', 'STEP', 'Getting workspace root...');
 			const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 			if (!workspaceRoot) {
-				console.log('[documentWithPersona] No workspace folder');
+				telemetry('DOCUMENT', 'ERROR', 'No workspace folder');
 				vscode.window.showErrorMessage('No workspace folder open');
 				return;
 			}
 
+			telemetry('DOCUMENT', 'STEP', 'Initializing rhizome...');
 			const initialized = await initializeRhizomeIfNeeded(workspaceRoot);
 			if (!initialized) {
-				console.log('[documentWithPersona] Rhizome initialization failed');
+				telemetry('DOCUMENT', 'ERROR', 'Rhizome initialization failed');
 				vscode.window.showErrorMessage('Could not initialize rhizome.');
 				return;
 			}
 
-			// Build prompt: ask persona to document the code
+			// Step 5: Build prompt
 			const prompt = `Please provide clear documentation/comments for this code:\n\n${selectedText}`;
-			console.log('[documentWithPersona] Querying persona with prompt length:', prompt.length);
+			telemetry('DOCUMENT', 'STEP', 'Prompt built', {
+				promptLength: prompt.length,
+				selectedLength: selectedText.length,
+			});
 
-			// Show progress while querying
+			// Step 6: Query and format
 			await vscode.window.withProgress(
 				{
 					location: vscode.ProgressLocation.Notification,
@@ -1310,26 +1404,37 @@ export function activate(context: vscode.ExtensionContext) {
 				},
 				async (progress) => {
 					progress.report({ message: 'Waiting for response (this may take 10-30 seconds)...' });
-					console.log('[documentWithPersona] Showing progress notification');
+					telemetry('DOCUMENT', 'STEP', 'Progress notification shown');
 
 					try {
-						console.log('[documentWithPersona] Calling queryPersona now...');
-						console.log('[documentWithPersona] Timeout set to 15 seconds. If persona hangs, check logs for dependency issues.');
+						telemetry('DOCUMENT', 'STEP', 'Calling queryPersona...');
 						const response = await queryPersona(prompt, picked.label, 15000, workspaceRoot);
-						console.log('[documentWithPersona] Got response from persona:', response.substring(0, 100) + '...');
+						telemetry('DOCUMENT', 'SUCCESS', 'Got response from persona', {
+							persona: picked.label,
+							responseLength: response.length,
+						});
 
 						// Detect language and format comment
 						const language = detectLanguage(document.languageId);
 						const commentPrefix = language === 'python' ? '#' : '//';
-						console.log('[documentWithPersona] Language:', document.languageId, 'Prefix:', commentPrefix);
+						telemetry('DOCUMENT', 'STEP', 'Language detected and comment prefix set', {
+							language: document.languageId,
+							prefix: commentPrefix,
+						});
 
 						const commentLines = response.split('\n').map((line) => `${commentPrefix} ${line}`);
 						const comment = commentLines.join('\n');
-						console.log('[documentWithPersona] Formatted comment:', comment.substring(0, 100) + '...');
+						telemetry('DOCUMENT', 'STEP', 'Comment formatted', {
+							lines: commentLines.length,
+							commentLength: comment.length,
+						});
 
 						// Get insertion position (above selection)
 						const insertPos = editor.selection.start;
-						console.log('[documentWithPersona] Insert position:', insertPos);
+						telemetry('DOCUMENT', 'STEP', 'Insertion position determined', {
+							line: insertPos.line,
+							character: insertPos.character,
+						});
 
 						// Insert comment
 						const edit = new vscode.TextEdit(
@@ -1338,14 +1443,21 @@ export function activate(context: vscode.ExtensionContext) {
 						);
 						const workspaceEdit = new vscode.WorkspaceEdit();
 						workspaceEdit.set(document.uri, [edit]);
-						console.log('[documentWithPersona] Applying edit...');
+						telemetry('DOCUMENT', 'STEP', 'Text edit created and applying...');
 						await vscode.workspace.applyEdit(workspaceEdit);
-						console.log('[documentWithPersona] Edit applied successfully');
+						telemetry('DOCUMENT', 'RESULT', 'Comments inserted into file', {
+							persona: picked.label,
+							file: document.fileName,
+						});
 
 						progress.report({ message: 'Documentation added! ✓' });
 						vscode.window.showInformationMessage(`${picked.label} documentation added above selection`);
+						telemetry('DOCUMENT', 'SUCCESS', 'Document command completed successfully');
 					} catch (error: any) {
-						console.log('[documentWithPersona] Error in progress:', (error as Error).message);
+						telemetry('DOCUMENT', 'ERROR', 'Query or insertion failed', {
+							persona: picked.label,
+							error: (error as Error).message,
+						});
 						progress.report({ message: `Error: ${(error as Error).message}` });
 						vscode.window.showErrorMessage(
 							`Failed to get documentation from ${picked.label}: ${(error as Error).message}`
