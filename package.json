@@ -95,6 +95,11 @@
         "command": "vscode-rhizome.changeEpistleFilter",
         "title": "Change Epistle View Filter",
         "description": "Switch between type/persona/date/flight-plan views"
+      },
+      {
+        "command": "vscode-rhizome.showFlightPlanEpistles",
+        "title": "Show Epistles for This Flight Plan",
+        "description": "View all design discussions linked to the active flight plan"
       }
     ],
     "views": {

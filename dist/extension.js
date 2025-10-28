@@ -5,6 +5,9 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
 var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
@@ -14868,6 +14871,133 @@ var require_lib = __commonJS({
   }
 });
 
+// src/flightPlanIntegration.ts
+var flightPlanIntegration_exports = {};
+__export(flightPlanIntegration_exports, {
+  formatEpistleSummary: () => formatEpistleSummary,
+  formatFlightPlanInfo: () => formatFlightPlanInfo,
+  getActiveFlightPlan: () => getActiveFlightPlan,
+  getAllFlightPlans: () => getAllFlightPlans,
+  getEpistleCountsByType: () => getEpistleCountsByType,
+  getEpistlesForFlightPlan: () => getEpistlesForFlightPlan
+});
+function getActiveFlightPlan(workspaceRoot) {
+  try {
+    const activePath = path4.join(workspaceRoot, ".rhizome", "flight_plans", "active.json");
+    if (!fs4.existsSync(activePath)) {
+      return void 0;
+    }
+    const content = fs4.readFileSync(activePath, "utf-8");
+    const activeData = JSON.parse(content);
+    const flightPlanPath = path4.join(
+      workspaceRoot,
+      ".rhizome",
+      "flight_plans",
+      `${activeData.id}.json`
+    );
+    if (!fs4.existsSync(flightPlanPath)) {
+      return void 0;
+    }
+    const flightPlanContent = fs4.readFileSync(flightPlanPath, "utf-8");
+    const flightPlan = JSON.parse(flightPlanContent);
+    return {
+      id: flightPlan.id,
+      title: flightPlan.title,
+      phase: flightPlan.phase?.current,
+      status: flightPlan.status
+    };
+  } catch (error) {
+    return void 0;
+  }
+}
+function getAllFlightPlans(workspaceRoot) {
+  try {
+    const flightPlansDir = path4.join(workspaceRoot, ".rhizome", "flight_plans");
+    if (!fs4.existsSync(flightPlansDir)) {
+      return [];
+    }
+    const files = fs4.readdirSync(flightPlansDir);
+    const flightPlans = [];
+    for (const file of files) {
+      if (!file.endsWith(".json") || file === "active.json") {
+        continue;
+      }
+      try {
+        const filepath = path4.join(flightPlansDir, file);
+        const content = fs4.readFileSync(filepath, "utf-8");
+        const plan = JSON.parse(content);
+        if (plan.archived === false) {
+          flightPlans.push({
+            id: plan.id,
+            title: plan.title,
+            phase: plan.phase?.current,
+            status: plan.status
+          });
+        }
+      } catch {
+      }
+    }
+    flightPlans.sort((a, b) => {
+      if (a.status === "active" && b.status !== "active")
+        return -1;
+      if (a.status !== "active" && b.status === "active")
+        return 1;
+      return 0;
+    });
+    return flightPlans;
+  } catch (error) {
+    return [];
+  }
+}
+function getEpistlesForFlightPlan(registry, flightPlanId) {
+  return registry.getEntriesByFlightPlan(flightPlanId);
+}
+function getEpistleCountsByType(registry, flightPlanId) {
+  const epistles = getEpistlesForFlightPlan(registry, flightPlanId);
+  return {
+    letters: epistles.filter((e) => e.type === "letter").length,
+    inline: epistles.filter((e) => e.type === "inline").length,
+    personas: epistles.filter((e) => e.type === "dynamic_persona").length
+  };
+}
+function formatFlightPlanInfo(flightPlan) {
+  const parts = [flightPlan.title];
+  if (flightPlan.status) {
+    parts.push(flightPlan.status);
+  }
+  if (flightPlan.phase) {
+    parts.push(`${flightPlan.phase} phase`);
+  }
+  return parts.join(" \u2022 ");
+}
+function formatEpistleSummary(letters, inline, personas) {
+  const parts = [];
+  if (letters > 0) {
+    const label = letters === 1 ? "discussion" : "discussions";
+    parts.push(`${letters} ${label}`);
+  }
+  if (inline > 0) {
+    const label = inline === 1 ? "design record" : "design records";
+    parts.push(`${inline} ${label}`);
+  }
+  if (personas > 0) {
+    const label = personas === 1 ? "file perspective" : "file perspectives";
+    parts.push(`${personas} ${label}`);
+  }
+  if (parts.length === 0) {
+    return "No epistles yet";
+  }
+  return parts.join(" \u2022 ");
+}
+var fs4, path4;
+var init_flightPlanIntegration = __esm({
+  "src/flightPlanIntegration.ts"() {
+    "use strict";
+    fs4 = __toESM(require("fs"));
+    path4 = __toESM(require("path"));
+  }
+});
+
 // src/extension.ts
 var extension_exports = {};
 __export(extension_exports, {
@@ -15640,7 +15770,7 @@ function createEpistleRegistry(workspaceRoot) {
 
 // src/epistleCommands.ts
 var vscode2 = __toESM(require("vscode"));
-var path4 = __toESM(require("path"));
+var path5 = __toESM(require("path"));
 
 // src/epistleGenerator.ts
 var fs3 = __toESM(require("fs"));
@@ -15985,6 +16115,7 @@ var DynamicPersonaGenerator = class {
 };
 
 // src/epistleCommands.ts
+init_flightPlanIntegration();
 async function showPersonaPicker(curated = ["dev-guide", "code-reviewer", "dev-advocate", "don-socratic"]) {
   const items = curated.map((p) => ({
     label: p,
@@ -16013,23 +16144,58 @@ async function getEpistleTopic() {
     }
   });
 }
-async function selectFlightPlanLink() {
-  const response = await vscode2.window.showQuickPick(
-    [
-      { label: "No, skip linking", description: "Epistle stands alone" },
-      { label: "Yes, link to active flight plan", description: "Recommended for audit trail" }
-    ],
-    {
-      placeHolder: "Link this epistle to a flight plan?",
-      title: "Flight Plan Linking"
+async function selectFlightPlanLink(workspaceRoot) {
+  const activeFlightPlan = getActiveFlightPlan(workspaceRoot);
+  const options = [
+    { label: "Skip linking", description: "Epistle stands alone (no flight plan reference)" }
+  ];
+  if (activeFlightPlan) {
+    options.unshift({
+      label: formatFlightPlanInfo(activeFlightPlan),
+      description: "\u2713 Active flight plan (recommended)",
+      picked: true
+      // Default selection
+    });
+  }
+  options.push({
+    label: "Browse other flight plans...",
+    description: "Choose from all available flight plans"
+  });
+  const response = await vscode2.window.showQuickPick(options, {
+    placeHolder: "Link this epistle to a flight plan (optional)?",
+    title: "Flight Plan Linking"
+  });
+  if (!response) {
+    return void 0;
+  }
+  if (response.label === "Skip linking") {
+    return void 0;
+  }
+  if (activeFlightPlan && response.label === formatFlightPlanInfo(activeFlightPlan)) {
+    return activeFlightPlan.id;
+  }
+  if (response.label === "Browse other flight plans...") {
+    const allPlans = getAllFlightPlans(workspaceRoot);
+    if (allPlans.length === 0) {
+      vscode2.window.showInformationMessage("No flight plans found in this workspace");
+      return void 0;
     }
-  );
-  if (response?.label === "Yes, link to active flight plan") {
-    return "fp-epistle-vscode-integration";
+    const selected = await vscode2.window.showQuickPick(
+      allPlans.map((plan) => ({
+        label: formatFlightPlanInfo(plan),
+        description: plan.id,
+        flightPlanId: plan.id
+      })),
+      {
+        placeHolder: "Choose a flight plan to link to",
+        title: "Select Flight Plan"
+      }
+    );
+    return selected?.flightPlanId;
   }
   return void 0;
 }
-async function recordLetterEpistle(editor, registry, telemetry2, epistlesDir) {
+async function recordLetterEpistle(editor, registry, telemetry2, epistlesDir, workspaceRoot) {
   telemetry2("EPISTLE", "START", "Record letter epistle");
   try {
     const selectedCode = editor.document.getText(editor.selection);
@@ -16045,7 +16211,7 @@ async function recordLetterEpistle(editor, registry, telemetry2, epistlesDir) {
     }
     telemetry2("EPISTLE", "STEP", "Code selected", {
       codeLength: selectedCode.length,
-      file: path4.basename(selectedFile)
+      file: path5.basename(selectedFile)
     });
     const personas = await showPersonaPicker();
     if (!personas || personas.length === 0) {
@@ -16059,7 +16225,7 @@ async function recordLetterEpistle(editor, registry, telemetry2, epistlesDir) {
       return;
     }
     telemetry2("EPISTLE", "STEP", "Topic provided", { topic });
-    const flightPlan = await selectFlightPlanLink();
+    const flightPlan = await selectFlightPlanLink(workspaceRoot);
     telemetry2("EPISTLE", "STEP", "Flight plan linking", {
       linked: !!flightPlan,
       flightPlan
@@ -16077,9 +16243,9 @@ async function recordLetterEpistle(editor, registry, telemetry2, epistlesDir) {
     const { filePath, content } = LetterEpistleGenerator.createFile(context, id, epistlesDir);
     telemetry2("EPISTLE", "STEP", "Epistle file created", {
       id,
-      filepath: path4.basename(filePath)
+      filepath: path5.basename(filePath)
     });
-    const entry = LetterEpistleGenerator.generateRegistryEntry(id, context, path4.basename(filePath));
+    const entry = LetterEpistleGenerator.generateRegistryEntry(id, context, path5.basename(filePath));
     registry.addEntry(entry);
     telemetry2("EPISTLE", "STEP", "Epistle registered", { id });
     const doc = await vscode2.workspace.openTextDocument(filePath);
@@ -16155,7 +16321,7 @@ async function recordInlineEpistle(editor, registry, telemetry2) {
       id,
       topic,
       personas: personas.length,
-      file: path4.basename(selectedFile)
+      file: path5.basename(selectedFile)
     });
     vscode2.window.showInformationMessage(
       `\u2713 Inline epistle "${topic}" created above your selection!`
@@ -16169,7 +16335,7 @@ async function recordInlineEpistle(editor, registry, telemetry2) {
 }
 async function createDynamicPersona(filepath, registry, telemetry2) {
   telemetry2("EPISTLE", "START", "Create dynamic persona from file", {
-    file: path4.basename(filepath)
+    file: path5.basename(filepath)
   });
   try {
     const existing = registry.getDynamicPersonaForFile(filepath);
@@ -16199,7 +16365,7 @@ async function createDynamicPersona(filepath, registry, telemetry2) {
     telemetry2("EPISTLE", "SUCCESS", "Dynamic persona created", {
       id,
       name,
-      file: path4.basename(filepath)
+      file: path5.basename(filepath)
     });
     vscode2.window.showInformationMessage(
       `\u2713 Persona '${name}' created!
@@ -16217,7 +16383,7 @@ Key concerns: ${concerns.join(", ")}`
 }
 
 // src/epistleSidebarProvider.ts
-var path5 = __toESM(require("path"));
+var path6 = __toESM(require("path"));
 var vscode3;
 try {
   vscode3 = require("vscode");
@@ -16244,7 +16410,7 @@ var EpistleTreeItem = class _EpistleTreeItem {
       case "letter":
         return entry.topic || `Letter ${entry.id}`;
       case "inline":
-        return `${path5.basename(entry.inline_file || "unknown")} (lines ${entry.lines})`;
+        return `${path6.basename(entry.inline_file || "unknown")} (lines ${entry.lines})`;
       case "dynamic_persona":
         return `\u{1F464} ${entry.name || entry.id}`;
     }
@@ -16612,8 +16778,8 @@ ${errorDetail}`);
 }
 async function checkApiKeyAvailable(workspaceRoot) {
   const { execSync: execSync2 } = require("child_process");
-  const fs4 = require("fs");
-  const path6 = require("path");
+  const fs5 = require("fs");
+  const path7 = require("path");
   const cwd = workspaceRoot || vscode4.workspace.workspaceFolders?.[0]?.uri.fsPath;
   telemetry("APIKEY", "START", "Checking API key availability", { workspace: cwd });
   telemetry("APIKEY", "STEP", "Checking environment variables for API keys");
@@ -16626,10 +16792,10 @@ async function checkApiKeyAvailable(workspaceRoot) {
   }
   telemetry("APIKEY", "STEP", "No API keys found in environment variables");
   try {
-    const configPath = path6.join(cwd, ".rhizome", "config.json");
+    const configPath = path7.join(cwd, ".rhizome", "config.json");
     telemetry("APIKEY", "STEP", "Checking rhizome config file", { configPath });
-    if (fs4.existsSync(configPath)) {
-      const config = JSON.parse(fs4.readFileSync(configPath, "utf-8"));
+    if (fs5.existsSync(configPath)) {
+      const config = JSON.parse(fs5.readFileSync(configPath, "utf-8"));
       telemetry("APIKEY", "STEP", "Config file exists, checking for API key fields");
       if (config.ai?.openai_key) {
         telemetry("APIKEY", "SUCCESS", "Found ai.openai_key in config");
@@ -16824,10 +16990,10 @@ async function isUEUMember() {
 }
 async function diagnosticRhizomeMissing() {
   const { execSync: execSync2 } = require("child_process");
-  const fs4 = require("fs");
+  const fs5 = require("fs");
   const diagnostics = [];
   for (const candidate of getCandidateLocations()) {
-    if (fs4.existsSync(candidate)) {
+    if (fs5.existsSync(candidate)) {
       diagnostics.push(`Found rhizome at: ${candidate}`);
     } else {
       diagnostics.push(`Checked path (missing): ${candidate}`);
@@ -17042,7 +17208,7 @@ async function askPersonaAboutSelection(persona, personaDisplayName) {
 async function performHealthCheck(workspaceRoot) {
   const details = [];
   const { execSync: execSync2 } = require("child_process");
-  const fs4 = require("fs");
+  const fs5 = require("fs");
   try {
     try {
       const version = execSync2("rhizome --version", {
@@ -17056,7 +17222,7 @@ async function performHealthCheck(workspaceRoot) {
       return { healthy: false, details };
     }
     const rhizomeDir = `${workspaceRoot}/.rhizome`;
-    if (fs4.existsSync(rhizomeDir)) {
+    if (fs5.existsSync(rhizomeDir)) {
       details.push(`\u2713 .rhizome directory exists at ${rhizomeDir}`);
     } else {
       details.push(`\u26A0 .rhizome directory not found. Run: vscode-rhizome.init`);
@@ -17540,7 +17706,7 @@ ${selectedText}`;
         vscode4.window.showErrorMessage("Please select some code before recording an epistle");
         return;
       }
-      await recordLetterEpistle(editor, epistleRegistry, telemetry, epistlesDir);
+      await recordLetterEpistle(editor, epistleRegistry, telemetry, epistlesDir, workspaceRoot);
     }
   );
   context.subscriptions.push(recordLetterEpistleDisposable);
@@ -17707,6 +17873,54 @@ Created: ${entry.created_at}`
     }
   );
   context.subscriptions.push(changeEpistleFilterDisposable);
+  let showFlightPlanEpistlesDisposable = vscode4.commands.registerCommand(
+    "vscode-rhizome.showFlightPlanEpistles",
+    async () => {
+      const { getActiveFlightPlan: getActiveFlightPlan2, getEpistlesForFlightPlan: getEpistlesForFlightPlan2, getEpistleCountsByType: getEpistleCountsByType2, formatFlightPlanInfo: formatFlightPlanInfo2, formatEpistleSummary: formatEpistleSummary2 } = await Promise.resolve().then(() => (init_flightPlanIntegration(), flightPlanIntegration_exports));
+      telemetry("FLIGHT_PLAN_EPISTLES", "START", "Show epistles for active flight plan");
+      try {
+        const activeFlightPlan = getActiveFlightPlan2(workspaceRoot);
+        if (!activeFlightPlan) {
+          telemetry("FLIGHT_PLAN_EPISTLES", "STEP", "No active flight plan");
+          vscode4.window.showInformationMessage(
+            "No active flight plan. Set an active flight plan via the rhizome CLI and try again."
+          );
+          return;
+        }
+        const epistles = getEpistlesForFlightPlan2(epistleRegistry, activeFlightPlan.id);
+        const counts = getEpistleCountsByType2(epistleRegistry, activeFlightPlan.id);
+        telemetry("FLIGHT_PLAN_EPISTLES", "SUCCESS", "Loaded epistles for flight plan", {
+          flightPlan: activeFlightPlan.id,
+          count: epistles.length,
+          counts
+        });
+        if (epistles.length === 0) {
+          vscode4.window.showInformationMessage(
+            `${formatFlightPlanInfo2(activeFlightPlan)}
+
+No epistles yet. Create one to start recording design decisions!`
+          );
+        } else {
+          const summary = formatEpistleSummary2(counts.letters, counts.inline, counts.personas);
+          vscode4.window.showInformationMessage(
+            `${formatFlightPlanInfo2(activeFlightPlan)}
+
+${summary}`
+          );
+        }
+        if (sidebarProvider) {
+          sidebarProvider.setFilterMode("flight-plan");
+          vscode4.commands.executeCommand("epistle-registry-sidebar.focus");
+        }
+      } catch (error) {
+        telemetry("FLIGHT_PLAN_EPISTLES", "ERROR", "Failed to show flight plan epistles", {
+          error: error.message
+        });
+        vscode4.window.showErrorMessage(`Failed to load epistles: ${error.message}`);
+      }
+    }
+  );
+  context.subscriptions.push(showFlightPlanEpistlesDisposable);
   console.log("[vscode-rhizome] ========== ACTIVATION COMPLETE ==========");
   console.log("[vscode-rhizome] Commands registered:");
   console.log("[vscode-rhizome]   - vscode-rhizome.healthCheck");

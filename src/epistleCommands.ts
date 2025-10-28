@@ -16,6 +16,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { LetterEpistleGenerator, InlineEpistleGenerator, DynamicPersonaGenerator, EpisodeContext } from './epistleGenerator';
 import { EpistleRegistry } from './epistleRegistry';
+import { getActiveFlightPlan, getAllFlightPlans, formatFlightPlanInfo } from './flightPlanIntegration';
 
 /**
  * Telemetry logging (imported from extension context)
@@ -69,24 +70,80 @@ export async function getEpistleTopic(): Promise<string | undefined> {
 }
 
 /**
- * Show dialog to link to active flight plan (optional)
+ * Show dialog to link to a flight plan (optional)
+ *
+ * @rhizome: What's the UX for flight plan linking?
+ * 1. Check if there's an active flight plan
+ * 2. If yes, offer quick link to it
+ * 3. Also offer to browse all flight plans
+ * 4. Allow skipping entirely
+ *
+ * This makes linking frictionless for the common case (active flight plan)
+ * but flexible for edge cases (multiple projects, retrospectives on old work).
  */
-export async function selectFlightPlanLink(): Promise<string | undefined> {
-	const response = await vscode.window.showQuickPick(
-		[
-			{ label: 'No, skip linking', description: 'Epistle stands alone' },
-			{ label: 'Yes, link to active flight plan', description: 'Recommended for audit trail' },
-		],
-		{
-			placeHolder: 'Link this epistle to a flight plan?',
-			title: 'Flight Plan Linking',
-		}
-	);
+export async function selectFlightPlanLink(workspaceRoot: string): Promise<string | undefined> {
+	// Check for active flight plan
+	const activeFlightPlan = getActiveFlightPlan(workspaceRoot);
 
-	if (response?.label === 'Yes, link to active flight plan') {
-		// TODO: Read active flight plan from .rhizome/flight_plans/active.json
-		// For now, return a placeholder
-		return 'fp-epistle-vscode-integration'; // Hardcoded for this sprint
+	// Build quick pick options
+	const options: vscode.QuickPickItem[] = [
+		{ label: 'Skip linking', description: 'Epistle stands alone (no flight plan reference)' },
+	];
+
+	if (activeFlightPlan) {
+		options.unshift({
+			label: formatFlightPlanInfo(activeFlightPlan),
+			description: '✓ Active flight plan (recommended)',
+			picked: true, // Default selection
+		});
+	}
+
+	options.push({
+		label: 'Browse other flight plans...',
+		description: 'Choose from all available flight plans',
+	});
+
+	const response = await vscode.window.showQuickPick(options, {
+		placeHolder: 'Link this epistle to a flight plan (optional)?',
+		title: 'Flight Plan Linking',
+	});
+
+	if (!response) {
+		// User cancelled
+		return undefined;
+	}
+
+	if (response.label === 'Skip linking') {
+		return undefined;
+	}
+
+	// Check if this is the active flight plan
+	if (activeFlightPlan && response.label === formatFlightPlanInfo(activeFlightPlan)) {
+		return activeFlightPlan.id;
+	}
+
+	// User wants to browse all flight plans
+	if (response.label === 'Browse other flight plans...') {
+		const allPlans = getAllFlightPlans(workspaceRoot);
+
+		if (allPlans.length === 0) {
+			vscode.window.showInformationMessage('No flight plans found in this workspace');
+			return undefined;
+		}
+
+		const selected = await vscode.window.showQuickPick(
+			allPlans.map(plan => ({
+				label: formatFlightPlanInfo(plan),
+				description: plan.id,
+				flightPlanId: plan.id,
+			})),
+			{
+				placeHolder: 'Choose a flight plan to link to',
+				title: 'Select Flight Plan',
+			}
+		);
+
+		return (selected as any)?.flightPlanId;
 	}
 
 	return undefined;
@@ -108,7 +165,8 @@ export async function recordLetterEpistle(
 	editor: vscode.TextEditor,
 	registry: EpistleRegistry,
 	telemetry: TelemetryFn,
-	epistlesDir: string
+	epistlesDir: string,
+	workspaceRoot: string
 ): Promise<void> {
 	telemetry('EPISTLE', 'START', 'Record letter epistle');
 
@@ -151,7 +209,7 @@ export async function recordLetterEpistle(
 		telemetry('EPISTLE', 'STEP', 'Topic provided', { topic });
 
 		// 4. Optionally link to flight plan
-		const flightPlan = await selectFlightPlanLink();
+		const flightPlan = await selectFlightPlanLink(workspaceRoot);
 
 		telemetry('EPISTLE', 'STEP', 'Flight plan linking', {
 			linked: !!flightPlan,

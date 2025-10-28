@@ -1489,7 +1489,7 @@ export function activate(context: vscode.ExtensionContext) {
 				return;
 			}
 
-			await recordLetterEpistle(editor, epistleRegistry, telemetry, epistlesDir);
+			await recordLetterEpistle(editor, epistleRegistry, telemetry, epistlesDir, workspaceRoot);
 		}
 	);
 	context.subscriptions.push(recordLetterEpistleDisposable);
@@ -1721,6 +1721,69 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	);
 	context.subscriptions.push(changeEpistleFilterDisposable);
+
+	// Command: Show epistles for active flight plan
+	/**
+	 * View all epistles linked to the active flight plan
+	 *
+	 * @rhizome: Why separate this from the sidebar?
+	 * The sidebar shows all epistles. This command is focused.
+	 * It answers one question: "What design discussions are we having for THIS flight plan?"
+	 * Opens the sidebar, filters by flight plan, shows count and summary.
+	 */
+	let showFlightPlanEpistlesDisposable = vscode.commands.registerCommand(
+		'vscode-rhizome.showFlightPlanEpistles',
+		async () => {
+			const { getActiveFlightPlan, getEpistlesForFlightPlan, getEpistleCountsByType, formatFlightPlanInfo, formatEpistleSummary } = await import('./flightPlanIntegration');
+
+			telemetry('FLIGHT_PLAN_EPISTLES', 'START', 'Show epistles for active flight plan');
+
+			try {
+				const activeFlightPlan = getActiveFlightPlan(workspaceRoot);
+
+				if (!activeFlightPlan) {
+					telemetry('FLIGHT_PLAN_EPISTLES', 'STEP', 'No active flight plan');
+					vscode.window.showInformationMessage(
+						'No active flight plan. Set an active flight plan via the rhizome CLI and try again.'
+					);
+					return;
+				}
+
+				const epistles = getEpistlesForFlightPlan(epistleRegistry, activeFlightPlan.id);
+				const counts = getEpistleCountsByType(epistleRegistry, activeFlightPlan.id);
+
+				telemetry('FLIGHT_PLAN_EPISTLES', 'SUCCESS', 'Loaded epistles for flight plan', {
+					flightPlan: activeFlightPlan.id,
+					count: epistles.length,
+					counts,
+				});
+
+				// Show summary and open sidebar filtered by flight plan
+				if (epistles.length === 0) {
+					vscode.window.showInformationMessage(
+						`${formatFlightPlanInfo(activeFlightPlan)}\n\nNo epistles yet. Create one to start recording design decisions!`
+					);
+				} else {
+					const summary = formatEpistleSummary(counts.letters, counts.inline, counts.personas);
+					vscode.window.showInformationMessage(
+						`${formatFlightPlanInfo(activeFlightPlan)}\n\n${summary}`
+					);
+				}
+
+				// Focus the sidebar (if provider exists)
+				if (sidebarProvider) {
+					sidebarProvider.setFilterMode('flight-plan');
+					vscode.commands.executeCommand('epistle-registry-sidebar.focus');
+				}
+			} catch (error: any) {
+				telemetry('FLIGHT_PLAN_EPISTLES', 'ERROR', 'Failed to show flight plan epistles', {
+					error: (error as Error).message,
+				});
+				vscode.window.showErrorMessage(`Failed to load epistles: ${(error as Error).message}`);
+			}
+		}
+	);
+	context.subscriptions.push(showFlightPlanEpistlesDisposable);
 
 	console.log('[vscode-rhizome] ========== ACTIVATION COMPLETE ==========');
 	console.log('[vscode-rhizome] Commands registered:');
