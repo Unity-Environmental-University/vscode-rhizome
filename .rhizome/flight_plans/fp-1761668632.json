@@ -65,6 +65,29 @@
         "what": "Begin graphBuilder implementation: graph of decisions, causality, patterns",
         "timestamp": "2025-10-28T16:24:32Z"
       }
+    },
+    {
+      "ts": "2025-10-28T16:33:03Z",
+      "type": "action",
+      "data": {
+        "actor": "system",
+        "action": "link_commit",
+        "object": "",
+        "qualifiers": [
+          "post-commit"
+        ],
+        "confidence": 1.0,
+        "evidence": {
+          "repo": "vscode-rhizome",
+          "branch": "main",
+          "commit": "879244929d1ad195c5f08fd82a4a7de3243eb110",
+          "path": null,
+          "lines": null,
+          "note": "Fix stub detection fallback and test workspace uniqueness - all 24 tests passing"
+        },
+        "agent": null,
+        "timestamp": "2025-10-28T16:33:03Z"
+      }
     }
   ],
   "personas": {

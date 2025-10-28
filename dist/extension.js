@@ -14923,17 +14923,12 @@ function findStubComments(code, language) {
             lines,
             signatureLine,
             markerLine,
-            parser,
-            code
+            parser
           );
         } catch (e) {
-          result = parseWithRegex(
-            lines[signatureLine].trim(),
-            markerLine,
-            language
-          );
         }
-      } else {
+      }
+      if (!result) {
         result = parseWithRegex(
           lines[signatureLine].trim(),
           markerLine,
@@ -14947,7 +14942,7 @@ function findStubComments(code, language) {
   }
   return results;
 }
-function parseWithAST(lines, signatureLine, markerLine, parser, fullCode) {
+function parseWithAST(lines, signatureLine, markerLine, parser) {
   try {
     let signatureText = "";
     let currentLine = signatureLine;

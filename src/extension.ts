@@ -126,6 +126,122 @@ function isRhizomeInstalled(): boolean {
 }
 
 /**
+ * Helper: Check if user is member of Unity-Environmental-University
+ *
+ * don-socratic asks:
+ * How do you know who a user is? What signals indicate org membership?
+ * GitHub auth + git config are stronger signals than assumptions.
+ *
+ * Checks:
+ * 1. `gh auth status` to confirm logged in
+ * 2. `git config user.organization` for explicit org setting
+ * 3. Falls back to checking GitHub orgs if gh CLI available
+ */
+async function isUEUMember(): Promise<boolean> {
+	const { execSync } = require('child_process');
+
+	try {
+		// First, check if user is authenticated with GitHub CLI
+		try {
+			execSync('gh auth status', {
+				encoding: 'utf-8',
+				timeout: 2000,
+				stdio: 'pipe',
+			});
+		} catch {
+			// Not authenticated with gh, can't verify org membership
+			return false;
+		}
+
+		// Check git config for explicit org setting
+		try {
+			const org = execSync('git config user.organization', {
+				encoding: 'utf-8',
+				timeout: 2000,
+				stdio: 'pipe',
+			})
+				.trim();
+			if (org === 'Unity-Environmental-University') {
+				return true;
+			}
+		} catch {
+			// Config value not set, continue to check GitHub orgs
+		}
+
+		// Check GitHub orgs via gh CLI
+		try {
+			const orgs = execSync('gh org list', {
+				encoding: 'utf-8',
+				timeout: 5000,
+			})
+				.split('\n')
+				.map((line: string) => line.trim())
+				.filter((line: string) => line.length > 0);
+
+			return orgs.includes('Unity-Environmental-University');
+		} catch {
+			// gh org list failed or not available
+			return false;
+		}
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Helper: Run diagnostics when rhizome not found
+ *
+ * don-socratic asks:
+ * When a tool is missing, what should you check?
+ * - Is it in PATH?
+ * - Did the installation fail silently?
+ * - Is it on the disk but not in PATH?
+ *
+ * Gather evidence before offering help.
+ */
+async function diagnosticRhizomeMissing(): Promise<string[]> {
+	const { execSync } = require('child_process');
+	const diagnostics: string[] = [];
+
+	// Check common installation paths
+	const commonPaths = [
+		'/usr/local/bin/rhizome',
+		'/usr/bin/rhizome',
+		`${process.env.HOME}/.local/bin/rhizome`,
+		`${process.env.HOME}/.rhizome/bin/rhizome`,
+	];
+
+	for (const path of commonPaths) {
+		try {
+			execSync(`test -f ${path}`, { stdio: 'pipe' });
+			diagnostics.push(`Found rhizome at: ${path}`);
+		} catch {
+			// Not found, continue
+		}
+	}
+
+	// Check PATH environment variable
+	diagnostics.push(`Current PATH: ${process.env.PATH}`);
+
+	// Check if installation tools are available
+	try {
+		execSync('which npm', { stdio: 'pipe', timeout: 2000 });
+		diagnostics.push('npm is available');
+	} catch {
+		diagnostics.push('npm NOT found (required for rhizome installation)');
+	}
+
+	try {
+		execSync('which brew', { stdio: 'pipe', timeout: 2000 });
+		diagnostics.push('brew is available (macOS)');
+	} catch {
+		// brew not required on all systems
+	}
+
+	return diagnostics;
+}
+
+/**
  * Helper: Offer to collect and store OpenAI key
  *
  * don-socratic asks:
@@ -238,14 +354,73 @@ async function addToGitignore(workspaceRoot: string, entry: string): Promise<voi
 async function initializeRhizomeIfNeeded(workspaceRoot: string): Promise<boolean> {
 	// Check if rhizome is installed
 	if (!isRhizomeInstalled()) {
-		const response = await vscode.window.showErrorMessage(
-			'rhizome CLI not found. Install it to use vscode-rhizome.',
-			'View Installation Guide'
-		);
-		if (response === 'View Installation Guide') {
-			vscode.env.openExternal(vscode.Uri.parse('https://github.com/your-rhizome-repo#installation'));
+		// Run initial diagnostics to understand why
+		const diagnosticsBefore = await diagnosticRhizomeMissing();
+		const isMember = await isUEUMember();
+
+		if (isMember) {
+			// User is UEU member, offer to install with diagnostics
+			vscode.window.showInformationMessage('Diagnostics before installation:\n' + diagnosticsBefore.join('\n'));
+
+			const response = await vscode.window.showErrorMessage(
+				'rhizome CLI not found. You are a member of Unity-Environmental-University. Install rhizome now?',
+				'Install rhizome',
+				'View Guide'
+			);
+
+			if (response === 'Install rhizome') {
+				try {
+					vscode.window.showInformationMessage('Installing rhizome...');
+					const { execSync } = require('child_process');
+
+					// Try npm install globally
+					execSync('npm install -g @rhizome/cli', {
+						encoding: 'utf-8',
+						timeout: 60000,
+						stdio: 'inherit',
+					});
+
+					vscode.window.showInformationMessage('rhizome installed successfully!');
+
+					// Run diagnostics after installation
+					const diagnosticsAfter = await diagnosticRhizomeMissing();
+					vscode.window.showInformationMessage(
+						'Diagnostics after installation:\n' + diagnosticsAfter.join('\n')
+					);
+
+					// Verify installation
+					if (!isRhizomeInstalled()) {
+						vscode.window.showWarningMessage(
+							'Installation completed but rhizome still not found in PATH. You may need to restart VSCode.'
+						);
+						return false;
+					}
+
+					// Continue with workspace initialization
+					return await initializeRhizomeIfNeeded(workspaceRoot);
+				} catch (error: any) {
+					vscode.window.showErrorMessage(`Failed to install rhizome: ${(error as Error).message}`);
+					const diagnosticsFailure = await diagnosticRhizomeMissing();
+					vscode.window.showInformationMessage(
+						'Diagnostics after failed installation:\n' + diagnosticsFailure.join('\n')
+					);
+					return false;
+				}
+			} else if (response === 'View Guide') {
+				vscode.env.openExternal(vscode.Uri.parse('https://github.com/your-rhizome-repo#installation'));
+			}
+			return false;
+		} else {
+			// Not a UEU member, direct them to install themselves
+			const response = await vscode.window.showWarningMessage(
+				'rhizome CLI not found. Please install it to use vscode-rhizome.',
+				'View Installation Guide'
+			);
+			if (response === 'View Installation Guide') {
+				vscode.env.openExternal(vscode.Uri.parse('https://github.com/your-rhizome-repo#installation'));
+			}
+			return false;
 		}
-		return false;
 	}
 
 	const rhizomePath = vscode.Uri.joinPath(vscode.Uri.file(workspaceRoot), '.rhizome');
