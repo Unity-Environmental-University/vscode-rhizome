@@ -1,0 +1,140 @@
+{
+  "id": "fp-1761674707",
+  "title": "Persona comments: Ask a persona to document/comment a code section",
+  "requester": "As a developer using vscode-rhizome, I want to select a code section and ask a persona to provide comments, documentation, or implementation suggestions for that section, so that I can leverage expert perspectives while writing code.",
+  "workflow": "library",
+  "targets": [
+    "src/extension.ts"
+  ],
+  "stories": [
+    {
+      "as": "developer using vscode-rhizome",
+      "i_want": "to right-click on a code section and ask a persona to document it with helpful comments",
+      "so_that": "I can get expert perspectives while writing code"
+    },
+    {
+      "as": "developer",
+      "i_want": "to ask a persona to provide implementation details for a rough sketch or stub",
+      "so_that": "I can leverage expert guidance to fill out code"
+    },
+    {
+      "as": "developer",
+      "i_want": "to ask a persona to suggest improvements or refactoring for a selected code block",
+      "so_that": "I can maintain high quality code with expert input"
+    }
+  ],
+  "created_at": "2025-10-28T18:05:07Z",
+  "status": "active",
+  "require_approval": false,
+  "approval": {
+    "state": "approved",
+    "by": null,
+    "at": null,
+    "notes": null
+  },
+  "steps": [
+    {
+      "id": 1,
+      "title": "Design interaction: what does 'persona comment' look like? (UI/UX decision)",
+      "status": "done"
+    },
+    {
+      "id": 2,
+      "title": "Implement persona-comment command with prompt template",
+      "status": "done"
+    },
+    {
+      "id": 3,
+      "title": "Insert response as code comment (language-aware syntax)",
+      "status": "done"
+    },
+    {
+      "id": 4,
+      "title": "Test end-to-end: selection → persona → insertion",
+      "status": "done"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2025-10-28T18:09:35Z",
+      "type": "action",
+      "data": {
+        "actor": "unknown",
+        "action": "decide",
+        "object": "persona-comments-interaction-design",
+        "qualifiers": [],
+        "confidence": 0.9,
+        "evidence": {
+          "repo": "vscode-rhizome",
+          "branch": "main",
+          "commit": "03941051aa548c66a594dff6346c05bd9989e415",
+          "path": null,
+          "lines": null,
+          "note": "Selected interaction pattern: Option B (dynamic picker). When user selects code and right-clicks, they get a single 'Ask a persona to document this' menu item that opens quick picker. This scales with new personas without menu sprawl. Reuses existing 'askPersonaAboutSelection' workflow."
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": "Design decision: Persona comments use right-click context menu with dynamic persona picker",
+        "timestamp": "2025-10-28T18:09:35Z"
+      }
+    },
+    {
+      "ts": "2025-10-28T18:17:03Z",
+      "type": "action",
+      "data": {
+        "actor": "unknown",
+        "action": "document",
+        "object": "persona-documentation-implementation",
+        "qualifiers": [],
+        "confidence": 0.95,
+        "evidence": {
+          "repo": "vscode-rhizome",
+          "branch": "main",
+          "commit": "fe55ce54ed19eed69fa6f7667b41aa1b649096df",
+          "path": null,
+          "lines": null,
+          "note": "Implemented new VSCode command 'Ask a persona to document this' that allows users to select code and request documentation from any available persona. Response is formatted as language-specific comments and inserted above selection. Added 7 new tests covering comment formatting, persona selection, and insertion logic. All 48 tests passing. Design: right-click menu with dynamic persona picker, language-aware formatting (// for TS/JS, # for Python), comments inserted above selection."
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": "Implemented persona documentation comments feature (Step 2 of flight plan)",
+        "timestamp": "2025-10-28T18:17:03Z"
+      }
+    },
+    {
+      "ts": "2025-10-28T18:17:20Z",
+      "type": "action",
+      "data": {
+        "actor": "unknown",
+        "action": "document",
+        "object": "persona-comments-flight-plan-completion",
+        "qualifiers": [],
+        "confidence": 0.95,
+        "evidence": {
+          "repo": "vscode-rhizome",
+          "branch": "main",
+          "commit": "fe55ce54ed19eed69fa6f7667b41aa1b649096df",
+          "path": null,
+          "lines": null,
+          "note": "Flight plan fp-1761674707 'Persona comments: Ask a persona to document/comment a code section' is now complete. All 4 steps done. Feature is production-ready with 48 tests passing. Moving to library phase for reflection and documentation."
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": "Completed flight plan: Persona comments feature (fp-1761674707)",
+        "timestamp": "2025-10-28T18:17:20Z"
+      }
+    }
+  ]
+}

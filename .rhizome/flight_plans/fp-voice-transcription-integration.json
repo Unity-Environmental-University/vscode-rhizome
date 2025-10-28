@@ -1,0 +1,107 @@
+{
+  "id": "fp-voice-transcription-integration",
+  "title": "Voice control: stream transcripts into personas with cost telemetry",
+  "requester": "As a developer experimenting with Rhizome voice control, I want transcripts to trigger persona actions and see API usage costs so I can trust and manage the feature.",
+  "workflow": "kitchen_table",
+  "targets": [
+    "src/extension.ts",
+    "src/voice/voiceControlPanel.ts",
+    "media/voicePanel.js",
+    "docs/voice-control.md"
+  ],
+  "stories": [
+    {
+      "as": "developer",
+      "i_want": "voice transcripts to call my chosen persona automatically",
+      "so_that": "I can stay hands-free while coding"
+    },
+    {
+      "as": "team lead",
+      "i_want": "cost telemetry displayed in the UI",
+      "so_that": "we can monitor and budget OpenAI usage"
+    },
+    {
+      "as": "tester",
+      "i_want": "docs and tests outlining the voice flow",
+      "so_that": "we can validate the feature before shipping"
+    }
+  ],
+  "created_at": "2025-10-28T18:30:00Z",
+  "status": "archived",
+  "require_approval": false,
+  "archived_at": "2025-10-28T18:45:00Z",
+  "archived_reason": "Scaffolded but not started; deprioritized in favor of completing graphBuilder",
+  "steps": [
+    {
+      "id": 1,
+      "title": "Stream transcripts into persona ask flow",
+      "status": "in_progress"
+    },
+    {
+      "id": 2,
+      "title": "Surface OpenAI usage + cost telemetry in UI",
+      "status": "in_progress"
+    },
+    {
+      "id": 3,
+      "title": "Document and add tests for voice integration",
+      "status": "pending"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2025-10-28T18:20:28Z",
+      "type": "action",
+      "data": {
+        "actor": "unknown",
+        "action": "document",
+        "object": "persona-comments-library-phase",
+        "qualifiers": [],
+        "confidence": 0.95,
+        "evidence": {
+          "repo": "vscode-rhizome",
+          "branch": "main",
+          "commit": "e0c2257964e7140ccdb8cb038d26d305e8ebff7e",
+          "path": null,
+          "lines": null,
+          "note": "Library phase complete. Created comprehensive design document at .rhizome/persona-comments-feature.md covering design decisions, patterns extracted, and future enhancements. Added two new teaching moments (#5, #6) to TEACHING_MOMENTS.md explaining intentional rough edges in comment formatting and hardcoded prompt template. Feature is fully documented and ready for user feedback."
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": "Completed library phase: documentation and teaching moments (fp-1761674707)",
+        "timestamp": "2025-10-28T18:20:28Z"
+      }
+    },
+    {
+      "ts": "2025-10-28T18:23:23Z",
+      "type": "action",
+      "data": {
+        "actor": "unknown",
+        "action": "document",
+        "object": "persona-comments-feature-ready-for-users",
+        "qualifiers": [],
+        "confidence": 1.0,
+        "evidence": {
+          "repo": "vscode-rhizome",
+          "branch": "main",
+          "commit": "6bbf0156000de4136b6b544d3f184bab6090b19c",
+          "path": null,
+          "lines": null,
+          "note": "Feature 'Ask a persona to document this' is complete and ready for users. 85 lines of implementation, 7 passing tests, comprehensive documentation. Design decisions documented in persona-comments-feature.md. Teaching moments #5 and #6 added to explain intentional rough edges. Patterns extracted for future features. All three flight plan phases complete: kitchen_table (design) → garden (implementation) → library (documentation & teaching). Ready for user feedback and iteration."
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": "Persona comments feature ready for production (fp-1761674707 complete)",
+        "timestamp": "2025-10-28T18:23:23Z"
+      }
+    }
+  ]
+}
