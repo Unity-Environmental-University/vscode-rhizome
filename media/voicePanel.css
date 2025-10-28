@@ -40,6 +40,12 @@ button[disabled] {
     font-weight: bold;
 }
 
+.usage {
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--vscode-descriptionForeground);
+}
+
 .transcript {
     margin-top: 1rem;
     padding: 1rem;

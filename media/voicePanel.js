@@ -4,6 +4,7 @@ const startButton = document.getElementById('startButton');
 const stopButton = document.getElementById('stopButton');
 const statusEl = document.getElementById('status');
 const transcriptEl = document.getElementById('transcript');
+const usageEl = document.getElementById('usage');
 
 let mediaRecorder;
 let pendingChunks = [];
@@ -57,18 +58,18 @@ async function handleStop() {
     const blob = new Blob(pendingChunks, { type: 'audio/webm' });
     pendingChunks = [];
 
-    transcriptEl.textContent = 'Audio captured (' + (blob.size / 1024).toFixed(1) + ' KB). Ready for backend integration.';
+    transcriptEl.textContent = 'Audio captured (' + (blob.size / 1024).toFixed(1) + ' KB). Sending to Rhizome…';
 
     const arrayBuffer = await blob.arrayBuffer();
     const base64Audio = arrayBufferToBase64(arrayBuffer);
 
     vscode.postMessage({
-        type: 'transcript',
-        value: '[demo] audio chunk length=' + blob.size,
+        type: 'audioChunk',
         rawAudioBase64: base64Audio,
+        size: blob.size,
     });
 
-    setStatus('Recording stopped');
+    setStatus('Processing audio…');
 }
 
 function arrayBufferToBase64(buffer) {
@@ -85,3 +86,37 @@ startButton.addEventListener('click', start);
 stopButton.addEventListener('click', stop);
 
 setStatus('Idle');
+
+function appendTranscript(text) {
+    const paragraph = document.createElement('p');
+    paragraph.textContent = text;
+    transcriptEl.appendChild(paragraph);
+}
+
+function updateUsage(totals) {
+    if (!totals) {
+        return;
+    }
+    usageEl.textContent = `Usage: ${totals.chunks} chunk${totals.chunks === 1 ? '' : 's'} · ${Number(totals.totalDurationSec).toFixed(2)}s · $${Number(totals.estimatedCostUSD).toFixed(4)}`;
+}
+
+window.addEventListener('message', (event) => {
+    const message = event.data;
+    if (!message || typeof message.type !== 'string') {
+        return;
+    }
+    switch (message.type) {
+        case 'transcript':
+            setStatus('Transcript ready');
+            appendTranscript(message.text);
+            break;
+        case 'usageUpdate':
+            updateUsage(message.totals);
+            break;
+        case 'error':
+            setStatus(message.value || 'Error processing audio');
+            break;
+        default:
+            break;
+    }
+});

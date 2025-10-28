@@ -1,4 +1,21 @@
 import * as vscode from 'vscode';
+import { VoiceTranscriber } from './voiceTranscriber';
+import { VoiceUsageTracker, UsageTotals } from './voiceUsageTracker';
+
+export interface VoiceTranscriptPayload {
+	text: string;
+	durationSec?: number;
+	sizeBytes?: number;
+}
+
+export interface VoicePanelHandlerTools {
+	appendOutput(line: string): void;
+	showOutput(): void;
+}
+
+export interface VoicePanelHandlers {
+	onTranscript?: (payload: VoiceTranscriptPayload, tools: VoicePanelHandlerTools) => Promise<void> | void;
+}
 
 /**
  * VoiceControlPanel manages the lifecycle of the Rhizome voice webview.
@@ -6,10 +23,24 @@ import * as vscode from 'vscode';
  * back to the extension host.
  */
 export class VoiceControlPanel {
-    private panel: vscode.WebviewPanel | undefined;
-    private readonly outputChannel = vscode.window.createOutputChannel('Rhizome Voice Preview');
+	private panel: vscode.WebviewPanel | undefined;
+	private readonly outputChannel = vscode.window.createOutputChannel('Rhizome Voice Preview');
+	private readonly usageTracker = new VoiceUsageTracker();
+	private readonly transcriber: VoiceTranscriber;
 
-    constructor(private readonly context: vscode.ExtensionContext) {}
+	constructor(private readonly context: vscode.ExtensionContext, private readonly handlers: VoicePanelHandlers = {}) {
+		this.transcriber = new VoiceTranscriber(
+			{
+				outputChannel: this.outputChannel,
+				onTranscript: (transcript) => {
+					vscode.window.setStatusBarMessage(`Voice transcript ready: ${truncate(transcript, 60)}`, 5000);
+				},
+				onResult: async (result) => {
+					await this.handleTranscriptionResult(result);
+				},
+			}
+		);
+	}
 
     public show(): void {
         if (this.panel) {
@@ -36,27 +67,77 @@ export class VoiceControlPanel {
             this.panel = undefined;
         });
 
-        this.panel.webview.onDidReceiveMessage((message) => {
-            switch (message.type) {
-                case 'voiceStatus':
-                    vscode.window.setStatusBarMessage(message.value, 3000);
-                    break;
-                case 'transcript':
-                    this.handleTranscript(message.value);
-                    break;
-                case 'error':
-                    vscode.window.showErrorMessage(message.value);
-                    break;
-                default:
-                    break;
-            }
-        });
-    }
+		this.panel.webview.onDidReceiveMessage((message) => {
+			switch (message.type) {
+				case 'voiceStatus':
+					vscode.window.setStatusBarMessage(message.value, 3000);
+					break;
+				case 'audioChunk':
+					this.handleAudioChunk(message.rawAudioBase64, message.size);
+					break;
+				case 'error':
+					vscode.window.showErrorMessage(message.value);
+					break;
+				default:
+					break;
+			}
+		});
+	}
 
-    private handleTranscript(text: string) {
-        this.outputChannel.appendLine(`[${new Date().toLocaleTimeString()}] ${text}`);
-        this.outputChannel.show(true);
-    }
+	private handleAudioChunk(base64Audio: string, sizeBytes?: number) {
+		if (!base64Audio) {
+			vscode.window.showErrorMessage('Received empty audio payload from webview');
+			return;
+		}
+		this.transcriber.handleChunk(base64Audio, { sizeBytes });
+	}
+
+	private async handleTranscriptionResult(result: { text: string; durationSec?: number; sizeBytes?: number }) {
+		const transcript = result.text.trim();
+		const totals = this.usageTracker.record({
+			sizeBytes: result.sizeBytes,
+			durationSec: result.durationSec,
+		});
+		this.outputChannel.appendLine(
+			`[usage] chunks=${totals.chunks} bytes=${totals.totalBytes} duration=${totals.totalDurationSec.toFixed(2)}s cost=$${totals.estimatedCostUSD.toFixed(4)}`
+		);
+		this.postUsageUpdate(totals);
+		this.postTranscriptToWebview(transcript);
+		if (this.handlers.onTranscript) {
+			await this.handlers.onTranscript(
+				{
+					text: transcript,
+					durationSec: result.durationSec,
+					sizeBytes: result.sizeBytes,
+				},
+				{
+					appendOutput: (line) => {
+						this.outputChannel.appendLine(line);
+					},
+					showOutput: () => this.outputChannel.show(true),
+				}
+			);
+		}
+	}
+
+	private postUsageUpdate(totals: UsageTotals) {
+		this.panel?.webview.postMessage({
+			type: 'usageUpdate',
+			totals: {
+				chunks: totals.chunks,
+				totalBytes: totals.totalBytes,
+				totalDurationSec: totals.totalDurationSec,
+				estimatedCostUSD: totals.estimatedCostUSD,
+			},
+		});
+	}
+
+	private postTranscriptToWebview(transcript: string) {
+		this.panel?.webview.postMessage({
+			type: 'transcript',
+			text: transcript,
+		});
+	}
 
     private getHtmlForWebview(webview: vscode.Webview): string {
         const scriptUri = webview.asWebviewUri(
@@ -87,6 +168,7 @@ export class VoiceControlPanel {
             <button id="stopButton" disabled>Stop</button>
         </div>
         <section class="status" id="status">Idle</section>
+        <section class="usage" id="usage">Usage: 0 chunks · 0.00s · $0.0000</section>
         <section class="transcript" id="transcript"></section>
     </main>
     <script nonce="${nonce}" src="${scriptUri}"></script>
@@ -96,13 +178,23 @@ export class VoiceControlPanel {
 }
 
 function getNonce(): string {
-    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    return Array.from({ length: 16 }, () => possible[Math.floor(Math.random() * possible.length)]).join('');
+	const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+	return Array.from({ length: 16 }, () => possible[Math.floor(Math.random() * possible.length)]).join('');
 }
 
-export function registerVoiceControlCommand(context: vscode.ExtensionContext): vscode.Disposable {
-    const panel = new VoiceControlPanel(context);
-    return vscode.commands.registerCommand('vscode-rhizome.openVoiceControl', () => {
-        panel.show();
-    });
+function truncate(text: string, maxLength: number): string {
+	if (text.length <= maxLength) {
+		return text;
+	}
+	return `${text.slice(0, maxLength - 1)}…`;
+}
+
+export function registerVoiceControlCommand(
+	context: vscode.ExtensionContext,
+	handlers: VoicePanelHandlers = {}
+): vscode.Disposable {
+	const panel = new VoiceControlPanel(context, handlers);
+	return vscode.commands.registerCommand('vscode-rhizome.openVoiceControl', () => {
+		panel.show();
+	});
 }
