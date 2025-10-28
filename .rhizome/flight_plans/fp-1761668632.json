@@ -1,0 +1,99 @@
+{
+  "id": "fp-1761668632",
+  "title": "Build graphBuilder: Knowledge graph from decision log",
+  "requester": "As a developer, I want to visualize my decisions as a graph so that I can see patterns and causality in my work",
+  "workflow": "done",
+  "targets": [
+    "Parse actions.ndjson and create GraphNodes for each decision"
+  ],
+  "stories": [],
+  "created_at": "2025-10-28T16:23:52Z",
+  "status": "active",
+  "require_approval": false,
+  "approval": {
+    "state": "approved",
+    "by": null,
+    "at": null,
+    "notes": null
+  },
+  "steps": [
+    {
+      "id": 1,
+      "title": "Design: Ask don-socratic what should graph include (nodes, edges, queries)",
+      "status": "in_progress"
+    },
+    {
+      "id": 2,
+      "title": "Implement GraphBuilder class: parse actions, detect cycles, weight edges",
+      "status": "pending"
+    },
+    {
+      "id": 3,
+      "title": "Write tests: happy path + error cases + integration",
+      "status": "pending"
+    },
+    {
+      "id": 4,
+      "title": "Reflect: patterns in graph, visualizable, teach by example",
+      "status": "pending"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2025-10-28T16:24:32Z",
+      "type": "action",
+      "data": {
+        "actor": "unknown",
+        "action": "begin",
+        "object": "graphBuilder-flight-plan",
+        "qualifiers": [],
+        "confidence": 0.9,
+        "evidence": {
+          "repo": "vscode-rhizome",
+          "branch": "main",
+          "commit": "68ce22842509052f7c6e681386f64a15ff9ee82c",
+          "path": null,
+          "lines": null,
+          "note": "Starting work on graphBuilder module to parse actions.ndjson into knowledge graph"
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": "Begin graphBuilder implementation: graph of decisions, causality, patterns",
+        "timestamp": "2025-10-28T16:24:32Z"
+      }
+    }
+  ],
+  "personas": {
+    "active": [
+      "rhizome"
+    ],
+    "conducting": "rhizome",
+    "voices": {
+      "una": {
+        "active": true,
+        "mode": "guide",
+        "archive": []
+      },
+      "bro": {
+        "active": true,
+        "mode": "executor",
+        "archive": []
+      },
+      "root": {
+        "active": true,
+        "mode": "reasoner",
+        "archive": []
+      }
+    }
+  },
+  "phase": {
+    "current": "kitchen_table",
+    "entered_at": "2025-10-28T16:23:52Z",
+    "transitions": []
+  },
+  "sprouts": []
+}

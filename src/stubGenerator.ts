@@ -165,27 +165,24 @@ export function findStubComments(code: string, language: string): Array<{
 				continue;
 			}
 
-			// Use AST for TS/JS, regex for Python
+			// Try AST first (TS/JS), always fall back to regex
 			let result = null;
+
 			if (parser) {
 				try {
 					result = parseWithAST(
 						lines,
 						signatureLine,
 						markerLine,
-						parser,
-						code
+						parser
 					);
 				} catch (e) {
-					// If AST parsing fails (malformed code), fall back to regex
-					result = parseWithRegex(
-						lines[signatureLine].trim(),
-						markerLine,
-						language
-					);
+					// AST failed, will try regex below
 				}
-			} else {
-				// Python: regex only
+			}
+
+			// If AST didn't work (or is Python), use regex
+			if (!result) {
 				result = parseWithRegex(
 					lines[signatureLine].trim(),
 					markerLine,
@@ -218,8 +215,8 @@ function parseWithAST(
 	lines: string[],
 	signatureLine: number,
 	markerLine: number,
-	parser: any,
-	fullCode: string
+	parser: any
+	// fullCode: not used in current impl, but kept in signature for future AST context needs
 ): {
 	line: number;
 	functionName: string;

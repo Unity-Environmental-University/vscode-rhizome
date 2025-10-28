@@ -40,7 +40,40 @@
       "status": "done"
     }
   ],
-  "log": [],
+  "log": [
+    {
+      "ts": "2025-10-27T15:28:57Z",
+      "type": "action",
+      "data": {
+        "actor": "vscode-rhizome",
+        "action": "decide",
+        "object": "graph-browser-design",
+        "qualifiers": [],
+        "confidence": null,
+        "evidence": {
+          "repo": "vscode-rhizome",
+          "branch": "main",
+          "commit": "6f5d828d2b624bce9adb7b272fc5b0c22615bf81",
+          "path": null,
+          "lines": null,
+          "note": "Decision: all action types as nodes | explicit+semantic edges (weight explicit higher) | cluster-by-phase initial view | <2s performance target | force-directed visualization | phase navigator + search + recommendations"
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": "Knowledge graph browser: node types, edge inference, view strategy, performance target",
+        "standpoint": {
+          "phase": "kitchen_table"
+        },
+        "standpoint_label": "(kitchen_table)",
+        "certainty": 0.95,
+        "timestamp": "2025-10-27T15:28:57Z"
+      }
+    }
+  ],
   "personas": {
     "active": [
       "rhizome"

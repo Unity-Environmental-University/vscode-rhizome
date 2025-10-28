@@ -18,6 +18,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { execSync } from 'child_process';
+import { randomBytes } from 'crypto';
 
 /**
  * Test workspace: temporary directory for testing
@@ -29,7 +30,8 @@ export class TestWorkspace {
 
 	constructor(baseDir: string = '/tmp') {
 		const timestamp = Date.now();
-		this.workspaceDir = path.join(baseDir, `vscode-rhizome-test-${timestamp}`);
+		const random = randomBytes(8).toString('hex');
+		this.workspaceDir = path.join(baseDir, `vscode-rhizome-test-${timestamp}-${random}`);
 		this.rhizomeDir = path.join(this.workspaceDir, '.rhizome');
 	}
 
