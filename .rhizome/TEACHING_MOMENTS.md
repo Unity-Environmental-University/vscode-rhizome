@@ -130,6 +130,48 @@ if (language === 'python') {
 
 ---
 
+## 5. Simple comment formatting heuristic (extension.ts:739-741)
+
+Look at how we format a persona's response as code comments:
+
+```typescript
+const language = detectLanguage(document.languageId);
+const commentPrefix = language === 'python' ? '#' : '//';
+const commentLines = response.split('\n').map((line) => `${commentPrefix} ${line}`);
+const comment = commentLines.join('\n');
+```
+
+**My questions for you:**
+
+- This splits by newline and prefixes each line. What if the response ends with a newline? What if there are empty lines?
+- What if the persona returns a response that's already formatted with comments? Or with code blocks?
+- What happens when the response is empty?
+- Would it be better to wrap the response in a block comment (`/* ... */`) instead of line comments?
+
+**Why we left it this way:** This heuristic is good enough for 95% of persona responses. It's simple, readable, and works. But it has limits. When you hit those limits—when a persona's response doesn't format cleanly—you'll understand why. And you'll know whether to improve the formatter or ask personas for better-formatted responses. That choice is worth making consciously, not just inheriting from my code.
+
+---
+
+## 6. Single hardcoded prompt template (extension.ts:732)
+
+Look at how we ask a persona to document code:
+
+```typescript
+const prompt = `Please provide clear documentation/comments for this code:\n\n${selectedText}`;
+```
+
+**My questions for you:**
+
+- What if the user wanted refactoring suggestions instead of documentation?
+- What if they wanted implementation hints? Or test cases?
+- Should the prompt be customizable? How would you let users choose?
+- If you added a quick pick for prompt styles, where would it go in the flow?
+- What would you lose by making the prompt configurable? (Hint: simplicity)
+
+**Why we left it this way:** MVP is single-purpose. One prompt, one outcome. But the question—"should this be customizable?"—is worth sitting with. If you see users asking for different prompt styles, then you make it configurable. If they're happy with documentation, you don't add complexity you don't need. This is an intentional constraint that teaches you when to add features and when to leave well enough alone.
+
+---
+
 ## How to read this
 
 When you're using the extension, or reading the code, and you think:
