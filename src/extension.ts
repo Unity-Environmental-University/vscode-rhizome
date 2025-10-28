@@ -237,7 +237,7 @@ async function getAvailablePersonas(): Promise<Map<string, string>> {
 		let parsedCount = 0;
 		for (const line of lines) {
 			if (!line.trim()) continue;
-			const match = line.match(/^(\S+)\s+\|\s+role:\s+(.+?)\s+\|\s+source:/);
+			const match = line.match(/^\s*(\S+)\s+\|\s+role:\s+(.+?)\s+\|\s+source:/);
 			if (match) {
 				const name = match[1].trim();
 				const role = match[2].trim();
@@ -915,7 +915,7 @@ export function activate(context: vscode.ExtensionContext) {
 			outputChannel.appendLine('');
 			outputChannel.appendLine('4. PYTHON MODULE SEARCH PATHS (sys.path)');
 			const sysPath = execSync('python3 -c "import sys; print(\'\\n\'.join(sys.path))"', { encoding: 'utf-8' });
-			sysPath.split('\n').filter(p => p.trim()).forEach(p => {
+			sysPath.split('\n').filter((p: string) => p.trim()).forEach((p: string) => {
 				outputChannel.appendLine(`   - ${p}`);
 			});
 
