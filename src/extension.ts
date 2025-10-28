@@ -505,7 +505,7 @@ async function askPersonaAboutSelection(persona: string, personaDisplayName: str
 	outputChannel.show(true);
 
 	try {
-		const response = await queryPersona(selectedText, persona);
+		const response = await queryPersona(selectedText, persona, 30000, workspaceRoot);
 		formatPersonaOutput(outputChannel, personaDisplayName, selectedText, response);
 	} catch (error: any) {
 		outputChannel.appendLine('');
@@ -768,7 +768,7 @@ export function activate(context: vscode.ExtensionContext) {
 			console.log('[documentWithPersona] Querying persona with prompt length:', prompt.length);
 
 			try {
-				const response = await queryPersona(prompt, picked.label);
+				const response = await queryPersona(prompt, picked.label, 30000, workspaceRoot);
 				console.log('[documentWithPersona] Got response from persona:', response.substring(0, 100) + '...');
 
 				// Detect language and format comment

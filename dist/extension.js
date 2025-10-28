@@ -15762,7 +15762,7 @@ async function askPersonaAboutSelection(persona, personaDisplayName) {
   const outputChannel = vscode2.window.createOutputChannel("vscode-rhizome");
   outputChannel.show(true);
   try {
-    const response = await queryPersona(selectedText, persona);
+    const response = await queryPersona(selectedText, persona, 3e4, workspaceRoot);
     formatPersonaOutput(outputChannel, personaDisplayName, selectedText, response);
   } catch (error) {
     outputChannel.appendLine("");
@@ -15921,7 +15921,7 @@ function activate(context) {
 ${selectedText}`;
       console.log("[documentWithPersona] Querying persona with prompt length:", prompt.length);
       try {
-        const response = await queryPersona(prompt, picked.label);
+        const response = await queryPersona(prompt, picked.label, 3e4, workspaceRoot);
         console.log("[documentWithPersona] Got response from persona:", response.substring(0, 100) + "...");
         const language = detectLanguage(document.languageId);
         const commentPrefix = language === "python" ? "#" : "//";
