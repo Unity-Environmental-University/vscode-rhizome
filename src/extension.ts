@@ -45,6 +45,48 @@ async function queryPersona(
 }
 
 /**
+ * Helper: Get list of available personas from rhizome
+ *
+ * Queries rhizome for available personas (both system and custom).
+ * Returns a map of persona name to description for quick picker.
+ */
+async function getAvailablePersonas(): Promise<Map<string, string>> {
+	try {
+		const { execSync } = require('child_process');
+		const output = execSync('rhizome persona list', {
+			encoding: 'utf-8',
+			timeout: 5000,
+			stdio: 'pipe',
+		});
+
+		const personas = new Map<string, string>();
+
+		// Parse rhizome persona list output
+		// Format: "persona_name | role: description | source: ..."
+		const lines = output.split('\n');
+		for (const line of lines) {
+			const match = line.match(/^(\S+)\s+\|\s+role:\s+(.+?)\s+\|\s+source:/);
+			if (match) {
+				const name = match[1].trim();
+				const role = match[2].trim();
+				personas.set(name, role);
+			}
+		}
+
+		return personas;
+	} catch {
+		// If rhizome persona list fails, return curated set of main personas
+		return new Map([
+			['don-socratic', 'Socratic questioning'],
+			['dev-guide', 'Mentor: What were you trying to accomplish?'],
+			['code-reviewer', 'Skeptic: What\'s your evidence?'],
+			['ux-advocate', 'Curator: Have we watched someone use this?'],
+			['dev-advocate', 'Strategist: What trade-off are we making?'],
+		]);
+	}
+}
+
+/**
  * Helper: Format output channel for persona responses
  *
  * don-socratic asks:
@@ -537,6 +579,33 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 
 	context.subscriptions.push(inlineQuestionDisposable);
+
+	// ======================================
+	// COMMAND: ask any persona (dynamic picker)
+	// ======================================
+	let askPersonaDisposable = vscode.commands.registerCommand('vscode-rhizome.askPersona', async () => {
+		const selection = getActiveSelection();
+		if (!selection) return;
+
+		// Get available personas
+		const personas = await getAvailablePersonas();
+		const personaOptions = Array.from(personas.entries()).map(([name, role]) => ({
+			label: name,
+			description: role,
+		}));
+
+		// Show quick picker
+		const picked = await vscode.window.showQuickPick(personaOptions, {
+			placeHolder: 'Choose a persona to question your code',
+			matchOnDescription: true,
+		});
+
+		if (!picked) return;
+
+		await askPersonaAboutSelection(picked.label, picked.label);
+	});
+
+	context.subscriptions.push(askPersonaDisposable);
 
 	// ======================================
 	// COMMAND: stub generation

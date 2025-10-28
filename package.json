@@ -39,6 +39,11 @@
         "description": "Question your code inline without leaving editor"
       },
       {
+        "command": "vscode-rhizome.askPersona",
+        "title": "Ask a persona",
+        "description": "Choose which persona (dev-guide, code-reviewer, ux-advocate, etc.) to question your code"
+      },
+      {
         "command": "vscode-rhizome.stub",
         "title": "Stub this function"
       },
@@ -51,12 +56,17 @@
       "editor/context": [
         {
           "command": "vscode-rhizome.donSocratic",
-          "group": "1_modification",
+          "group": "1_modification@1",
           "when": "editorHasSelection"
         },
         {
           "command": "vscode-rhizome.inlineQuestion",
-          "group": "1_modification",
+          "group": "1_modification@2",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "vscode-rhizome.askPersona",
+          "group": "1_modification@3",
           "when": "editorHasSelection"
         }
       ]
