@@ -15460,34 +15460,137 @@ function ensureLocalBinOnPath() {
 
 // src/extension.ts
 async function queryPersona(text, persona, timeoutMs = 3e4, workspaceRoot) {
+  const { execSync: execSync2 } = require("child_process");
+  const cwd = workspaceRoot || vscode2.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  console.log(`[queryPersona] ========== QUERY START ==========`);
+  console.log(`[queryPersona] Persona: ${persona}`);
+  console.log(`[queryPersona] Timeout: ${timeoutMs}ms`);
+  console.log(`[queryPersona] Workspace: ${cwd}`);
+  console.log(`[queryPersona] Input length: ${text.length} chars`);
+  console.log(`[queryPersona] Checking API key availability...`);
+  const hasApiKey = await checkApiKeyAvailable(cwd);
+  if (!hasApiKey) {
+    console.log(`[queryPersona] WARNING: No API key found. Query may fail or hang if persona requires API.`);
+  }
   try {
-    const { execSync: execSync2 } = require("child_process");
-    const cwd = workspaceRoot || vscode2.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    const response = execSync2(`rhizome query --persona ${persona}`, {
-      input: text,
-      encoding: "utf-8",
-      timeout: timeoutMs,
-      cwd,
-      // Ensure rhizome runs in workspace to find .rhizome folder
-      stdio: ["pipe", "pipe", "pipe"]
-      // Capture both stdout and stderr
+    console.log(`[queryPersona] Executing: rhizome query --persona ${persona}`);
+    console.log(`[queryPersona] CWD: ${cwd}`);
+    const queryPromise = new Promise((resolve, reject) => {
+      try {
+        const response = execSync2(`rhizome query --persona ${persona}`, {
+          input: text,
+          encoding: "utf-8",
+          timeout: timeoutMs,
+          cwd,
+          // Ensure rhizome runs in workspace to find .rhizome folder
+          stdio: ["pipe", "pipe", "pipe"],
+          // Capture both stdout and stderr
+          maxBuffer: 10 * 1024 * 1024
+          // 10MB buffer for large responses
+        });
+        console.log(`[queryPersona] SUCCESS: Got response from ${persona}`);
+        console.log(`[queryPersona] Response length: ${response.length} chars`);
+        console.log(`[queryPersona] Response preview: ${response.substring(0, 200)}...`);
+        resolve(response);
+      } catch (error) {
+        console.log(`[queryPersona] ERROR in execSync:`, error.message);
+        if (error.stderr) {
+          console.log(`[queryPersona] stderr:`, error.stderr.toString());
+        }
+        if (error.stdout) {
+          console.log(`[queryPersona] stdout:`, error.stdout.toString());
+        }
+        reject(error);
+      }
     });
-    return response;
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        console.log(`[queryPersona] TIMEOUT: Query to ${persona} exceeded ${timeoutMs}ms`);
+        reject(new Error(`Query to ${persona} timed out after ${timeoutMs}ms. Persona may be slow or API key may be missing/invalid.`));
+      }, timeoutMs + 1e3);
+    });
+    const result = await Promise.race([queryPromise, timeoutPromise]);
+    console.log(`[queryPersona] ========== QUERY END (SUCCESS) ==========`);
+    return result;
   } catch (error) {
+    console.log(`[queryPersona] ========== QUERY END (ERROR) ==========`);
     let errorDetail = error.message;
     if (error.stderr) {
       errorDetail = error.stderr.toString();
     } else if (error.stdout) {
       errorDetail = error.stdout.toString();
     }
+    console.log(`[queryPersona] Final error detail: ${errorDetail}`);
     throw new Error(`Rhizome query failed:
 ${errorDetail}`);
   }
 }
-async function getAvailablePersonas() {
+async function checkApiKeyAvailable(workspaceRoot) {
+  const { execSync: execSync2 } = require("child_process");
+  const fs2 = require("fs");
+  const path2 = require("path");
+  const cwd = workspaceRoot || vscode2.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  console.log(`[checkApiKeyAvailable] Checking API key in workspace: ${cwd}`);
+  const envKeys = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "RHIZOME_API_KEY"];
+  for (const key of envKeys) {
+    if (process.env[key]) {
+      console.log(`[checkApiKeyAvailable] Found ${key} in environment`);
+      return true;
+    }
+  }
+  console.log(`[checkApiKeyAvailable] No API keys in environment variables`);
   try {
-    const { execSync: execSync2 } = require("child_process");
-    const cwd = vscode2.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const configPath = path2.join(cwd, ".rhizome", "config.json");
+    console.log(`[checkApiKeyAvailable] Checking config at: ${configPath}`);
+    if (fs2.existsSync(configPath)) {
+      const config = JSON.parse(fs2.readFileSync(configPath, "utf-8"));
+      console.log(`[checkApiKeyAvailable] Config exists. Checking for API keys...`);
+      console.log(`[checkApiKeyAvailable] Config structure:`, JSON.stringify(config, null, 2).substring(0, 500));
+      if (config.ai?.openai_key) {
+        console.log(`[checkApiKeyAvailable] Found ai.openai_key in config`);
+        return true;
+      }
+      if (config.ai?.key) {
+        console.log(`[checkApiKeyAvailable] Found ai.key in config`);
+        return true;
+      }
+      if (config.openai_api_key) {
+        console.log(`[checkApiKeyAvailable] Found openai_api_key in config`);
+        return true;
+      }
+      console.log(`[checkApiKeyAvailable] Config found but no API key field detected`);
+    } else {
+      console.log(`[checkApiKeyAvailable] No config file found at ${configPath}`);
+    }
+  } catch (error) {
+    console.log(`[checkApiKeyAvailable] Error reading config:`, error.message);
+  }
+  try {
+    console.log(`[checkApiKeyAvailable] Attempting to read rhizome config via CLI...`);
+    const configOutput = execSync2("rhizome config get ai", {
+      encoding: "utf-8",
+      cwd,
+      stdio: ["pipe", "pipe", "pipe"],
+      timeout: 5e3
+    });
+    console.log(`[checkApiKeyAvailable] rhizome config output:`, configOutput.substring(0, 200));
+    if (configOutput && configOutput.includes("key")) {
+      console.log(`[checkApiKeyAvailable] Found key reference in rhizome config`);
+      return true;
+    }
+  } catch (error) {
+    console.log(`[checkApiKeyAvailable] Could not read rhizome config:`, error.message);
+  }
+  console.log(`[checkApiKeyAvailable] RESULT: No API key found`);
+  return false;
+}
+async function getAvailablePersonas() {
+  console.log(`[getAvailablePersonas] ========== FETCH PERSONAS START ==========`);
+  const { execSync: execSync2 } = require("child_process");
+  const cwd = vscode2.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  console.log(`[getAvailablePersonas] Workspace: ${cwd}`);
+  console.log(`[getAvailablePersonas] Executing: rhizome persona list`);
+  try {
     const output = execSync2("rhizome persona list", {
       encoding: "utf-8",
       timeout: 5e3,
@@ -15495,25 +15598,47 @@ async function getAvailablePersonas() {
       cwd
       // Run in workspace context
     });
+    console.log(`[getAvailablePersonas] Raw output length: ${output.length} chars`);
+    console.log(`[getAvailablePersonas] Raw output:
+${output}`);
     const personas = /* @__PURE__ */ new Map();
     const lines = output.split("\n");
+    console.log(`[getAvailablePersonas] Total lines in output: ${lines.length}`);
+    let parsedCount = 0;
     for (const line of lines) {
+      if (!line.trim())
+        continue;
       const match = line.match(/^(\S+)\s+\|\s+role:\s+(.+?)\s+\|\s+source:/);
       if (match) {
         const name = match[1].trim();
         const role = match[2].trim();
         personas.set(name, role);
+        console.log(`[getAvailablePersonas] Parsed: ${name} => ${role.substring(0, 50)}`);
+        parsedCount++;
+      } else {
+        console.log(`[getAvailablePersonas] Could not parse line: ${line.substring(0, 100)}`);
       }
     }
+    console.log(`[getAvailablePersonas] ========== FETCH PERSONAS END (SUCCESS) ==========`);
+    console.log(`[getAvailablePersonas] Total personas found: ${personas.size}`);
+    console.log(`[getAvailablePersonas] Personas list:`, Array.from(personas.keys()).join(", "));
     return personas;
-  } catch {
-    return /* @__PURE__ */ new Map([
+  } catch (error) {
+    console.log(`[getAvailablePersonas] ERROR fetching personas:`, error.message);
+    if (error.stderr) {
+      console.log(`[getAvailablePersonas] stderr:`, error.stderr.toString());
+    }
+    console.log(`[getAvailablePersonas] Falling back to hardcoded personas`);
+    const fallback = /* @__PURE__ */ new Map([
       ["don-socratic", "Socratic questioning"],
       ["dev-guide", "Mentor: What were you trying to accomplish?"],
       ["code-reviewer", "Skeptic: What's your evidence?"],
       ["ux-advocate", "Curator: Have we watched someone use this?"],
       ["dev-advocate", "Strategist: What trade-off are we making?"]
     ]);
+    console.log(`[getAvailablePersonas] ========== FETCH PERSONAS END (FALLBACK) ==========`);
+    console.log(`[getAvailablePersonas] Fallback personas: ${Array.from(fallback.keys()).join(", ")}`);
+    return fallback;
   }
 }
 function formatPersonaOutput(channel, personaName, selectedCode, response) {
@@ -15840,9 +15965,24 @@ async function performHealthCheck(workspaceRoot) {
   }
 }
 function activate(context) {
+  console.log("[vscode-rhizome] ========== ACTIVATION START ==========");
   console.log("[vscode-rhizome] Activation starting");
   ensureLocalBinOnPath();
   console.log("[vscode-rhizome] Local bin path ensured");
+  (async () => {
+    console.log("[vscode-rhizome] Fetching available personas on startup...");
+    try {
+      const personas = await getAvailablePersonas();
+      console.log("[vscode-rhizome] ========== AVAILABLE PERSONAS AT STARTUP ==========");
+      console.log(`[vscode-rhizome] Total: ${personas.size} personas`);
+      for (const [name, role] of personas) {
+        console.log(`[vscode-rhizome]   - ${name}: ${role}`);
+      }
+      console.log("[vscode-rhizome] ========== END PERSONAS LIST ==========");
+    } catch (error) {
+      console.log("[vscode-rhizome] ERROR fetching personas on startup:", error.message);
+    }
+  })();
   let healthCheckDisposable = vscode2.commands.registerCommand("vscode-rhizome.healthCheck", async () => {
     const workspaceRoot = vscode2.workspace.workspaceFolders?.[0]?.uri.fsPath;
     if (!workspaceRoot) {
@@ -16062,12 +16202,15 @@ ${selectedText}`;
     }
   );
   context.subscriptions.push(documentWithPersonaDisposable);
-  console.log("[vscode-rhizome] Activation complete. Commands registered:");
+  console.log("[vscode-rhizome] ========== ACTIVATION COMPLETE ==========");
+  console.log("[vscode-rhizome] Commands registered:");
   console.log("[vscode-rhizome]   - vscode-rhizome.healthCheck");
   console.log("[vscode-rhizome]   - vscode-rhizome.init");
   console.log("[vscode-rhizome]   - vscode-rhizome.askPersona");
   console.log("[vscode-rhizome]   - vscode-rhizome.documentWithPersona");
   console.log("[vscode-rhizome]   - @rhizome ask <persona> autocomplete");
+  console.log("[vscode-rhizome] Ready to use! Open Debug Console (Cmd+Shift+U) to see activity logs.");
+  console.log("[vscode-rhizome] ========== ACTIVATION END ==========");
 }
 function deactivate() {
 }
