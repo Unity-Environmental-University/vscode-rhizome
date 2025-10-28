@@ -49,7 +49,7 @@ var require_lib = __commonJS({
         }
       return t;
     }
-    var Position = class {
+    var Position2 = class {
       constructor(line, col, index) {
         this.line = void 0;
         this.column = void 0;
@@ -75,7 +75,7 @@ var require_lib = __commonJS({
         column,
         index
       } = position;
-      return new Position(line, column + columnOffset, index + columnOffset);
+      return new Position2(line, column + columnOffset, index + columnOffset);
     }
     var code = "BABEL_PARSER_SOURCETYPE_MODULE_REQUIRED";
     var ModuleErrors = {
@@ -419,7 +419,7 @@ var require_lib = __commonJS({
             column,
             index
           } = (_overrides$loc = overrides.loc) != null ? _overrides$loc : loc;
-          return constructor(new Position(line, column, index), Object.assign({}, details, overrides.details));
+          return constructor(new Position2(line, column, index), Object.assign({}, details, overrides.details));
         });
         defineHidden(error, "details", details);
         Object.defineProperty(error, "message", {
@@ -5339,7 +5339,7 @@ var require_lib = __commonJS({
         this.startIndex = startIndex;
         this.curLine = startLine;
         this.lineStart = -startColumn;
-        this.startLoc = this.endLoc = new Position(startLine, startColumn, startIndex);
+        this.startLoc = this.endLoc = new Position2(startLine, startColumn, startIndex);
       }
       get maybeInArrowParameters() {
         return (this.flags & 2) > 0;
@@ -5450,7 +5450,7 @@ var require_lib = __commonJS({
           this.flags &= -4097;
       }
       curPosition() {
-        return new Position(this.curLine, this.pos - this.lineStart, this.pos + this.startIndex);
+        return new Position2(this.curLine, this.pos - this.lineStart, this.pos + this.startIndex);
       }
       clone() {
         const state = new _State();
@@ -5768,7 +5768,7 @@ var require_lib = __commonJS({
       };
     }
     function buildPosition(pos, lineStart, curLine) {
-      return new Position(curLine, pos - lineStart, pos);
+      return new Position2(curLine, pos - lineStart, pos);
     }
     var VALID_REGEX_FLAGS = /* @__PURE__ */ new Set([103, 109, 115, 105, 121, 117, 100, 118]);
     var Token = class {
@@ -6674,7 +6674,7 @@ var require_lib = __commonJS({
         this.state.lineStart = lineStart;
         this.state.curLine = curLine;
         if (firstInvalidLoc) {
-          this.state.firstInvalidTemplateEscapePos = new Position(firstInvalidLoc.curLine, firstInvalidLoc.pos - firstInvalidLoc.lineStart, this.sourceToOffsetPos(firstInvalidLoc.pos));
+          this.state.firstInvalidTemplateEscapePos = new Position2(firstInvalidLoc.curLine, firstInvalidLoc.pos - firstInvalidLoc.lineStart, this.sourceToOffsetPos(firstInvalidLoc.pos));
         }
         if (this.input.codePointAt(pos) === 96) {
           this.finishToken(24, firstInvalidLoc ? null : opening + str + "`");
@@ -6748,7 +6748,7 @@ var require_lib = __commonJS({
         }
       }
       raise(toParseError, at, details = {}) {
-        const loc = at instanceof Position ? at : at.loc.start;
+        const loc = at instanceof Position2 ? at : at.loc.start;
         const error = toParseError(loc, details);
         if (!(this.optionFlags & 2048))
           throw error;
@@ -6757,7 +6757,7 @@ var require_lib = __commonJS({
         return error;
       }
       raiseOverwrite(toParseError, at, details = {}) {
-        const loc = at instanceof Position ? at : at.loc.start;
+        const loc = at instanceof Position2 ? at : at.loc.start;
         const pos = loc.index;
         const errors = this.state.errors;
         for (let i = errors.length - 1; i >= 0; i--) {
@@ -14875,7 +14875,7 @@ __export(extension_exports, {
   deactivate: () => deactivate
 });
 module.exports = __toCommonJS(extension_exports);
-var vscode2 = __toESM(require("vscode"));
+var vscode4 = __toESM(require("vscode"));
 
 // src/stubGenerator.ts
 function generateStub(functionName, params, returnType, language, options) {
@@ -15458,6 +15458,1073 @@ function ensureLocalBinOnPath() {
   }
 }
 
+// src/epistleRegistry.ts
+var fs2 = __toESM(require("fs"));
+var path2 = __toESM(require("path"));
+var EpistleRegistry = class {
+  constructor(workspaceRoot) {
+    this.entries = /* @__PURE__ */ new Map();
+    this.registryPath = path2.join(
+      workspaceRoot,
+      ".rhizome",
+      "plugins",
+      "epistles",
+      "registry.ndjson"
+    );
+    this.loadRegistry();
+  }
+  /**
+   * Load registry from disk
+   *
+   * @rhizome: How do we read NDJSON?
+   * Line-delimited JSON: each line is one JSON object.
+   * We split by newline, parse each non-empty line.
+   */
+  loadRegistry() {
+    try {
+      if (!fs2.existsSync(this.registryPath)) {
+        fs2.mkdirSync(path2.dirname(this.registryPath), { recursive: true });
+        fs2.writeFileSync(this.registryPath, "");
+        return;
+      }
+      const content = fs2.readFileSync(this.registryPath, "utf-8");
+      const lines = content.split("\n").filter((line) => line.trim());
+      this.entries.clear();
+      for (const line of lines) {
+        try {
+          const entry = JSON.parse(line);
+          this.entries.set(entry.id, entry);
+        } catch (e) {
+          console.error(`Failed to parse registry line: ${line}`);
+        }
+      }
+    } catch (e) {
+      console.error(`Failed to load epistle registry: ${e}`);
+    }
+  }
+  /**
+   * Save registry to disk
+   */
+  saveRegistry() {
+    try {
+      const lines = Array.from(this.entries.values()).map(
+        (entry) => JSON.stringify(entry)
+      );
+      const content = lines.join("\n");
+      fs2.writeFileSync(this.registryPath, content);
+    } catch (e) {
+      console.error(`Failed to save epistle registry: ${e}`);
+    }
+  }
+  /**
+   * Add a new epistle to the registry
+   */
+  addEntry(entry) {
+    this.entries.set(entry.id, entry);
+    this.saveRegistry();
+  }
+  /**
+   * Update an existing epistle in the registry
+   */
+  updateEntry(id, updates) {
+    const entry = this.entries.get(id);
+    if (entry) {
+      this.entries.set(id, { ...entry, ...updates });
+      this.saveRegistry();
+    }
+  }
+  /**
+   * Get a single epistle by ID
+   */
+  getEntry(id) {
+    return this.entries.get(id);
+  }
+  /**
+   * Get all epistles
+   */
+  getAllEntries() {
+    return Array.from(this.entries.values());
+  }
+  /**
+   * Get epistles by type
+   */
+  getEntriesByType(type) {
+    return this.getAllEntries().filter((e) => e.type === type);
+  }
+  /**
+   * Get epistles by persona
+   */
+  getEntriesByPersona(persona) {
+    return this.getAllEntries().filter((e) => e.personas.includes(persona));
+  }
+  /**
+   * Get epistles by date (ISO format)
+   */
+  getEntriesByDate(date) {
+    return this.getAllEntries().filter((e) => e.date === date);
+  }
+  /**
+   * Get epistles by flight plan
+   */
+  getEntriesByFlightPlan(flightPlan) {
+    return this.getAllEntries().filter((e) => e.flight_plan === flightPlan);
+  }
+  /**
+   * Get inline epistles in a specific file
+   */
+  getInlineEpistlesInFile(filepath) {
+    return this.getAllEntries().filter(
+      (e) => e.type === "inline" && e.inline_file === filepath
+    );
+  }
+  /**
+   * Get dynamic personas (not tied to a specific interaction)
+   */
+  getDynamicPersonas() {
+    return this.getAllEntries().filter((e) => e.type === "dynamic_persona");
+  }
+  /**
+   * Get dynamic persona by source file
+   */
+  getDynamicPersonaForFile(sourceFile) {
+    return this.getAllEntries().find(
+      (e) => e.type === "dynamic_persona" && e.source_file === sourceFile
+    );
+  }
+  /**
+   * Search epistles by keyword (in topic, context, keywords)
+   */
+  search(query) {
+    const lowerQuery = query.toLowerCase();
+    return this.getAllEntries().filter((e) => {
+      const matchTopic = e.topic?.toLowerCase().includes(lowerQuery);
+      const matchKeywords = e.keywords?.some((k) => k.toLowerCase().includes(lowerQuery));
+      const matchContext = e.context?.some((c) => c.toLowerCase().includes(lowerQuery));
+      return matchTopic || matchKeywords || matchContext;
+    });
+  }
+  /**
+   * Generate a unique ID for a new epistle
+   *
+   * @rhizome: How should we name epistles?
+   * For letters: epistle-TIMESTAMP-TOPIC (e.g., epistle-1761677263-error-handling)
+   * For inline: inline-epistlе-TIMESTAMP-FILEHASH (tracks location in file)
+   * For personas: persona-FILENAME-TIMESTAMP
+   *
+   * Always include random suffix for uniqueness even within same millisecond
+   */
+  generateId(type, context) {
+    const timestamp = Date.now();
+    const randomSuffix = Math.random().toString(36).substring(2, 8);
+    switch (type) {
+      case "letter":
+        const topicSlug = context?.toLowerCase().replace(/\s+/g, "-").substring(0, 20) || "epistle";
+        return `epistle-${timestamp}-${topicSlug}-${randomSuffix}`;
+      case "inline":
+        return `inline-epistle-${timestamp}-${randomSuffix}`;
+      case "dynamic_persona":
+        const personaName = context?.toLowerCase().replace(/[^a-z0-9-]/g, "-") || "persona";
+        return `persona-${personaName}-${timestamp}-${randomSuffix}`;
+    }
+  }
+  /**
+   * Get registry file path
+   */
+  getRegistryPath() {
+    return this.registryPath;
+  }
+};
+function createEpistleRegistry(workspaceRoot) {
+  return new EpistleRegistry(workspaceRoot);
+}
+
+// src/epistleCommands.ts
+var vscode2 = __toESM(require("vscode"));
+var path4 = __toESM(require("path"));
+
+// src/epistleGenerator.ts
+var fs3 = __toESM(require("fs"));
+var path3 = __toESM(require("path"));
+var LetterEpistleGenerator = class {
+  /**
+   * Generate letter epistle markdown content
+   *
+   * @rhizome: What should a letter template contain?
+   * - Metadata: date, topic, code context, linked flight plan, status
+   * - Dialog section: persona names with conversation template
+   * - Calls to action: "user fills in or uses persona query to populate"
+   */
+  static generateContent(context, id) {
+    const date = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+    const personaList = context.personas.join(" \u2194 ");
+    const codeLocation = `${path3.basename(context.selectedFile)}:${context.selectedLines.start}-${context.selectedLines.end}`;
+    const dialogSection = context.personas.map((persona) => `**${persona}:**
+[Your response here]
+`).join("\n");
+    const template = `# Epistle: ${personaList}
+
+**Date**: ${date}
+**Topic**: ${context.topic}
+**Code context**: ${codeLocation}
+**Linked flight plan**: ${context.flightPlan || "None"}
+**Status**: draft
+
+## Code Selection
+
+\`\`\`${context.language || "text"}
+${context.selectedCode}
+\`\`\`
+
+## Dialog
+
+${dialogSection}
+
+## Notes
+
+- Use this space to record the multi-persona discussion about the code
+- Each persona can ask questions, challenge assumptions, propose solutions
+- Capture the reasoning behind your design decision
+- Mark status as "resolved" when the discussion is complete
+- You can link this epistle to a flight plan to keep design reasoning with your work
+`;
+    return template;
+  }
+  /**
+   * Create a letter epistle file
+   */
+  static createFile(context, id, epistlesDirectory) {
+    const filename = `${id}.md`;
+    const filePath = path3.join(epistlesDirectory, filename);
+    const content = this.generateContent(context, id);
+    fs3.mkdirSync(epistlesDirectory, { recursive: true });
+    fs3.writeFileSync(filePath, content, "utf-8");
+    return { filePath, content };
+  }
+  /**
+   * Generate registry entry for letter epistle
+   */
+  static generateRegistryEntry(id, context, filename) {
+    return {
+      id,
+      type: "letter",
+      date: (/* @__PURE__ */ new Date()).toISOString().split("T")[0],
+      personas: context.personas,
+      topic: context.topic,
+      status: "draft",
+      flight_plan: context.flightPlan,
+      file: filename,
+      keywords: [context.topic, ...context.personas],
+      context: [context.selectedFile]
+    };
+  }
+};
+var InlineEpistleGenerator = class {
+  /**
+   * Detect comment syntax for a given language
+   *
+   * @rhizome: How do we know the comment syntax?
+   * Map of common languages to their comment characters.
+   * If language not found, default to //.
+   */
+  static getCommentSyntax(language) {
+    const syntaxMap = {
+      typescript: { single: "//", start: "/*", end: "*/" },
+      javascript: { single: "//", start: "/*", end: "*/" },
+      python: { single: "#", start: '"""', end: '"""' },
+      java: { single: "//", start: "/*", end: "*/" },
+      go: { single: "//", start: "/*", end: "*/" },
+      rust: { single: "//", start: "/*", end: "*/" },
+      cpp: { single: "//", start: "/*", end: "*/" },
+      c: { single: "//", start: "/*", end: "*/" },
+      csharp: { single: "//", start: "/*", end: "*/" },
+      ruby: { single: "#", start: "=begin", end: "=end" },
+      html: { single: "<!-- ", start: "<!--", end: "-->" },
+      css: { single: "", start: "/*", end: "*/" }
+    };
+    return syntaxMap[language.toLowerCase()] || { single: "//", start: "/*", end: "*/" };
+  }
+  /**
+   * Generate inline epistle comment block
+   *
+   * @rhizome: What format for inline epistles?
+   * Header: "EPISTLE: topic"
+   * Lines: "// [persona]: [response]" (language-aware comment syntax)
+   * Template entries for user to fill in
+   */
+  static generateCommentBlock(context, id) {
+    const syntax = this.getCommentSyntax(context.language || "typescript");
+    const commentChar = syntax.single || "//";
+    const dialogLines = context.personas.map((persona) => `${commentChar} ${persona}: [response pending]`).join("\n");
+    const block = `${commentChar} EPISTLE ${id}: ${context.topic}
+${dialogLines}`;
+    return block;
+  }
+  /**
+   * Insert inline epistle above selection in editor
+   *
+   * @rhizome: Why return true/false?
+   * So callers know if insertion succeeded (editor might be closed, etc).
+   */
+  static insertAboveSelection(editor, commentBlock) {
+    try {
+      editor.edit((editBuilder) => {
+        const insertPosition = editor.selection.start;
+        editBuilder.insert(insertPosition, commentBlock + "\n");
+      });
+      return true;
+    } catch (e) {
+      console.error(`Failed to insert inline epistle: ${e}`);
+      return false;
+    }
+  }
+  /**
+   * Generate registry entry for inline epistle
+   */
+  static generateRegistryEntry(id, context) {
+    return {
+      id,
+      type: "inline",
+      date: (/* @__PURE__ */ new Date()).toISOString().split("T")[0],
+      personas: context.personas,
+      inline_file: context.selectedFile,
+      lines: `${context.selectedLines.start}-${context.selectedLines.end}`,
+      keywords: [context.topic, ...context.personas],
+      context: [context.selectedFile]
+    };
+  }
+};
+var DynamicPersonaGenerator = class {
+  /**
+   * Analyze a source file to understand its perspective
+   *
+   * @rhizome: How do we analyze a file?
+   * Extract:
+   * - Imports (what does it depend on?)
+   * - Error patterns (how does it handle errors?)
+   * - Type annotations (strict or lenient?)
+   * - Variable names (semantic or brief?)
+   * - Module structure (monolithic or modular?)
+   *
+   * This is a heuristic approach, not perfect AST parsing.
+   */
+  static analyzeFile(filepath) {
+    const content = fs3.readFileSync(filepath, "utf-8");
+    const language = this.detectLanguage(filepath);
+    const imports = this.extractImports(content, language);
+    const errorPatterns = this.findErrorPatterns(content, language);
+    const typeSafety = this.analyzeTypeSafety(content, language);
+    const namingStyle = this.analyzeNamingStyle(content);
+    const structure = this.analyzeStructure(content, language);
+    const mainConcerns = this.deriveMainConcerns(
+      imports,
+      errorPatterns,
+      typeSafety,
+      structure
+    );
+    return {
+      filepath,
+      language,
+      imports,
+      errorPatterns,
+      typeSafety,
+      namingStyle,
+      structure,
+      mainConcerns
+    };
+  }
+  /**
+   * Generate persona name and philosophy from file analysis
+   */
+  static generatePersonaFromAnalysis(analysis) {
+    const baseFileName = path3.basename(analysis.filepath, path3.extname(analysis.filepath));
+    const name = `${baseFileName}-advocate`;
+    const philosophyParts = [];
+    if (analysis.errorPatterns.includes("try-catch")) {
+      philosophyParts.push(
+        "I believe in graceful error handling and recovery strategies"
+      );
+    } else if (analysis.errorPatterns.includes("error-result")) {
+      philosophyParts.push(
+        "I believe in explicit error types and Result-based error handling"
+      );
+    }
+    if (analysis.typeSafety === "strict") {
+      philosophyParts.push("I care deeply about type safety and avoiding implicit coercions");
+    } else if (analysis.typeSafety === "lenient") {
+      philosophyParts.push("I prefer flexibility and runtime type adaptability");
+    }
+    if (analysis.structure === "modular") {
+      philosophyParts.push("I advocate for clear module boundaries and single responsibilities");
+    } else if (analysis.structure === "monolithic") {
+      philosophyParts.push(
+        "I focus on comprehensive context and tightly integrated concerns"
+      );
+    }
+    const concernsList = analysis.mainConcerns.join(", ");
+    const philosophy = philosophyParts.length > 0 ? philosophyParts.join(". ") + "." : `I represent the perspective of ${analysis.filepath}.`;
+    return {
+      name,
+      philosophy,
+      concerns: analysis.mainConcerns
+    };
+  }
+  /**
+   * Generate registry entry for dynamic persona
+   */
+  static generateRegistryEntry(id, name, sourceFile) {
+    return {
+      id,
+      type: "dynamic_persona",
+      date: (/* @__PURE__ */ new Date()).toISOString().split("T")[0],
+      personas: [name],
+      source_file: sourceFile,
+      name,
+      created_at: (/* @__PURE__ */ new Date()).toISOString(),
+      keywords: ["dynamic-persona", name]
+    };
+  }
+  // ===== Private helper methods =====
+  static detectLanguage(filepath) {
+    const ext = path3.extname(filepath).toLowerCase();
+    const extMap = {
+      ".ts": "typescript",
+      ".js": "javascript",
+      ".py": "python",
+      ".java": "java",
+      ".go": "go",
+      ".rs": "rust",
+      ".cpp": "cpp",
+      ".c": "c",
+      ".cs": "csharp",
+      ".rb": "ruby"
+    };
+    return extMap[ext] || "text";
+  }
+  static extractImports(content, language) {
+    const imports = [];
+    const importRegexes = {
+      typescript: /^import\s+.*\s+from\s+['"]([^'"]+)['"]/gm,
+      javascript: /^import\s+.*\s+from\s+['"]([^'"]+)['"]/gm,
+      python: /^import\s+(\S+)|^from\s+(\S+)\s+import/gm,
+      java: /^import\s+([^;]+)/gm
+    };
+    const regex = importRegexes[language];
+    if (regex) {
+      let match;
+      while ((match = regex.exec(content)) !== null) {
+        imports.push(match[1] || match[2] || match[0]);
+      }
+    }
+    return [...new Set(imports)];
+  }
+  static findErrorPatterns(content, language) {
+    const patterns = [];
+    if (/try\s*{|catch\s*\(/m.test(content)) {
+      patterns.push("try-catch");
+    }
+    if (/Result<|Ok\(|Err\(/m.test(content)) {
+      patterns.push("error-result");
+    }
+    if (/throw new|raise /m.test(content)) {
+      patterns.push("exceptions");
+    }
+    if (/if\s+\(.*error|if\s+\(!.*success/m.test(content)) {
+      patterns.push("error-checking");
+    }
+    return patterns;
+  }
+  static analyzeTypeSafety(content, language) {
+    const typeAnnotationCount = (content.match(/:\s*\w+|as\s+\w+|<\w+>/g) || []).length;
+    const totalLines = content.split("\n").length;
+    const typeAnnotationRatio = typeAnnotationCount / Math.max(totalLines, 1);
+    if (typeAnnotationRatio > 0.3) {
+      return "strict";
+    } else if (typeAnnotationRatio < 0.1) {
+      return "lenient";
+    }
+    return "mixed";
+  }
+  static analyzeNamingStyle(content) {
+    const names = content.match(/const\s+(\w+)|let\s+(\w+)|var\s+(\w+)|function\s+(\w+)/g) || [];
+    const longNames = names.filter((n) => n.split(/\s+/)[1].length > 10).length;
+    const ratio = longNames / Math.max(names.length, 1);
+    if (ratio > 0.5) {
+      return "semantic";
+    } else if (ratio < 0.2) {
+      return "brief";
+    }
+    return "mixed";
+  }
+  static analyzeStructure(content, language) {
+    const functionCount = (content.match(/function\s+\w+|const\s+\w+\s*=/g) || []).length;
+    const exportCount = (content.match(/export\s+|module\.exports/g) || []).length;
+    const linesPerFunction = content.split("\n").length / Math.max(functionCount, 1);
+    if (exportCount > functionCount * 0.3) {
+      return "modular";
+    } else if (linesPerFunction > 50) {
+      return "monolithic";
+    }
+    return "mixed";
+  }
+  static deriveMainConcerns(imports, errorPatterns, typeSafety, structure) {
+    const concerns = [];
+    if (errorPatterns.length > 0) {
+      concerns.push("Error handling and recovery");
+    }
+    if (typeSafety === "strict") {
+      concerns.push("Type safety and correctness");
+    }
+    if (structure === "modular") {
+      concerns.push("Module boundaries and separation of concerns");
+    }
+    if (imports.includes("react") || imports.includes("vue")) {
+      concerns.push("Component lifecycle and UI behavior");
+    }
+    return concerns.length > 0 ? concerns : ["Core functionality and reliability"];
+  }
+};
+
+// src/epistleCommands.ts
+async function showPersonaPicker(curated = ["dev-guide", "code-reviewer", "dev-advocate", "don-socratic"]) {
+  const items = curated.map((p) => ({
+    label: p,
+    picked: false
+  }));
+  const selected = await vscode2.window.showQuickPick(items, {
+    canPickMany: true,
+    placeHolder: "Select personas for epistle (arrow keys + space, then Enter)",
+    title: "Choose personas to discuss this code"
+  });
+  return selected?.map((s) => s.label);
+}
+async function getEpistleTopic() {
+  return vscode2.window.showInputBox({
+    placeHolder: 'e.g., "Error handling strategy" or "Why is this async?"',
+    prompt: "What is the topic of this epistle?",
+    title: "Epistle Topic",
+    validateInput: (value) => {
+      if (value.trim().length === 0) {
+        return "Topic cannot be empty";
+      }
+      if (value.length > 100) {
+        return "Topic must be less than 100 characters";
+      }
+      return null;
+    }
+  });
+}
+async function selectFlightPlanLink() {
+  const response = await vscode2.window.showQuickPick(
+    [
+      { label: "No, skip linking", description: "Epistle stands alone" },
+      { label: "Yes, link to active flight plan", description: "Recommended for audit trail" }
+    ],
+    {
+      placeHolder: "Link this epistle to a flight plan?",
+      title: "Flight Plan Linking"
+    }
+  );
+  if (response?.label === "Yes, link to active flight plan") {
+    return "fp-epistle-vscode-integration";
+  }
+  return void 0;
+}
+async function recordLetterEpistle(editor, registry, telemetry2, epistlesDir) {
+  telemetry2("EPISTLE", "START", "Record letter epistle");
+  try {
+    const selectedCode = editor.document.getText(editor.selection);
+    const selectedFile = editor.document.fileName;
+    const selectedLines = {
+      start: editor.selection.start.line + 1,
+      end: editor.selection.end.line + 1
+    };
+    if (selectedCode.trim().length === 0) {
+      telemetry2("EPISTLE", "ERROR", "No code selected");
+      vscode2.window.showErrorMessage("Please select some code before recording an epistle");
+      return;
+    }
+    telemetry2("EPISTLE", "STEP", "Code selected", {
+      codeLength: selectedCode.length,
+      file: path4.basename(selectedFile)
+    });
+    const personas = await showPersonaPicker();
+    if (!personas || personas.length === 0) {
+      telemetry2("EPISTLE", "ERROR", "No personas selected");
+      return;
+    }
+    telemetry2("EPISTLE", "STEP", "Personas selected", { personas });
+    const topic = await getEpistleTopic();
+    if (!topic) {
+      telemetry2("EPISTLE", "ERROR", "No topic provided");
+      return;
+    }
+    telemetry2("EPISTLE", "STEP", "Topic provided", { topic });
+    const flightPlan = await selectFlightPlanLink();
+    telemetry2("EPISTLE", "STEP", "Flight plan linking", {
+      linked: !!flightPlan,
+      flightPlan
+    });
+    const context = {
+      selectedCode,
+      selectedFile,
+      selectedLines,
+      personas,
+      topic,
+      flightPlan,
+      language: editor.document.languageId
+    };
+    const id = registry.generateId("letter", topic);
+    const { filePath, content } = LetterEpistleGenerator.createFile(context, id, epistlesDir);
+    telemetry2("EPISTLE", "STEP", "Epistle file created", {
+      id,
+      filepath: path4.basename(filePath)
+    });
+    const entry = LetterEpistleGenerator.generateRegistryEntry(id, context, path4.basename(filePath));
+    registry.addEntry(entry);
+    telemetry2("EPISTLE", "STEP", "Epistle registered", { id });
+    const doc = await vscode2.workspace.openTextDocument(filePath);
+    await vscode2.window.showTextDocument(doc);
+    telemetry2("EPISTLE", "SUCCESS", "Letter epistle recorded", {
+      id,
+      topic,
+      personas: personas.length
+    });
+    vscode2.window.showInformationMessage(
+      `\u2713 Epistle "${topic}" created! Fill in the dialog and save.`
+    );
+  } catch (error) {
+    telemetry2("EPISTLE", "ERROR", "Failed to record letter epistle", {
+      error: error.message
+    });
+    vscode2.window.showErrorMessage(`Failed to record epistle: ${error.message}`);
+  }
+}
+async function recordInlineEpistle(editor, registry, telemetry2) {
+  telemetry2("EPISTLE", "START", "Record inline epistle");
+  try {
+    const selectedCode = editor.document.getText(editor.selection);
+    const selectedFile = editor.document.fileName;
+    const selectedLines = {
+      start: editor.selection.start.line + 1,
+      end: editor.selection.end.line + 1
+    };
+    if (selectedCode.trim().length === 0) {
+      telemetry2("EPISTLE", "ERROR", "No code selected");
+      vscode2.window.showErrorMessage("Please select some code before recording an inline epistle");
+      return;
+    }
+    telemetry2("EPISTLE", "STEP", "Code selected for inline epistle", {
+      codeLength: selectedCode.length
+    });
+    const personas = await showPersonaPicker();
+    if (!personas || personas.length === 0) {
+      telemetry2("EPISTLE", "ERROR", "No personas selected");
+      return;
+    }
+    telemetry2("EPISTLE", "STEP", "Personas selected", { personas });
+    const topic = await vscode2.window.showInputBox({
+      placeHolder: 'e.g., "Why is this async?" or "Error handling"',
+      prompt: "Brief description for inline epistle",
+      title: "Inline Epistle Topic"
+    });
+    if (!topic) {
+      telemetry2("EPISTLE", "ERROR", "No topic provided");
+      return;
+    }
+    telemetry2("EPISTLE", "STEP", "Topic provided", { topic });
+    const context = {
+      selectedCode,
+      selectedFile,
+      selectedLines,
+      personas,
+      topic,
+      language: editor.document.languageId
+    };
+    const id = registry.generateId("inline");
+    const commentBlock = InlineEpistleGenerator.generateCommentBlock(context, id);
+    const inserted = InlineEpistleGenerator.insertAboveSelection(editor, commentBlock);
+    if (!inserted) {
+      telemetry2("EPISTLE", "ERROR", "Failed to insert comment block");
+      vscode2.window.showErrorMessage("Failed to insert epistle comment");
+      return;
+    }
+    telemetry2("EPISTLE", "STEP", "Comment block inserted", { id });
+    const entry = InlineEpistleGenerator.generateRegistryEntry(id, context);
+    registry.addEntry(entry);
+    telemetry2("EPISTLE", "SUCCESS", "Inline epistle recorded", {
+      id,
+      topic,
+      personas: personas.length,
+      file: path4.basename(selectedFile)
+    });
+    vscode2.window.showInformationMessage(
+      `\u2713 Inline epistle "${topic}" created above your selection!`
+    );
+  } catch (error) {
+    telemetry2("EPISTLE", "ERROR", "Failed to record inline epistle", {
+      error: error.message
+    });
+    vscode2.window.showErrorMessage(`Failed to record inline epistle: ${error.message}`);
+  }
+}
+async function createDynamicPersona(filepath, registry, telemetry2) {
+  telemetry2("EPISTLE", "START", "Create dynamic persona from file", {
+    file: path4.basename(filepath)
+  });
+  try {
+    const existing = registry.getDynamicPersonaForFile(filepath);
+    if (existing) {
+      telemetry2("EPISTLE", "STEP", "Dynamic persona already exists", {
+        name: existing.name
+      });
+      vscode2.window.showInformationMessage(
+        `Persona '${existing.name}' already exists for this file.`
+      );
+      return;
+    }
+    const analysis = DynamicPersonaGenerator.analyzeFile(filepath);
+    telemetry2("EPISTLE", "STEP", "File analyzed", {
+      language: analysis.language,
+      errorPatterns: analysis.errorPatterns.length,
+      mainConcerns: analysis.mainConcerns.length
+    });
+    const { name, philosophy, concerns } = DynamicPersonaGenerator.generatePersonaFromAnalysis(analysis);
+    telemetry2("EPISTLE", "STEP", "Persona synthesized", {
+      name,
+      concerns: concerns.length
+    });
+    const id = registry.generateId("dynamic_persona", name);
+    const entry = DynamicPersonaGenerator.generateRegistryEntry(id, name, filepath);
+    registry.addEntry(entry);
+    telemetry2("EPISTLE", "SUCCESS", "Dynamic persona created", {
+      id,
+      name,
+      file: path4.basename(filepath)
+    });
+    vscode2.window.showInformationMessage(
+      `\u2713 Persona '${name}' created!
+
+Philosophy: ${philosophy}
+
+Key concerns: ${concerns.join(", ")}`
+    );
+  } catch (error) {
+    telemetry2("EPISTLE", "ERROR", "Failed to create dynamic persona", {
+      error: error.message
+    });
+    vscode2.window.showErrorMessage(`Failed to create persona: ${error.message}`);
+  }
+}
+
+// src/epistleSidebarProvider.ts
+var path5 = __toESM(require("path"));
+var vscode3;
+try {
+  vscode3 = require("vscode");
+} catch {
+}
+var EpistleTreeItem = class _EpistleTreeItem {
+  constructor(entry, workspaceRoot) {
+    this.entry = entry;
+    this.workspaceRoot = workspaceRoot;
+    this.label = _EpistleTreeItem.buildLabel(entry);
+    if (vscode3) {
+      this.collapsibleState = vscode3.TreeItemCollapsibleState.None;
+    }
+    this.iconPath = this.getIconPath();
+    this.description = this.buildDescription();
+    this.command = {
+      title: "Open Epistle",
+      command: "vscode-rhizome.openEpistle",
+      arguments: [entry, workspaceRoot]
+    };
+  }
+  static buildLabel(entry) {
+    switch (entry.type) {
+      case "letter":
+        return entry.topic || `Letter ${entry.id}`;
+      case "inline":
+        return `${path5.basename(entry.inline_file || "unknown")} (lines ${entry.lines})`;
+      case "dynamic_persona":
+        return `\u{1F464} ${entry.name || entry.id}`;
+    }
+  }
+  buildDescription() {
+    const parts = [];
+    parts.push(this.entry.date);
+    if (this.entry.personas?.length > 0) {
+      const personaStr = this.entry.personas.length === 1 ? this.entry.personas[0] : `${this.entry.personas.length} personas`;
+      parts.push(personaStr);
+    }
+    if (this.entry.status) {
+      parts.push(`[${this.entry.status}]`);
+    }
+    return parts.join(" \u2022 ");
+  }
+  getIconPath() {
+    if (!vscode3) {
+      return void 0;
+    }
+    switch (this.entry.type) {
+      case "letter":
+        return new vscode3.ThemeIcon("mail");
+      case "inline":
+        return new vscode3.ThemeIcon("comment");
+      case "dynamic_persona":
+        return new vscode3.ThemeIcon("account");
+    }
+  }
+};
+var EpistleCategory = class {
+  constructor(label, entries, collapsibleState = 1) {
+    this.label = label;
+    this.entries = entries;
+    this.collapsibleState = collapsibleState;
+    this.contextValue = "epistleCategory";
+  }
+};
+var EpistleSidebarProvider = class {
+  constructor(registry, workspaceRoot) {
+    this.registry = registry;
+    this.workspaceRoot = workspaceRoot;
+    // Event<vscode.TreeItem | undefined | null | void>
+    this.filterMode = "type";
+    this.searchQuery = "";
+    if (vscode3) {
+      this._onDidChangeTreeData = new vscode3.EventEmitter();
+      this.onDidChangeTreeData = this._onDidChangeTreeData.event;
+    }
+  }
+  /**
+   * Refresh the tree (called when registry changes)
+   */
+  refresh() {
+    if (this._onDidChangeTreeData) {
+      this._onDidChangeTreeData.fire();
+    }
+  }
+  /**
+   * Set filter mode and refresh
+   *
+   * @rhizome: Why expose this?
+   * Users might want to switch views: "Show me all letters" vs "Show me all by dev-guide"
+   * Quick picker to choose filter mode, then refresh.
+   */
+  setFilterMode(mode) {
+    this.filterMode = mode;
+    this.searchQuery = "";
+    this.refresh();
+  }
+  /**
+   * Set search query and refresh
+   */
+  setSearchQuery(query) {
+    this.searchQuery = query;
+    this.refresh();
+  }
+  /**
+   * Get root elements (top-level categories)
+   */
+  async getChildren(element) {
+    if (!element) {
+      return this.getRootCategories();
+    }
+    if (element instanceof EpistleCategory) {
+      return element.entries.map(
+        (entry) => new EpistleTreeItem(entry, this.workspaceRoot)
+      );
+    }
+    return [];
+  }
+  /**
+   * Get root categories based on filter mode
+   *
+   * @rhizome: What should the hierarchy be?
+   * Type view: Letters → Inlines → Dynamic personas
+   * Persona view: dev-guide → code-reviewer → ... (one category per persona)
+   * Date view: Today → This week → This month → Older
+   * Flight plan view: fp-xxx → fp-yyy → Unlinked
+   */
+  getRootCategories() {
+    let entries = this.registry.getAllEntries();
+    if (this.searchQuery.trim()) {
+      entries = this.registry.search(this.searchQuery);
+    }
+    switch (this.filterMode) {
+      case "type":
+        return this.categorizeByType(entries);
+      case "persona":
+        return this.categorizeByPersona(entries);
+      case "date":
+        return this.categorizeByDate(entries);
+      case "flight-plan":
+        return this.categorizeByFlightPlan(entries);
+    }
+  }
+  categorizeByType(entries) {
+    const categories = [];
+    const letters = entries.filter((e) => e.type === "letter");
+    if (letters.length > 0) {
+      categories.push(
+        new EpistleCategory(
+          `Letters (${letters.length})`,
+          letters,
+          0
+          // Expanded
+        )
+      );
+    }
+    const inlines = entries.filter((e) => e.type === "inline");
+    if (inlines.length > 0) {
+      categories.push(
+        new EpistleCategory(
+          `Inline Epistles (${inlines.length})`,
+          inlines,
+          1
+          // Collapsed
+        )
+      );
+    }
+    const personas = entries.filter((e) => e.type === "dynamic_persona");
+    if (personas.length > 0) {
+      categories.push(
+        new EpistleCategory(
+          `Dynamic Personas (${personas.length})`,
+          personas,
+          1
+          // Collapsed
+        )
+      );
+    }
+    return categories;
+  }
+  categorizeByPersona(entries) {
+    const personaMap = /* @__PURE__ */ new Map();
+    for (const entry of entries) {
+      for (const persona of entry.personas) {
+        if (!personaMap.has(persona)) {
+          personaMap.set(persona, []);
+        }
+        personaMap.get(persona).push(entry);
+      }
+    }
+    const categories = [];
+    const sorted = Array.from(personaMap.entries()).sort(
+      (a, b) => b[1].length - a[1].length
+    );
+    for (const [persona, epistles] of sorted) {
+      categories.push(
+        new EpistleCategory(
+          `${persona} (${epistles.length})`,
+          epistles,
+          1
+          // Collapsed
+        )
+      );
+    }
+    return categories;
+  }
+  categorizeByDate(entries) {
+    const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+    const yesterday = new Date(Date.now() - 864e5).toISOString().split("T")[0];
+    const weekAgo = new Date(Date.now() - 6048e5).toISOString().split("T")[0];
+    const today_entries = entries.filter((e) => e.date === today);
+    const yesterday_entries = entries.filter((e) => e.date === yesterday);
+    const week_entries = entries.filter(
+      (e) => e.date !== today && e.date !== yesterday && e.date >= weekAgo
+    );
+    const older_entries = entries.filter((e) => e.date < weekAgo);
+    const categories = [];
+    if (today_entries.length > 0) {
+      categories.push(
+        new EpistleCategory(
+          `Today (${today_entries.length})`,
+          today_entries,
+          0
+          // Expanded
+        )
+      );
+    }
+    if (yesterday_entries.length > 0) {
+      categories.push(
+        new EpistleCategory(
+          `Yesterday (${yesterday_entries.length})`,
+          yesterday_entries,
+          1
+          // Collapsed
+        )
+      );
+    }
+    if (week_entries.length > 0) {
+      categories.push(
+        new EpistleCategory(
+          `This Week (${week_entries.length})`,
+          week_entries,
+          1
+          // Collapsed
+        )
+      );
+    }
+    if (older_entries.length > 0) {
+      categories.push(
+        new EpistleCategory(
+          `Older (${older_entries.length})`,
+          older_entries,
+          1
+          // Collapsed
+        )
+      );
+    }
+    return categories;
+  }
+  categorizeByFlightPlan(entries) {
+    const flightPlanMap = /* @__PURE__ */ new Map();
+    const unlinked = [];
+    for (const entry of entries) {
+      if (entry.flight_plan) {
+        if (!flightPlanMap.has(entry.flight_plan)) {
+          flightPlanMap.set(entry.flight_plan, []);
+        }
+        flightPlanMap.get(entry.flight_plan).push(entry);
+      } else {
+        unlinked.push(entry);
+      }
+    }
+    const categories = [];
+    for (const [fp, epistles] of flightPlanMap.entries()) {
+      categories.push(
+        new EpistleCategory(
+          `${fp} (${epistles.length})`,
+          epistles,
+          1
+          // Collapsed
+        )
+      );
+    }
+    if (unlinked.length > 0) {
+      categories.push(
+        new EpistleCategory(
+          `Unlinked (${unlinked.length})`,
+          unlinked,
+          1
+          // Collapsed
+        )
+      );
+    }
+    return categories;
+  }
+  getTreeItem(element) {
+    return element;
+  }
+};
+function registerEpistleSidebar(context, registry, workspaceRoot) {
+  const provider = new EpistleSidebarProvider(registry, workspaceRoot);
+  if (vscode3 && vscode3.window) {
+    vscode3.window.registerTreeDataProvider("epistle-registry-sidebar", provider);
+  }
+  return provider;
+}
+
 // src/extension.ts
 function telemetry(component, phase, message, data) {
   const timestamp = (/* @__PURE__ */ new Date()).toISOString().split("T")[1];
@@ -15474,7 +16541,7 @@ function telemetry(component, phase, message, data) {
 }
 async function queryPersona(text, persona, timeoutMs = 3e4, workspaceRoot) {
   const { execSync: execSync2 } = require("child_process");
-  const cwd = workspaceRoot || vscode2.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  const cwd = workspaceRoot || vscode4.workspace.workspaceFolders?.[0]?.uri.fsPath;
   telemetry("QUERY", "START", `Query to persona: ${persona}`);
   telemetry("QUERY", "STEP", "Init phase: checking configuration", { persona, timeoutMs, workspace: cwd, inputLength: text.length });
   telemetry("QUERY", "STEP", "Checking API key availability...");
@@ -15545,9 +16612,9 @@ ${errorDetail}`);
 }
 async function checkApiKeyAvailable(workspaceRoot) {
   const { execSync: execSync2 } = require("child_process");
-  const fs2 = require("fs");
-  const path2 = require("path");
-  const cwd = workspaceRoot || vscode2.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  const fs4 = require("fs");
+  const path6 = require("path");
+  const cwd = workspaceRoot || vscode4.workspace.workspaceFolders?.[0]?.uri.fsPath;
   telemetry("APIKEY", "START", "Checking API key availability", { workspace: cwd });
   telemetry("APIKEY", "STEP", "Checking environment variables for API keys");
   const envKeys = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "RHIZOME_API_KEY"];
@@ -15559,10 +16626,10 @@ async function checkApiKeyAvailable(workspaceRoot) {
   }
   telemetry("APIKEY", "STEP", "No API keys found in environment variables");
   try {
-    const configPath = path2.join(cwd, ".rhizome", "config.json");
+    const configPath = path6.join(cwd, ".rhizome", "config.json");
     telemetry("APIKEY", "STEP", "Checking rhizome config file", { configPath });
-    if (fs2.existsSync(configPath)) {
-      const config = JSON.parse(fs2.readFileSync(configPath, "utf-8"));
+    if (fs4.existsSync(configPath)) {
+      const config = JSON.parse(fs4.readFileSync(configPath, "utf-8"));
       telemetry("APIKEY", "STEP", "Config file exists, checking for API key fields");
       if (config.ai?.openai_key) {
         telemetry("APIKEY", "SUCCESS", "Found ai.openai_key in config");
@@ -15605,7 +16672,7 @@ async function checkApiKeyAvailable(workspaceRoot) {
 async function getAvailablePersonas() {
   telemetry("PERSONAS", "START", "Fetching available personas from rhizome");
   const { execSync: execSync2 } = require("child_process");
-  const cwd = vscode2.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  const cwd = vscode4.workspace.workspaceFolders?.[0]?.uri.fsPath;
   telemetry("PERSONAS", "STEP", "Workspace context", { cwd });
   telemetry("PERSONAS", "STEP", "Attempting JSON format first (rhizome persona list --json)");
   try {
@@ -15698,14 +16765,14 @@ function formatPersonaOutput(channel, personaName, selectedCode, response) {
   channel.appendLine(response);
 }
 function getActiveSelection() {
-  const editor = vscode2.window.activeTextEditor;
+  const editor = vscode4.window.activeTextEditor;
   if (!editor) {
-    vscode2.window.showErrorMessage("No active editor");
+    vscode4.window.showErrorMessage("No active editor");
     return null;
   }
   const selectedText = editor.document.getText(editor.selection);
   if (!selectedText) {
-    vscode2.window.showErrorMessage("Please select code to question");
+    vscode4.window.showErrorMessage("Please select code to question");
     return null;
   }
   return { editor, selectedText };
@@ -15757,10 +16824,10 @@ async function isUEUMember() {
 }
 async function diagnosticRhizomeMissing() {
   const { execSync: execSync2 } = require("child_process");
-  const fs2 = require("fs");
+  const fs4 = require("fs");
   const diagnostics = [];
   for (const candidate of getCandidateLocations()) {
-    if (fs2.existsSync(candidate)) {
+    if (fs4.existsSync(candidate)) {
       diagnostics.push(`Found rhizome at: ${candidate}`);
     } else {
       diagnostics.push(`Checked path (missing): ${candidate}`);
@@ -15781,14 +16848,14 @@ async function diagnosticRhizomeMissing() {
   return diagnostics;
 }
 async function ensureOpenAIKeyConfigured(workspaceRoot) {
-  const configPath = vscode2.Uri.joinPath(vscode2.Uri.file(workspaceRoot), ".rhizome", "config.json");
+  const configPath = vscode4.Uri.joinPath(vscode4.Uri.file(workspaceRoot), ".rhizome", "config.json");
   try {
     if (process.env.OPENAI_API_KEY) {
       return true;
     }
-    const configExists = await vscode2.workspace.fs.stat(configPath);
+    const configExists = await vscode4.workspace.fs.stat(configPath);
     if (configExists) {
-      const configContent = await vscode2.workspace.fs.readFile(configPath);
+      const configContent = await vscode4.workspace.fs.readFile(configPath);
       const config = JSON.parse(new TextDecoder().decode(configContent));
       if (config.ai?.openai_key) {
         process.env.OPENAI_API_KEY = config.ai.openai_key;
@@ -15797,21 +16864,21 @@ async function ensureOpenAIKeyConfigured(workspaceRoot) {
     }
   } catch {
   }
-  const key = await vscode2.window.showInputBox({
+  const key = await vscode4.window.showInputBox({
     prompt: "Enter your OpenAI API key (stored locally in .rhizome/config.json)",
     password: true,
     ignoreFocusOut: true
   });
   if (!key) {
-    vscode2.window.showWarningMessage("OpenAI API key is required for don-socratic");
+    vscode4.window.showWarningMessage("OpenAI API key is required for don-socratic");
     return false;
   }
   try {
-    const rhizomePath = vscode2.Uri.joinPath(vscode2.Uri.file(workspaceRoot), ".rhizome");
-    const configPath2 = vscode2.Uri.joinPath(rhizomePath, "config.json");
+    const rhizomePath = vscode4.Uri.joinPath(vscode4.Uri.file(workspaceRoot), ".rhizome");
+    const configPath2 = vscode4.Uri.joinPath(rhizomePath, "config.json");
     let config = {};
     try {
-      const existing = await vscode2.workspace.fs.readFile(configPath2);
+      const existing = await vscode4.workspace.fs.readFile(configPath2);
       config = JSON.parse(new TextDecoder().decode(existing));
     } catch {
     }
@@ -15819,28 +16886,28 @@ async function ensureOpenAIKeyConfigured(workspaceRoot) {
       config.ai = {};
     config.ai.openai_key = key;
     const configContent = new TextEncoder().encode(JSON.stringify(config, null, 2));
-    await vscode2.workspace.fs.writeFile(configPath2, configContent);
+    await vscode4.workspace.fs.writeFile(configPath2, configContent);
     process.env.OPENAI_API_KEY = key;
     await addToGitignore(workspaceRoot, ".rhizome/config.json");
-    vscode2.window.showInformationMessage("OpenAI API key configured and stored securely");
+    vscode4.window.showInformationMessage("OpenAI API key configured and stored securely");
     return true;
   } catch (error) {
-    vscode2.window.showErrorMessage(`Failed to save API key: ${error.message}`);
+    vscode4.window.showErrorMessage(`Failed to save API key: ${error.message}`);
     return false;
   }
 }
 async function addToGitignore(workspaceRoot, entry) {
-  const gitignorePath = vscode2.Uri.joinPath(vscode2.Uri.file(workspaceRoot), ".gitignore");
+  const gitignorePath = vscode4.Uri.joinPath(vscode4.Uri.file(workspaceRoot), ".gitignore");
   let content = "";
   try {
-    const existing = await vscode2.workspace.fs.readFile(gitignorePath);
+    const existing = await vscode4.workspace.fs.readFile(gitignorePath);
     content = new TextDecoder().decode(existing);
   } catch {
   }
   if (!content.includes(entry)) {
     content += (content.endsWith("\n") ? "" : "\n") + entry + "\n";
     const encoded = new TextEncoder().encode(content);
-    await vscode2.workspace.fs.writeFile(gitignorePath, encoded);
+    await vscode4.workspace.fs.writeFile(gitignorePath, encoded);
   }
 }
 async function initializeRhizomeIfNeeded(workspaceRoot) {
@@ -15848,75 +16915,75 @@ async function initializeRhizomeIfNeeded(workspaceRoot) {
     const diagnosticsBefore = await diagnosticRhizomeMissing();
     const isMember = await isUEUMember();
     if (isMember) {
-      vscode2.window.showInformationMessage("Diagnostics before installation:\n" + diagnosticsBefore.join("\n"));
-      const response = await vscode2.window.showErrorMessage(
+      vscode4.window.showInformationMessage("Diagnostics before installation:\n" + diagnosticsBefore.join("\n"));
+      const response = await vscode4.window.showErrorMessage(
         "rhizome CLI not found. You are a member of Unity-Environmental-University. Install rhizome now?",
         "Install rhizome",
         "View Guide"
       );
       if (response === "Install rhizome") {
         try {
-          vscode2.window.showInformationMessage("Installing rhizome...");
+          vscode4.window.showInformationMessage("Installing rhizome...");
           const { execSync: execSync2 } = require("child_process");
           execSync2("npm install -g @rhizome/cli", {
             encoding: "utf-8",
             timeout: 6e4,
             stdio: "inherit"
           });
-          vscode2.window.showInformationMessage("rhizome installed successfully!");
+          vscode4.window.showInformationMessage("rhizome installed successfully!");
           const diagnosticsAfter = await diagnosticRhizomeMissing();
-          vscode2.window.showInformationMessage(
+          vscode4.window.showInformationMessage(
             "Diagnostics after installation:\n" + diagnosticsAfter.join("\n")
           );
           if (!isRhizomeInstalled()) {
-            vscode2.window.showWarningMessage(
+            vscode4.window.showWarningMessage(
               "Installation completed but rhizome still not found in PATH. You may need to restart VSCode."
             );
             return false;
           }
           return await initializeRhizomeIfNeeded(workspaceRoot);
         } catch (error) {
-          vscode2.window.showErrorMessage(`Failed to install rhizome: ${error.message}`);
+          vscode4.window.showErrorMessage(`Failed to install rhizome: ${error.message}`);
           const diagnosticsFailure = await diagnosticRhizomeMissing();
-          vscode2.window.showInformationMessage(
+          vscode4.window.showInformationMessage(
             "Diagnostics after failed installation:\n" + diagnosticsFailure.join("\n")
           );
           return false;
         }
       } else if (response === "View Guide") {
-        vscode2.env.openExternal(vscode2.Uri.parse("https://github.com/your-rhizome-repo#installation"));
+        vscode4.env.openExternal(vscode4.Uri.parse("https://github.com/your-rhizome-repo#installation"));
       }
       return false;
     } else {
-      const response = await vscode2.window.showWarningMessage(
+      const response = await vscode4.window.showWarningMessage(
         "rhizome CLI not found. Please install it to use vscode-rhizome.",
         "View Installation Guide"
       );
       if (response === "View Installation Guide") {
-        vscode2.env.openExternal(vscode2.Uri.parse("https://github.com/your-rhizome-repo#installation"));
+        vscode4.env.openExternal(vscode4.Uri.parse("https://github.com/your-rhizome-repo#installation"));
       }
       return false;
     }
   }
-  const rhizomePath = vscode2.Uri.joinPath(vscode2.Uri.file(workspaceRoot), ".rhizome");
+  const rhizomePath = vscode4.Uri.joinPath(vscode4.Uri.file(workspaceRoot), ".rhizome");
   try {
-    await vscode2.workspace.fs.stat(rhizomePath);
+    await vscode4.workspace.fs.stat(rhizomePath);
     const keyConfigured = await ensureOpenAIKeyConfigured(workspaceRoot);
     return keyConfigured;
   } catch {
     try {
-      vscode2.window.showInformationMessage("Initializing rhizome in workspace...");
+      vscode4.window.showInformationMessage("Initializing rhizome in workspace...");
       const { execSync: execSync2 } = require("child_process");
       execSync2("rhizome init --force", {
         cwd: workspaceRoot,
         encoding: "utf-8",
         timeout: 1e4
       });
-      vscode2.window.showInformationMessage("Rhizome initialized in workspace");
+      vscode4.window.showInformationMessage("Rhizome initialized in workspace");
       const keyConfigured = await ensureOpenAIKeyConfigured(workspaceRoot);
       return keyConfigured;
     } catch (error) {
-      vscode2.window.showErrorMessage(`Failed to initialize rhizome: ${error.message}`);
+      vscode4.window.showErrorMessage(`Failed to initialize rhizome: ${error.message}`);
       return false;
     }
   }
@@ -15933,22 +17000,22 @@ async function askPersonaAboutSelection(persona, personaDisplayName) {
     length: selectedText.length,
     persona
   });
-  const workspaceRoot = vscode2.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  const workspaceRoot = vscode4.workspace.workspaceFolders?.[0]?.uri.fsPath;
   if (!workspaceRoot) {
     telemetry("QUERY", "ERROR", "No workspace folder");
-    vscode2.window.showErrorMessage("No workspace folder open");
+    vscode4.window.showErrorMessage("No workspace folder open");
     return;
   }
   telemetry("QUERY", "STEP", "Initializing rhizome if needed...");
   const initialized = await initializeRhizomeIfNeeded(workspaceRoot);
   if (!initialized) {
     telemetry("QUERY", "ERROR", "Rhizome initialization failed");
-    vscode2.window.showErrorMessage("Could not initialize rhizome. Check workspace permissions.");
+    vscode4.window.showErrorMessage("Could not initialize rhizome. Check workspace permissions.");
     return;
   }
   telemetry("QUERY", "STEP", "Rhizome initialized");
   telemetry("QUERY", "STEP", "Creating output channel...");
-  const outputChannel = vscode2.window.createOutputChannel("vscode-rhizome");
+  const outputChannel = vscode4.window.createOutputChannel("vscode-rhizome");
   outputChannel.show(true);
   try {
     telemetry("QUERY", "STEP", "Calling queryPersona...");
@@ -15975,7 +17042,7 @@ async function askPersonaAboutSelection(persona, personaDisplayName) {
 async function performHealthCheck(workspaceRoot) {
   const details = [];
   const { execSync: execSync2 } = require("child_process");
-  const fs2 = require("fs");
+  const fs4 = require("fs");
   try {
     try {
       const version = execSync2("rhizome --version", {
@@ -15989,7 +17056,7 @@ async function performHealthCheck(workspaceRoot) {
       return { healthy: false, details };
     }
     const rhizomeDir = `${workspaceRoot}/.rhizome`;
-    if (fs2.existsSync(rhizomeDir)) {
+    if (fs4.existsSync(rhizomeDir)) {
       details.push(`\u2713 .rhizome directory exists at ${rhizomeDir}`);
     } else {
       details.push(`\u26A0 .rhizome directory not found. Run: vscode-rhizome.init`);
@@ -16046,19 +17113,19 @@ function activate(context) {
       console.log("[vscode-rhizome] ERROR fetching personas on startup:", error.message);
     }
   })();
-  let healthCheckDisposable = vscode2.commands.registerCommand("vscode-rhizome.healthCheck", async () => {
-    const workspaceRoot = vscode2.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (!workspaceRoot) {
-      vscode2.window.showErrorMessage("No workspace folder open");
+  let healthCheckDisposable = vscode4.commands.registerCommand("vscode-rhizome.healthCheck", async () => {
+    const workspaceRoot2 = vscode4.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot2) {
+      vscode4.window.showErrorMessage("No workspace folder open");
       return;
     }
-    const outputChannel = vscode2.window.createOutputChannel("vscode-rhizome: Health Check");
+    const outputChannel = vscode4.window.createOutputChannel("vscode-rhizome: Health Check");
     outputChannel.show(true);
     outputChannel.appendLine("=".repeat(60));
     outputChannel.appendLine("vscode-rhizome Health Check");
     outputChannel.appendLine("=".repeat(60));
     outputChannel.appendLine("");
-    const check = await performHealthCheck(workspaceRoot);
+    const check = await performHealthCheck(workspaceRoot2);
     for (const detail of check.details) {
       outputChannel.appendLine(detail);
     }
@@ -16070,28 +17137,28 @@ function activate(context) {
     }
   });
   context.subscriptions.push(healthCheckDisposable);
-  let initDisposable = vscode2.commands.registerCommand("vscode-rhizome.init", async () => {
+  let initDisposable = vscode4.commands.registerCommand("vscode-rhizome.init", async () => {
     console.log("[vscode-rhizome.init] Command invoked");
-    const workspaceRoot = vscode2.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (!workspaceRoot) {
+    const workspaceRoot2 = vscode4.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot2) {
       console.log("[vscode-rhizome.init] No workspace folder");
-      vscode2.window.showErrorMessage("No workspace folder open");
+      vscode4.window.showErrorMessage("No workspace folder open");
       return;
     }
-    console.log("[vscode-rhizome.init] Initializing at:", workspaceRoot);
-    const initialized = await initializeRhizomeIfNeeded(workspaceRoot);
+    console.log("[vscode-rhizome.init] Initializing at:", workspaceRoot2);
+    const initialized = await initializeRhizomeIfNeeded(workspaceRoot2);
     if (initialized) {
       console.log("[vscode-rhizome.init] Initialization successful");
-      vscode2.window.showInformationMessage("Rhizome is ready in this workspace");
+      vscode4.window.showInformationMessage("Rhizome is ready in this workspace");
     } else {
       console.log("[vscode-rhizome.init] Initialization failed");
     }
   });
   context.subscriptions.push(initDisposable);
-  let diagnosisDisposable = vscode2.commands.registerCommand("vscode-rhizome.diagnoseEnvironment", async () => {
+  let diagnosisDisposable = vscode4.commands.registerCommand("vscode-rhizome.diagnoseEnvironment", async () => {
     console.log("[diagnoseEnvironment] Starting rhizome environment diagnosis");
     const { execSync: execSync2 } = require("child_process");
-    const outputChannel = vscode2.window.createOutputChannel("vscode-rhizome: Environment Diagnosis");
+    const outputChannel = vscode4.window.createOutputChannel("vscode-rhizome: Environment Diagnosis");
     outputChannel.show(true);
     outputChannel.appendLine("=".repeat(70));
     outputChannel.appendLine("RHIZOME ENVIRONMENT DIAGNOSIS");
@@ -16159,13 +17226,13 @@ function activate(context) {
     } catch (error) {
       outputChannel.appendLine(`ERROR: ${error.message}`);
     }
-    vscode2.window.showInformationMessage("Diagnosis complete. See output panel for details.");
+    vscode4.window.showInformationMessage("Diagnosis complete. See output panel for details.");
   });
   context.subscriptions.push(diagnosisDisposable);
-  let installDepsDisposable = vscode2.commands.registerCommand("vscode-rhizome.installDeps", async () => {
+  let installDepsDisposable = vscode4.commands.registerCommand("vscode-rhizome.installDeps", async () => {
     console.log("[vscode-rhizome.installDeps] Command invoked");
     const { execSync: execSync2 } = require("child_process");
-    const option = await vscode2.window.showQuickPick(
+    const option = await vscode4.window.showQuickPick(
       [
         {
           label: "python3 -m pip install pyyaml",
@@ -16195,21 +17262,21 @@ function activate(context) {
     }
     console.log("[vscode-rhizome.installDeps] User selected:", option.label);
     if (option.label.includes("Show me")) {
-      vscode2.window.showInformationMessage(
+      vscode4.window.showInformationMessage(
         "Copy and paste this into your terminal:\n\npython3 -m pip install pyyaml\n\nThen reload VSCode (Cmd+Shift+P \u2192 Reload Window)"
       );
       return;
     }
-    const terminal = vscode2.window.createTerminal("rhizome: Install Dependencies");
+    const terminal = vscode4.window.createTerminal("rhizome: Install Dependencies");
     terminal.show();
     console.log("[vscode-rhizome.installDeps] Executing:", option.label);
     terminal.sendText(option.label, true);
-    vscode2.window.showInformationMessage(
+    vscode4.window.showInformationMessage(
       'Running in terminal. When you see "Successfully installed", close the terminal and reload VSCode (Cmd+Shift+P \u2192 Reload Window).'
     );
   });
   context.subscriptions.push(installDepsDisposable);
-  const completionProvider = vscode2.languages.registerCompletionItemProvider(
+  const completionProvider = vscode4.languages.registerCompletionItemProvider(
     { scheme: "file" },
     // Apply to all files
     {
@@ -16226,9 +17293,9 @@ function activate(context) {
         console.log("[autocomplete] Personas available:", Array.from(personas.keys()));
         const items = [];
         for (const [name, role] of personas.entries()) {
-          const item = new vscode2.CompletionItem(name, vscode2.CompletionItemKind.User);
+          const item = new vscode4.CompletionItem(name, vscode4.CompletionItemKind.User);
           item.detail = role;
-          item.documentation = new vscode2.MarkdownString(`**${name}**: ${role}`);
+          item.documentation = new vscode4.MarkdownString(`**${name}**: ${role}`);
           item.insertText = name;
           items.push(item);
         }
@@ -16240,12 +17307,12 @@ function activate(context) {
     // Trigger on space (after "@rhizome ask ")
   );
   context.subscriptions.push(completionProvider);
-  let askPersonaDisposable = vscode2.commands.registerCommand("vscode-rhizome.askPersona", async () => {
+  let askPersonaDisposable = vscode4.commands.registerCommand("vscode-rhizome.askPersona", async () => {
     telemetry("WORKFLOW", "START", 'User invoked "Ask a persona" command');
     const selection = getActiveSelection();
     if (!selection) {
       telemetry("WORKFLOW", "ERROR", "No text selected", { action: "abort" });
-      vscode2.window.showErrorMessage("Please select some code first");
+      vscode4.window.showErrorMessage("Please select some code first");
       return;
     }
     const { selectedText } = selection;
@@ -16261,7 +17328,7 @@ function activate(context) {
     });
     if (personas.size === 0) {
       telemetry("WORKFLOW", "ERROR", "No personas available", { action: "abort" });
-      vscode2.window.showErrorMessage("No personas available. Check rhizome installation.");
+      vscode4.window.showErrorMessage("No personas available. Check rhizome installation.");
       return;
     }
     const personaOptions = Array.from(personas.entries()).map(([name, role]) => ({
@@ -16269,7 +17336,7 @@ function activate(context) {
       description: role
     }));
     telemetry("WORKFLOW", "STEP", "Showing quick picker");
-    const picked = await vscode2.window.showQuickPick(personaOptions, {
+    const picked = await vscode4.window.showQuickPick(personaOptions, {
       placeHolder: "Choose a persona to question your code",
       matchOnDescription: true
     });
@@ -16288,29 +17355,29 @@ function activate(context) {
   context.subscriptions.push(askPersonaDisposable);
   const voiceControlDisposable = registerVoiceControlCommand(context);
   context.subscriptions.push(voiceControlDisposable);
-  let stubDisposable = vscode2.commands.registerCommand("vscode-rhizome.stub", async () => {
-    const editor = vscode2.window.activeTextEditor;
+  let stubDisposable = vscode4.commands.registerCommand("vscode-rhizome.stub", async () => {
+    const editor = vscode4.window.activeTextEditor;
     if (!editor) {
-      vscode2.window.showErrorMessage("No active editor");
+      vscode4.window.showErrorMessage("No active editor");
       return;
     }
     const document = editor.document;
     const code = document.getText();
     const language = detectLanguage(document.languageId);
     if (!language) {
-      vscode2.window.showErrorMessage(
+      vscode4.window.showErrorMessage(
         `Unsupported language: ${document.languageId}. Use TypeScript, JavaScript, or Python.`
       );
       return;
     }
     const stubs = findStubComments(code, language);
     if (stubs.length === 0) {
-      vscode2.window.showWarningMessage("No @rhizome stub comments found in this file");
+      vscode4.window.showWarningMessage("No @rhizome stub comments found in this file");
       return;
     }
     let targetStub = stubs[0];
     if (stubs.length > 1) {
-      const picked = await vscode2.window.showQuickPick(
+      const picked = await vscode4.window.showQuickPick(
         stubs.map((s) => `Line ${s.line}: ${s.functionName}`),
         { placeHolder: "Which function to stub?" }
       );
@@ -16321,22 +17388,22 @@ function activate(context) {
     }
     const stub = generateStub(targetStub.functionName, targetStub.params, targetStub.returnType, language);
     const modifiedCode = insertStub(code, targetStub.line, stub, language);
-    const fullRange = new vscode2.Range(document.positionAt(0), document.positionAt(code.length));
-    const edit = new vscode2.TextEdit(fullRange, modifiedCode);
-    const workspaceEdit = new vscode2.WorkspaceEdit();
+    const fullRange = new vscode4.Range(document.positionAt(0), document.positionAt(code.length));
+    const edit = new vscode4.TextEdit(fullRange, modifiedCode);
+    const workspaceEdit = new vscode4.WorkspaceEdit();
     workspaceEdit.set(document.uri, [edit]);
-    await vscode2.workspace.applyEdit(workspaceEdit);
-    vscode2.window.showInformationMessage(`Stub created for ${targetStub.functionName}`);
+    await vscode4.workspace.applyEdit(workspaceEdit);
+    vscode4.window.showInformationMessage(`Stub created for ${targetStub.functionName}`);
   });
   context.subscriptions.push(stubDisposable);
-  let documentWithPersonaDisposable = vscode2.commands.registerCommand(
+  let documentWithPersonaDisposable = vscode4.commands.registerCommand(
     "vscode-rhizome.documentWithPersona",
     async () => {
       telemetry("DOCUMENT", "START", 'User invoked "Document with persona" command');
       const selection = getActiveSelection();
       if (!selection) {
         telemetry("DOCUMENT", "ERROR", "No text selected", { action: "abort" });
-        vscode2.window.showErrorMessage("Please select some code first");
+        vscode4.window.showErrorMessage("Please select some code first");
         return;
       }
       const { editor, selectedText } = selection;
@@ -16354,7 +17421,7 @@ function activate(context) {
       });
       if (personasMap.size === 0) {
         telemetry("DOCUMENT", "ERROR", "No personas available", { action: "abort" });
-        vscode2.window.showErrorMessage("No personas available. Check rhizome installation.");
+        vscode4.window.showErrorMessage("No personas available. Check rhizome installation.");
         return;
       }
       telemetry("DOCUMENT", "STEP", "Showing quick picker");
@@ -16362,7 +17429,7 @@ function activate(context) {
         label: name,
         description: role || `Ask ${name} to document this`
       }));
-      const picked = await vscode2.window.showQuickPick(personaOptions, {
+      const picked = await vscode4.window.showQuickPick(personaOptions, {
         placeHolder: "Which persona should document this code?"
       });
       if (!picked) {
@@ -16374,17 +17441,17 @@ function activate(context) {
         role: picked.description
       });
       telemetry("DOCUMENT", "STEP", "Getting workspace root...");
-      const workspaceRoot = vscode2.workspace.workspaceFolders?.[0]?.uri.fsPath;
-      if (!workspaceRoot) {
+      const workspaceRoot2 = vscode4.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      if (!workspaceRoot2) {
         telemetry("DOCUMENT", "ERROR", "No workspace folder");
-        vscode2.window.showErrorMessage("No workspace folder open");
+        vscode4.window.showErrorMessage("No workspace folder open");
         return;
       }
       telemetry("DOCUMENT", "STEP", "Initializing rhizome...");
-      const initialized = await initializeRhizomeIfNeeded(workspaceRoot);
+      const initialized = await initializeRhizomeIfNeeded(workspaceRoot2);
       if (!initialized) {
         telemetry("DOCUMENT", "ERROR", "Rhizome initialization failed");
-        vscode2.window.showErrorMessage("Could not initialize rhizome.");
+        vscode4.window.showErrorMessage("Could not initialize rhizome.");
         return;
       }
       const prompt = `Please provide clear documentation/comments for this code:
@@ -16394,9 +17461,9 @@ ${selectedText}`;
         promptLength: prompt.length,
         selectedLength: selectedText.length
       });
-      await vscode2.window.withProgress(
+      await vscode4.window.withProgress(
         {
-          location: vscode2.ProgressLocation.Notification,
+          location: vscode4.ProgressLocation.Notification,
           title: `Asking ${picked.label} to document your code...`,
           cancellable: false
         },
@@ -16405,7 +17472,7 @@ ${selectedText}`;
           telemetry("DOCUMENT", "STEP", "Progress notification shown");
           try {
             telemetry("DOCUMENT", "STEP", "Calling queryPersona...");
-            const response = await queryPersona(prompt, picked.label, 15e3, workspaceRoot);
+            const response = await queryPersona(prompt, picked.label, 15e3, workspaceRoot2);
             telemetry("DOCUMENT", "SUCCESS", "Got response from persona", {
               persona: picked.label,
               responseLength: response.length
@@ -16427,21 +17494,21 @@ ${selectedText}`;
               line: insertPos.line,
               character: insertPos.character
             });
-            const edit = new vscode2.TextEdit(
-              new vscode2.Range(insertPos, insertPos),
+            const edit = new vscode4.TextEdit(
+              new vscode4.Range(insertPos, insertPos),
               `${comment}
 `
             );
-            const workspaceEdit = new vscode2.WorkspaceEdit();
+            const workspaceEdit = new vscode4.WorkspaceEdit();
             workspaceEdit.set(document.uri, [edit]);
             telemetry("DOCUMENT", "STEP", "Text edit created and applying...");
-            await vscode2.workspace.applyEdit(workspaceEdit);
+            await vscode4.workspace.applyEdit(workspaceEdit);
             telemetry("DOCUMENT", "RESULT", "Comments inserted into file", {
               persona: picked.label,
               file: document.fileName
             });
             progress.report({ message: "Documentation added! \u2713" });
-            vscode2.window.showInformationMessage(`${picked.label} documentation added above selection`);
+            vscode4.window.showInformationMessage(`${picked.label} documentation added above selection`);
             telemetry("DOCUMENT", "SUCCESS", "Document command completed successfully");
           } catch (error) {
             telemetry("DOCUMENT", "ERROR", "Query or insertion failed", {
@@ -16449,7 +17516,7 @@ ${selectedText}`;
               error: error.message
             });
             progress.report({ message: `Error: ${error.message}` });
-            vscode2.window.showErrorMessage(
+            vscode4.window.showErrorMessage(
               `Failed to get documentation from ${picked.label}: ${error.message}`
             );
           }
@@ -16458,6 +17525,188 @@ ${selectedText}`;
     }
   );
   context.subscriptions.push(documentWithPersonaDisposable);
+  const workspaceRoot = vscode4.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
+  const epistleRegistry = createEpistleRegistry(workspaceRoot);
+  const epistlesDir = require("path").join(workspaceRoot, ".rhizome", "plugins", "epistles");
+  let recordLetterEpistleDisposable = vscode4.commands.registerCommand(
+    "vscode-rhizome.recordLetterEpistle",
+    async () => {
+      const editor = vscode4.window.activeTextEditor;
+      if (!editor) {
+        vscode4.window.showErrorMessage("Please open a file and select code before recording an epistle");
+        return;
+      }
+      if (editor.selection.isEmpty) {
+        vscode4.window.showErrorMessage("Please select some code before recording an epistle");
+        return;
+      }
+      await recordLetterEpistle(editor, epistleRegistry, telemetry, epistlesDir);
+    }
+  );
+  context.subscriptions.push(recordLetterEpistleDisposable);
+  let recordInlineEpistleDisposable = vscode4.commands.registerCommand(
+    "vscode-rhizome.recordInlineEpistle",
+    async () => {
+      const editor = vscode4.window.activeTextEditor;
+      if (!editor) {
+        vscode4.window.showErrorMessage("Please open a file and select code before recording an inline epistle");
+        return;
+      }
+      if (editor.selection.isEmpty) {
+        vscode4.window.showErrorMessage("Please select some code before recording an inline epistle");
+        return;
+      }
+      await recordInlineEpistle(editor, epistleRegistry, telemetry);
+    }
+  );
+  context.subscriptions.push(recordInlineEpistleDisposable);
+  let createDynamicPersonaDisposable = vscode4.commands.registerCommand(
+    "vscode-rhizome.createDynamicPersona",
+    async (file) => {
+      let filepath;
+      if (file) {
+        filepath = file.fsPath;
+      } else {
+        const editor = vscode4.window.activeTextEditor;
+        if (!editor) {
+          vscode4.window.showErrorMessage("Please open a file to create a dynamic persona");
+          return;
+        }
+        filepath = editor.document.fileName;
+      }
+      await createDynamicPersona(filepath, epistleRegistry, telemetry);
+    }
+  );
+  context.subscriptions.push(createDynamicPersonaDisposable);
+  let sidebarProvider;
+  try {
+    sidebarProvider = registerEpistleSidebar(context, epistleRegistry, workspaceRoot);
+    telemetry("EPISTLE_SIDEBAR", "SUCCESS", "Sidebar provider registered");
+  } catch (error) {
+    telemetry("EPISTLE_SIDEBAR", "ERROR", "Failed to register sidebar provider", {
+      error: error.message
+    });
+  }
+  let openEpistleDisposable = vscode4.commands.registerCommand(
+    "vscode-rhizome.openEpistle",
+    async (entry, workspaceRootPath) => {
+      telemetry("EPISTLE_SIDEBAR", "START", "Open epistle from sidebar", {
+        id: entry.id,
+        type: entry.type
+      });
+      try {
+        switch (entry.type) {
+          case "letter": {
+            const filepath = require("path").join(
+              workspaceRootPath,
+              ".rhizome",
+              "plugins",
+              "epistles",
+              entry.file
+            );
+            const doc = await vscode4.workspace.openTextDocument(filepath);
+            await vscode4.window.showTextDocument(doc);
+            telemetry("EPISTLE_SIDEBAR", "SUCCESS", "Opened letter epistle", {
+              id: entry.id,
+              file: entry.file
+            });
+            break;
+          }
+          case "inline": {
+            const doc = await vscode4.workspace.openTextDocument(entry.inline_file);
+            const editor = await vscode4.window.showTextDocument(doc);
+            const [startLine, endLine] = entry.lines.split("-").map((s) => parseInt(s, 10));
+            const range = new vscode4.Range(
+              new vscode4.Position(startLine - 1, 0),
+              new vscode4.Position(endLine - 1, 0)
+            );
+            editor.selection = new vscode4.Selection(range.start, range.end);
+            editor.revealRange(range, vscode4.TextEditorRevealType.InCenter);
+            telemetry("EPISTLE_SIDEBAR", "SUCCESS", "Opened inline epistle", {
+              id: entry.id,
+              file: entry.inline_file,
+              lines: entry.lines
+            });
+            break;
+          }
+          case "dynamic_persona": {
+            vscode4.window.showInformationMessage(
+              `Dynamic Persona: ${entry.name}
+
+Source: ${entry.source_file}
+Created: ${entry.created_at}`
+            );
+            telemetry("EPISTLE_SIDEBAR", "SUCCESS", "Showed dynamic persona info", {
+              id: entry.id,
+              name: entry.name
+            });
+            break;
+          }
+        }
+      } catch (error) {
+        telemetry("EPISTLE_SIDEBAR", "ERROR", "Failed to open epistle", {
+          id: entry.id,
+          type: entry.type,
+          error: error.message
+        });
+        vscode4.window.showErrorMessage(`Failed to open epistle: ${error.message}`);
+      }
+    }
+  );
+  context.subscriptions.push(openEpistleDisposable);
+  let refreshEpistleSidebarDisposable = vscode4.commands.registerCommand(
+    "vscode-rhizome.refreshEpistleSidebar",
+    async () => {
+      telemetry("EPISTLE_SIDEBAR", "START", "Manual refresh triggered");
+      try {
+        if (sidebarProvider) {
+          sidebarProvider.refresh();
+          telemetry("EPISTLE_SIDEBAR", "SUCCESS", "Sidebar refreshed");
+          vscode4.window.showInformationMessage("Epistle registry refreshed");
+        }
+      } catch (error) {
+        telemetry("EPISTLE_SIDEBAR", "ERROR", "Failed to refresh sidebar", {
+          error: error.message
+        });
+      }
+    }
+  );
+  context.subscriptions.push(refreshEpistleSidebarDisposable);
+  let changeEpistleFilterDisposable = vscode4.commands.registerCommand(
+    "vscode-rhizome.changeEpistleFilter",
+    async () => {
+      telemetry("EPISTLE_SIDEBAR", "START", "Filter mode change requested");
+      const selected = await vscode4.window.showQuickPick(
+        [
+          { label: "By Type", description: "Letters, Inline epistles, Dynamic personas" },
+          { label: "By Persona", description: "dev-guide, code-reviewer, etc." },
+          { label: "By Date", description: "Today, This week, Older" },
+          { label: "By Flight Plan", description: "Linked to active work" }
+        ],
+        {
+          placeHolder: "How would you like to view epistles?",
+          title: "Epistle View Filter"
+        }
+      );
+      if (!selected) {
+        telemetry("EPISTLE_SIDEBAR", "STEP", "Filter mode change cancelled");
+        return;
+      }
+      const modeMap = {
+        "By Type": "type",
+        "By Persona": "persona",
+        "By Date": "date",
+        "By Flight Plan": "flight-plan"
+      };
+      const mode = modeMap[selected.label];
+      if (sidebarProvider && mode) {
+        sidebarProvider.setFilterMode(mode);
+        telemetry("EPISTLE_SIDEBAR", "SUCCESS", "Filter mode changed", { mode });
+        vscode4.window.showInformationMessage(`Epistle view now filtered by ${selected.label.toLowerCase()}`);
+      }
+    }
+  );
+  context.subscriptions.push(changeEpistleFilterDisposable);
   console.log("[vscode-rhizome] ========== ACTIVATION COMPLETE ==========");
   console.log("[vscode-rhizome] Commands registered:");
   console.log("[vscode-rhizome]   - vscode-rhizome.healthCheck");
@@ -16465,7 +17714,14 @@ ${selectedText}`;
   console.log("[vscode-rhizome]   - vscode-rhizome.installDeps");
   console.log("[vscode-rhizome]   - vscode-rhizome.askPersona");
   console.log("[vscode-rhizome]   - vscode-rhizome.documentWithPersona");
+  console.log("[vscode-rhizome]   - vscode-rhizome.recordLetterEpistle");
+  console.log("[vscode-rhizome]   - vscode-rhizome.recordInlineEpistle");
+  console.log("[vscode-rhizome]   - vscode-rhizome.createDynamicPersona");
+  console.log("[vscode-rhizome]   - vscode-rhizome.openEpistle (sidebar)");
+  console.log("[vscode-rhizome]   - vscode-rhizome.refreshEpistleSidebar");
+  console.log("[vscode-rhizome]   - vscode-rhizome.changeEpistleFilter");
   console.log("[vscode-rhizome]   - @rhizome ask <persona> autocomplete");
+  console.log("[vscode-rhizome] Sidebar: Epistle Registry (filterable by type/persona/date/flight-plan)");
   console.log("[vscode-rhizome] Ready to use! Open Debug Console (Cmd+Shift+U) to see activity logs.");
   console.log('[vscode-rhizome] If you see "No module named yaml" errors, run: vscode-rhizome.installDeps');
   console.log("[vscode-rhizome] ========== ACTIVATION END ==========");

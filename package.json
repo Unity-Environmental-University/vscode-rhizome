@@ -65,8 +65,49 @@
         "command": "vscode-rhizome.documentWithPersona",
         "title": "Ask a persona to document this",
         "description": "Have a persona provide documentation/comments on selected code"
+      },
+      {
+        "command": "vscode-rhizome.recordLetterEpistle",
+        "title": "Record epistle about this code",
+        "description": "Create a multi-persona dialog about this code selection"
+      },
+      {
+        "command": "vscode-rhizome.recordInlineEpistle",
+        "title": "Create inline epistle",
+        "description": "Insert epistle comment block in code"
+      },
+      {
+        "command": "vscode-rhizome.createDynamicPersona",
+        "title": "Create dynamic persona from this file",
+        "description": "Analyze file and create a persona representing its perspective"
+      },
+      {
+        "command": "vscode-rhizome.openEpistle",
+        "title": "Open epistle",
+        "description": "Open epistle from sidebar"
+      },
+      {
+        "command": "vscode-rhizome.refreshEpistleSidebar",
+        "title": "Refresh Epistle Registry",
+        "description": "Reload epistle registry from disk"
+      },
+      {
+        "command": "vscode-rhizome.changeEpistleFilter",
+        "title": "Change Epistle View Filter",
+        "description": "Switch between type/persona/date/flight-plan views"
       }
     ],
+    "views": {
+      "explorer": [
+        {
+          "id": "epistle-registry-sidebar",
+          "name": "Epistle Registry",
+          "icon": "$(mail)",
+          "contextualTitle": "Epistles",
+          "visibility": "visible"
+        }
+      ]
+    },
     "menus": {
       "editor/context": [
         {
@@ -78,6 +119,35 @@
           "command": "vscode-rhizome.documentWithPersona",
           "group": "1_modification@2",
           "when": "editorHasSelection"
+        },
+        {
+          "command": "vscode-rhizome.recordLetterEpistle",
+          "group": "2_epistle@1",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "vscode-rhizome.recordInlineEpistle",
+          "group": "2_epistle@2",
+          "when": "editorHasSelection"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "vscode-rhizome.createDynamicPersona",
+          "group": "1_modification@1",
+          "when": "resourceExtname != ''"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "vscode-rhizome.refreshEpistleSidebar",
+          "group": "inline",
+          "when": "view == epistle-registry-sidebar"
+        },
+        {
+          "command": "vscode-rhizome.changeEpistleFilter",
+          "group": "inline",
+          "when": "view == epistle-registry-sidebar"
         }
       ]
     }

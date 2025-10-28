@@ -5,6 +5,7 @@ import { registerVoiceControlCommand, VoiceTranscriptPayload, VoicePanelHandlerT
 import { ensureLocalBinOnPath, getCandidateLocations, isRhizomeInstalled } from './utils/rhizomePath';
 import { createEpistleRegistry, EpistleRegistry } from './epistleRegistry';
 import { recordLetterEpistle, recordInlineEpistle, createDynamicPersona } from './epistleCommands';
+import { registerEpistleSidebar, EpistleSidebarProvider } from './epistleSidebarProvider';
 
 /**
  * @rhizome: how do libraries work here?
@@ -1537,6 +1538,190 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 	context.subscriptions.push(createDynamicPersonaDisposable);
 
+	// ===== Epistle Sidebar =====
+	/**
+	 * Register the epistle sidebar provider
+	 *
+	 * @rhizome: What does registering the sidebar do?
+	 * VSCode loads the tree view provider and creates the sidebar view.
+	 * Users can see all epistles, filter by type/persona/date/flight-plan, and click to open.
+	 * The provider automatically syncs with registry changes.
+	 */
+	let sidebarProvider: EpistleSidebarProvider | undefined;
+	try {
+		sidebarProvider = registerEpistleSidebar(context, epistleRegistry, workspaceRoot);
+		telemetry('EPISTLE_SIDEBAR', 'SUCCESS', 'Sidebar provider registered');
+	} catch (error: any) {
+		telemetry('EPISTLE_SIDEBAR', 'ERROR', 'Failed to register sidebar provider', {
+			error: (error as Error).message,
+		});
+	}
+
+	// Command: Open epistle (tree item click)
+	/**
+	 * When user clicks an epistle in the sidebar, open it
+	 *
+	 * @rhizome: How do we open a file that might not exist yet?
+	 * - Letter epistles: file exists, open it in editor
+	 * - Inline epistles: open file at line range
+	 * - Dynamic personas: these are registry entries, show info dialog
+	 */
+	let openEpistleDisposable = vscode.commands.registerCommand(
+		'vscode-rhizome.openEpistle',
+		async (entry: any, workspaceRootPath: string) => {
+			telemetry('EPISTLE_SIDEBAR', 'START', 'Open epistle from sidebar', {
+				id: entry.id,
+				type: entry.type,
+			});
+
+			try {
+				switch (entry.type) {
+					case 'letter': {
+						// Open letter epistle file
+						const filepath = require('path').join(
+							workspaceRootPath,
+							'.rhizome',
+							'plugins',
+							'epistles',
+							entry.file
+						);
+
+						const doc = await vscode.workspace.openTextDocument(filepath);
+						await vscode.window.showTextDocument(doc);
+
+						telemetry('EPISTLE_SIDEBAR', 'SUCCESS', 'Opened letter epistle', {
+							id: entry.id,
+							file: entry.file,
+						});
+						break;
+					}
+
+					case 'inline': {
+						// Open source file at line range
+						const doc = await vscode.workspace.openTextDocument(entry.inline_file);
+						const editor = await vscode.window.showTextDocument(doc);
+
+						// Parse line range (e.g., "148-151")
+						const [startLine, endLine] = entry.lines.split('-').map((s: string) => parseInt(s, 10));
+						const range = new vscode.Range(
+							new vscode.Position(startLine - 1, 0),
+							new vscode.Position(endLine - 1, 0)
+						);
+
+						editor.selection = new vscode.Selection(range.start, range.end);
+						editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+
+						telemetry('EPISTLE_SIDEBAR', 'SUCCESS', 'Opened inline epistle', {
+							id: entry.id,
+							file: entry.inline_file,
+							lines: entry.lines,
+						});
+						break;
+					}
+
+					case 'dynamic_persona': {
+						// Show info about dynamic persona
+						vscode.window.showInformationMessage(
+							`Dynamic Persona: ${entry.name}\n\nSource: ${entry.source_file}\nCreated: ${entry.created_at}`
+						);
+
+						telemetry('EPISTLE_SIDEBAR', 'SUCCESS', 'Showed dynamic persona info', {
+							id: entry.id,
+							name: entry.name,
+						});
+						break;
+					}
+				}
+			} catch (error: any) {
+				telemetry('EPISTLE_SIDEBAR', 'ERROR', 'Failed to open epistle', {
+					id: entry.id,
+					type: entry.type,
+					error: (error as Error).message,
+				});
+				vscode.window.showErrorMessage(`Failed to open epistle: ${(error as Error).message}`);
+			}
+		}
+	);
+	context.subscriptions.push(openEpistleDisposable);
+
+	// Command: Refresh epistle sidebar
+	/**
+	 * User-triggered refresh to reload epistle registry from disk
+	 *
+	 * @rhizome: When would the user need to refresh?
+	 * - After adding epistles from outside the extension
+	 * - If registry file was edited manually
+	 * - To pick up changes from other editors
+	 */
+	let refreshEpistleSidebarDisposable = vscode.commands.registerCommand(
+		'vscode-rhizome.refreshEpistleSidebar',
+		async () => {
+			telemetry('EPISTLE_SIDEBAR', 'START', 'Manual refresh triggered');
+
+			try {
+				if (sidebarProvider) {
+					sidebarProvider.refresh();
+					telemetry('EPISTLE_SIDEBAR', 'SUCCESS', 'Sidebar refreshed');
+					vscode.window.showInformationMessage('Epistle registry refreshed');
+				}
+			} catch (error: any) {
+				telemetry('EPISTLE_SIDEBAR', 'ERROR', 'Failed to refresh sidebar', {
+					error: (error as Error).message,
+				});
+			}
+		}
+	);
+	context.subscriptions.push(refreshEpistleSidebarDisposable);
+
+	// Command: Change epistle sidebar filter
+	/**
+	 * User selects a new filter mode for the sidebar
+	 *
+	 * @rhizome: How should users switch between views?
+	 * Command palette: "Change epistle filter"
+	 * Or quick picker in sidebar context menu
+	 * Available modes: type (default), persona, date, flight-plan
+	 */
+	let changeEpistleFilterDisposable = vscode.commands.registerCommand(
+		'vscode-rhizome.changeEpistleFilter',
+		async () => {
+			telemetry('EPISTLE_SIDEBAR', 'START', 'Filter mode change requested');
+
+			const selected = await vscode.window.showQuickPick(
+				[
+					{ label: 'By Type', description: 'Letters, Inline epistles, Dynamic personas' },
+					{ label: 'By Persona', description: 'dev-guide, code-reviewer, etc.' },
+					{ label: 'By Date', description: 'Today, This week, Older' },
+					{ label: 'By Flight Plan', description: 'Linked to active work' },
+				],
+				{
+					placeHolder: 'How would you like to view epistles?',
+					title: 'Epistle View Filter',
+				}
+			);
+
+			if (!selected) {
+				telemetry('EPISTLE_SIDEBAR', 'STEP', 'Filter mode change cancelled');
+				return;
+			}
+
+			const modeMap: Record<string, 'type' | 'persona' | 'date' | 'flight-plan'> = {
+				'By Type': 'type',
+				'By Persona': 'persona',
+				'By Date': 'date',
+				'By Flight Plan': 'flight-plan',
+			};
+
+			const mode = modeMap[selected.label];
+			if (sidebarProvider && mode) {
+				sidebarProvider.setFilterMode(mode);
+				telemetry('EPISTLE_SIDEBAR', 'SUCCESS', 'Filter mode changed', { mode });
+				vscode.window.showInformationMessage(`Epistle view now filtered by ${selected.label.toLowerCase()}`);
+			}
+		}
+	);
+	context.subscriptions.push(changeEpistleFilterDisposable);
+
 	console.log('[vscode-rhizome] ========== ACTIVATION COMPLETE ==========');
 	console.log('[vscode-rhizome] Commands registered:');
 	console.log('[vscode-rhizome]   - vscode-rhizome.healthCheck');
@@ -1547,7 +1732,11 @@ export function activate(context: vscode.ExtensionContext) {
 	console.log('[vscode-rhizome]   - vscode-rhizome.recordLetterEpistle');
 	console.log('[vscode-rhizome]   - vscode-rhizome.recordInlineEpistle');
 	console.log('[vscode-rhizome]   - vscode-rhizome.createDynamicPersona');
+	console.log('[vscode-rhizome]   - vscode-rhizome.openEpistle (sidebar)');
+	console.log('[vscode-rhizome]   - vscode-rhizome.refreshEpistleSidebar');
+	console.log('[vscode-rhizome]   - vscode-rhizome.changeEpistleFilter');
 	console.log('[vscode-rhizome]   - @rhizome ask <persona> autocomplete');
+	console.log('[vscode-rhizome] Sidebar: Epistle Registry (filterable by type/persona/date/flight-plan)');
 	console.log('[vscode-rhizome] Ready to use! Open Debug Console (Cmd+Shift+U) to see activity logs.');
 	console.log('[vscode-rhizome] If you see "No module named yaml" errors, run: vscode-rhizome.installDeps');
 	console.log('[vscode-rhizome] ========== ACTIVATION END ==========');
