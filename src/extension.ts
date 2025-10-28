@@ -4,7 +4,7 @@ import { generateStub, findStubComments, insertStub } from './stubGenerator';
 import { registerVoiceControlCommand, VoiceTranscriptPayload, VoicePanelHandlerTools } from './voice/voiceControlPanel';
 import { ensureLocalBinOnPath, getCandidateLocations, isRhizomeInstalled } from './utils/rhizomePath';
 import { createEpistleRegistry, EpistleRegistry } from './epistleRegistry';
-import { recordLetterEpistle, recordInlineEpistle, createDynamicPersona } from './epistleCommands';
+import { recordLetterEpistle, recordInlineEpistle, createDynamicPersona, recordFileAdvocateEpistle, addFileAdvocateComment } from './epistleCommands';
 import { registerEpistleSidebar, EpistleSidebarProvider } from './epistleSidebarProvider';
 
 /**
@@ -1537,6 +1537,64 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	);
 	context.subscriptions.push(createDynamicPersonaDisposable);
+
+	// ===== File Advocate Epistles =====
+	/**
+	 * Record file advocate epistle
+	 *
+	 * @rhizome: What's a file advocate epistle?
+	 * When you want to capture a persona's perspective on a whole file (not just code),
+	 * you create an advocate epistle. It analyzes the file's structure, role, and concerns,
+	 * then captures the persona's specific view.
+	 *
+	 * Usage: Right-click file → "Ask persona to advocate for this file"
+	 */
+	let recordFileAdvocateDisposable = vscode.commands.registerCommand(
+		'vscode-rhizome.recordFileAdvocateEpistle',
+		async (file?: vscode.Uri) => {
+			let filepath: string;
+
+			if (file) {
+				// Called from file explorer context menu
+				filepath = file.fsPath;
+			} else {
+				// Called from command palette
+				const editor = vscode.window.activeTextEditor;
+				if (!editor) {
+					vscode.window.showErrorMessage('Please open a file to create an advocate epistle');
+					return;
+				}
+				filepath = editor.document.fileName;
+			}
+
+			await recordFileAdvocateEpistle(filepath, workspaceRoot, epistleRegistry, telemetry);
+		}
+	);
+	context.subscriptions.push(recordFileAdvocateDisposable);
+
+	/**
+	 * Add file advocate comment
+	 *
+	 * @rhizome: What's a file advocate comment?
+	 * A quick header comment expressing a persona's perspective on the file.
+	 * Inserted at the top of the file for immediate visibility.
+	 * Great for code review style feedback.
+	 *
+	 * Usage: Right-click file → "Add file advocate comment"
+	 */
+	let addFileAdvocateCommentDisposable = vscode.commands.registerCommand(
+		'vscode-rhizome.addFileAdvocateComment',
+		async () => {
+			const editor = vscode.window.activeTextEditor;
+			if (!editor) {
+				vscode.window.showErrorMessage('Please open a file to add an advocate comment');
+				return;
+			}
+
+			await addFileAdvocateComment(editor, telemetry);
+		}
+	);
+	context.subscriptions.push(addFileAdvocateCommentDisposable);
 
 	// ===== Epistle Sidebar =====
 	/**

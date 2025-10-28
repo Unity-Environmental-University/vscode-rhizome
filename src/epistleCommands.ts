@@ -14,9 +14,11 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
 import { LetterEpistleGenerator, InlineEpistleGenerator, DynamicPersonaGenerator, EpisodeContext } from './epistleGenerator';
 import { EpistleRegistry } from './epistleRegistry';
 import { getActiveFlightPlan, getAllFlightPlans, formatFlightPlanInfo } from './flightPlanIntegration';
+import { analyzeFile, generateFileAdvocateComment, createFileAdvocateEpistle } from './fileAdvocate';
 
 /**
  * Telemetry logging (imported from extension context)
@@ -436,4 +438,160 @@ export async function createDynamicPersona(
 		});
 		vscode.window.showErrorMessage(`Failed to create persona: ${error.message}`);
 	}
+}
+
+/**
+ * Record file advocate letter epistle
+ *
+ * @rhizome: What is a file advocate epistle?
+ * When a developer wants to capture a persona's perspective on a source file,
+ * we create an advocate epistle. It includes:
+ * - File structure analysis (imports, exports, classes, complexity)
+ * - Persona's specific concerns about the file
+ * - Recommendations for the file
+ * - Link to the file for context
+ *
+ * Usage: Right-click file → "Ask persona to advocate for this file"
+ */
+export async function recordFileAdvocateEpistle(
+	filepath: string,
+	workspaceRoot: string,
+	registry: EpistleRegistry,
+	telemetry?: TelemetryFn
+): Promise<void> {
+	const log = telemetry || (() => {});
+
+	try {
+		log('EPISTLE', 'START', 'Recording file advocate epistle');
+
+		// Analyze the file
+		log('EPISTLE', 'STEP', 'Analyzing file structure');
+		const analysis = await analyzeFile(filepath);
+		log('EPISTLE', 'STEP', `File analyzed: ${analysis.filename} (${analysis.lines} lines, role: ${analysis.role})`);
+
+		// Show persona picker
+		log('EPISTLE', 'STEP', 'Showing persona picker');
+		const personas = await showPersonaPicker();
+		if (!personas || personas.length === 0) {
+			log('EPISTLE', 'STEP', 'User cancelled persona selection');
+			return;
+		}
+
+		// For each persona, create advocate epistles
+		const epistlesDir = path.join(workspaceRoot, '.rhizome', 'plugins', 'epistles');
+		for (const persona of personas) {
+			log('EPISTLE', 'STEP', `Processing advocate epistle for persona: ${persona}`);
+
+			// Create the epistle content
+			const epistleContent = createFileAdvocateEpistle(analysis, persona, '(Add persona opinion here)');
+
+			// Generate ID and save file
+			const id = `advocate-${Math.random().toString(36).substring(2, 11)}`;
+			const filename = `${id}.md`;
+			const epistleFilePath = path.join(epistlesDir, filename);
+
+			// Ensure directory exists and write file
+			fs.mkdirSync(epistlesDir, { recursive: true });
+			fs.writeFileSync(epistleFilePath, epistleContent, 'utf-8');
+
+			// Register the epistle
+			const entry: any = {
+				id,
+				type: 'letter' as const,
+				file: filename,
+				format: 'letter',
+				name: `${analysis.filename} advocate: ${persona}`,
+				personas: [persona],
+				created_at: new Date().toISOString(),
+				tags: ['file-advocate', analysis.role],
+				linked_file: filepath,
+				linked_flight_plan: getActiveFlightPlan(workspaceRoot)?.id,
+			};
+
+			registry.addEntry(entry);
+			log('EPISTLE', 'SUCCESS', `Advocate epistle created for ${persona}`, { filename });
+		}
+
+		vscode.window.showInformationMessage(
+			`✓ File advocate epistles created!\n\n${analysis.filename} (${analysis.role})\nPersonas: ${personas.join(', ')}`
+		);
+	} catch (error: any) {
+		log('EPISTLE', 'ERROR', 'Failed to record file advocate epistle', { error: error.message });
+		vscode.window.showErrorMessage(`Failed to create advocate epistle: ${error.message}`);
+	}
+}
+
+/**
+ * Add file advocate comment header to current file
+ *
+ * @rhizome: What is a file advocate comment?
+ * A quick header comment expressing a persona's perspective on the file.
+ * Inserted at the top of the file (before existing comments/code).
+ * Useful for "code review" style feedback directly in the file.
+ *
+ * Usage: Right-click file → "Add file advocate comment"
+ */
+export async function addFileAdvocateComment(
+	editor: vscode.TextEditor,
+	telemetry?: TelemetryFn
+): Promise<void> {
+	const log = telemetry || (() => {});
+
+	try {
+		log('EPISTLE', 'START', 'Adding file advocate comment');
+
+		const filepath = editor.document.fileName;
+
+		// Analyze the file
+		log('EPISTLE', 'STEP', 'Analyzing file for advocate comment');
+		const analysis = await analyzeFile(filepath);
+
+		// Show persona picker
+		const personas = await showPersonaPicker();
+		if (!personas || personas.length === 0) {
+			log('EPISTLE', 'STEP', 'User cancelled persona selection');
+			return;
+		}
+
+		// Ask user for the persona's opinion (optional)
+		const opinion = await vscode.window.showInputBox({
+			placeHolder: 'What is their perspective on this file? (optional)',
+			title: `${personas[0]}'s opinion on ${path.basename(filepath)}`,
+		});
+
+		// Detect language and generate comment
+		const language = detectLanguageFromFile(filepath);
+		const comment = generateFileAdvocateComment(analysis, personas[0], opinion || '', language);
+
+		// Insert at top of file
+		await editor.edit(editBuilder => {
+			const insertPos = new vscode.Position(0, 0);
+			editBuilder.insert(insertPos, comment + '\n\n');
+		});
+
+		log('EPISTLE', 'SUCCESS', `Advocate comment added for ${personas[0]}`);
+		vscode.window.showInformationMessage(`✓ Added ${personas[0]}'s perspective to file header`);
+	} catch (error: any) {
+		log('EPISTLE', 'ERROR', 'Failed to add advocate comment', { error: error.message });
+		vscode.window.showErrorMessage(`Failed to add advocate comment: ${error.message}`);
+	}
+}
+
+/**
+ * Helper: Detect language from file extension
+ */
+function detectLanguageFromFile(filepath: string): string {
+	const ext = path.extname(filepath).toLowerCase();
+	const extMap: Record<string, string> = {
+		'.ts': 'typescript',
+		'.tsx': 'typescript',
+		'.js': 'javascript',
+		'.jsx': 'javascript',
+		'.py': 'python',
+		'.rb': 'ruby',
+		'.go': 'go',
+		'.rs': 'rust',
+		'.java': 'java',
+	};
+	return extMap[ext] || 'typescript';
 }

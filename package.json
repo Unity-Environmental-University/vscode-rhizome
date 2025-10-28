@@ -82,6 +82,16 @@
         "description": "Analyze file and create a persona representing its perspective"
       },
       {
+        "command": "vscode-rhizome.recordFileAdvocateEpistle",
+        "title": "Ask persona to advocate for this file",
+        "description": "Create epistle with persona's perspective on file structure and role"
+      },
+      {
+        "command": "vscode-rhizome.addFileAdvocateComment",
+        "title": "Add file advocate comment",
+        "description": "Insert comment header with persona's perspective on file"
+      },
+      {
         "command": "vscode-rhizome.openEpistle",
         "title": "Open epistle",
         "description": "Open epistle from sidebar"
@@ -134,12 +144,22 @@
           "command": "vscode-rhizome.recordInlineEpistle",
           "group": "2_epistle@2",
           "when": "editorHasSelection"
+        },
+        {
+          "command": "vscode-rhizome.addFileAdvocateComment",
+          "group": "2_epistle@3",
+          "when": "!editorHasSelection"
         }
       ],
       "explorer/context": [
         {
           "command": "vscode-rhizome.createDynamicPersona",
           "group": "1_modification@1",
+          "when": "resourceExtname != ''"
+        },
+        {
+          "command": "vscode-rhizome.recordFileAdvocateEpistle",
+          "group": "1_modification@2",
           "when": "resourceExtname != ''"
         }
       ],
