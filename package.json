@@ -34,6 +34,11 @@
         "description": "Set up rhizome context in workspace"
       },
       {
+        "command": "vscode-rhizome.installDeps",
+        "title": "vscode-rhizome: Install Dependencies",
+        "description": "Install missing Python dependencies for rhizome (pyyaml, etc.)"
+      },
+      {
         "command": "vscode-rhizome.askPersona",
         "title": "Ask a persona",
         "description": "Choose which persona (dev-guide, code-reviewer, ux-advocate, etc.) to question your code"

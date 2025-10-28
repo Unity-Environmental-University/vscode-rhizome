@@ -867,6 +867,65 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(initDisposable);
 
 	// ======================================
+	// COMMAND: Install rhizome dependencies
+	// ======================================
+	let installDepsDisposable = vscode.commands.registerCommand('vscode-rhizome.installDeps', async () => {
+		console.log('[vscode-rhizome.installDeps] Command invoked');
+
+		// Show options to user
+		const option = await vscode.window.showQuickPick(
+			[
+				{ label: 'pip install pyyaml', description: 'Install missing YAML module (usually needed)' },
+				{ label: 'pip install --upgrade @rhizome/cli', description: 'Reinstall rhizome CLI with all dependencies' },
+				{ label: 'pip install pyyaml && rhizome --version', description: 'Install pyyaml AND verify rhizome works' },
+			],
+			{ placeHolder: 'Choose which command to run' }
+		);
+
+		if (!option) {
+			console.log('[vscode-rhizome.installDeps] User cancelled');
+			return;
+		}
+
+		console.log('[vscode-rhizome.installDeps] User selected:', option.label);
+
+		// Show terminal and execute command
+		const terminal = vscode.window.createTerminal('vscode-rhizome: Install Dependencies');
+		terminal.show();
+
+		// Determine the Python command to use
+		let pythonCmd = 'python3';
+		try {
+			const { execSync } = require('child_process');
+			execSync('python3 --version', { stdio: 'pipe' });
+		} catch {
+			console.log('[vscode-rhizome.installDeps] python3 not found, trying python');
+			pythonCmd = 'python';
+		}
+
+		console.log('[vscode-rhizome.installDeps] Using Python command:', pythonCmd);
+		console.log('[vscode-rhizome.installDeps] Running:', option.label);
+
+		// Send command to terminal
+		terminal.sendText(`${pythonCmd} -m pip install pyyaml`, true);
+
+		if (option.label.includes('upgrade')) {
+			terminal.sendText(`${pythonCmd} -m pip install --upgrade @rhizome/cli`, true);
+		}
+
+		if (option.label.includes('verify')) {
+			terminal.sendText('rhizome version', true);
+		}
+
+		// Show info message
+		vscode.window.showInformationMessage(
+			'Installing dependencies in terminal. Close terminal when done, then reload VSCode (Cmd+Shift+P → Reload Window)'
+		);
+	});
+
+	context.subscriptions.push(installDepsDisposable);
+
+	// ======================================
 	// AUTOCOMPLETE: @rhizome ask <persona>
 	// ======================================
 	// Register a completion provider for @rhizome ask
@@ -1150,10 +1209,12 @@ export function activate(context: vscode.ExtensionContext) {
 	console.log('[vscode-rhizome] Commands registered:');
 	console.log('[vscode-rhizome]   - vscode-rhizome.healthCheck');
 	console.log('[vscode-rhizome]   - vscode-rhizome.init');
+	console.log('[vscode-rhizome]   - vscode-rhizome.installDeps');
 	console.log('[vscode-rhizome]   - vscode-rhizome.askPersona');
 	console.log('[vscode-rhizome]   - vscode-rhizome.documentWithPersona');
 	console.log('[vscode-rhizome]   - @rhizome ask <persona> autocomplete');
 	console.log('[vscode-rhizome] Ready to use! Open Debug Console (Cmd+Shift+U) to see activity logs.');
+	console.log('[vscode-rhizome] If you see "No module named yaml" errors, run: vscode-rhizome.installDeps');
 	console.log('[vscode-rhizome] ========== ACTIVATION END ==========');
 }
 
