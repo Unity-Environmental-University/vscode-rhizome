@@ -68,7 +68,7 @@
       "id": 6,
       "title": "Integration: Persona Advocates for Extension Files",
       "description": "Allow personas to 'advocate' for extension files (e.g., code-reviewer advocates for extension.ts). Shows file header + generates advocate epistles on refactor.",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "id": 7,
@@ -136,6 +136,33 @@
         "intent": null,
         "what": "Completed Step 5: Flight Plan Linking",
         "timestamp": "2025-10-28T23:55:00Z"
+      }
+    },
+    {
+      "ts": "2025-10-29T00:15:00Z",
+      "type": "action",
+      "data": {
+        "actor": "claude-code",
+        "action": "document",
+        "object": "file-advocate-completion",
+        "qualifiers": [],
+        "confidence": 0.95,
+        "evidence": {
+          "repo": "vscode-rhizome",
+          "branch": "feature/utilities",
+          "commit": "7eb6fb1",
+          "path": null,
+          "lines": null,
+          "note": "Implemented Persona Advocates for Files (Step 6): New fileAdvocate.ts module analyzes file structure (imports, exports, complexity, role). Two command handlers: recordFileAdvocateEpistle creates letter epistle with persona's file perspective, addFileAdvocateComment inserts header comment. File roles detected: entry-point, utility, generator, registry, ui-provider. Concerns analyzed: error handling, complexity, documentation density. 20+ tests covering all code paths. Integration with epistleCommands.ts and extension.ts. Right-click menus in editor and file explorer. All 114 tests passing."
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": "Completed Step 6: Persona Advocates for Files",
+        "timestamp": "2025-10-29T00:15:00Z"
       }
     }
   ],
