@@ -36,6 +36,13 @@ export class TestWorkspace {
 	}
 
 	/**
+	 * Get the workspace directory path (for tests that need to pass cwd to commands)
+	 */
+	get root(): string {
+		return this.workspaceDir;
+	}
+
+	/**
 	 * Create the workspace directory structure
 	 */
 	async setup(): Promise<string> {
