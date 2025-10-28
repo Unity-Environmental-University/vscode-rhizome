@@ -24,6 +24,11 @@
   "contributes": {
     "commands": [
       {
+        "command": "vscode-rhizome.healthCheck",
+        "title": "vscode-rhizome: Health Check",
+        "description": "Check if rhizome is properly installed and configured"
+      },
+      {
         "command": "vscode-rhizome.init",
         "title": "Initialize Rhizome",
         "description": "Set up rhizome context in workspace"

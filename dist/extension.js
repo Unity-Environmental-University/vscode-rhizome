@@ -15784,18 +15784,104 @@ async function askPersonaAboutSelection(persona, personaDisplayName) {
     outputChannel.appendLine("Make sure rhizome is installed and in your PATH.");
   }
 }
+async function performHealthCheck(workspaceRoot) {
+  const details = [];
+  const { execSync: execSync2 } = require("child_process");
+  const fs2 = require("fs");
+  try {
+    try {
+      const version = execSync2("rhizome --version", {
+        encoding: "utf-8",
+        timeout: 5e3,
+        stdio: "pipe"
+      }).trim();
+      details.push(`\u2713 rhizome installed: ${version}`);
+    } catch {
+      details.push(`\u2717 rhizome not found in PATH`);
+      return { healthy: false, details };
+    }
+    const rhizomeDir = `${workspaceRoot}/.rhizome`;
+    if (fs2.existsSync(rhizomeDir)) {
+      details.push(`\u2713 .rhizome directory exists at ${rhizomeDir}`);
+    } else {
+      details.push(`\u26A0 .rhizome directory not found. Run: vscode-rhizome.init`);
+    }
+    try {
+      const personaOutput = execSync2("rhizome persona list", {
+        encoding: "utf-8",
+        timeout: 5e3,
+        stdio: "pipe",
+        cwd: workspaceRoot
+      });
+      const personaCount = personaOutput.split("\n").filter((line) => line.includes("|")).length;
+      details.push(`\u2713 ${personaCount} personas available`);
+    } catch {
+      details.push(`\u2717 Could not list personas`);
+      return { healthy: false, details };
+    }
+    try {
+      execSync2("rhizome query --persona don-socratic", {
+        input: "hello",
+        encoding: "utf-8",
+        timeout: 1e4,
+        stdio: ["pipe", "pipe", "pipe"],
+        cwd: workspaceRoot
+      });
+      details.push(`\u2713 test query succeeded`);
+    } catch (error) {
+      const errorMsg = error.stderr?.toString() || error.message;
+      details.push(`\u2717 test query failed: ${errorMsg.split("\n")[0]}`);
+      return { healthy: false, details };
+    }
+    return { healthy: true, details };
+  } catch (error) {
+    details.push(`\u2717 Health check error: ${error.message}`);
+    return { healthy: false, details };
+  }
+}
 function activate(context) {
-  console.log("vscode-rhizome activated");
+  console.log("[vscode-rhizome] Activation starting");
   ensureLocalBinOnPath();
-  let initDisposable = vscode2.commands.registerCommand("vscode-rhizome.init", async () => {
+  console.log("[vscode-rhizome] Local bin path ensured");
+  let healthCheckDisposable = vscode2.commands.registerCommand("vscode-rhizome.healthCheck", async () => {
     const workspaceRoot = vscode2.workspace.workspaceFolders?.[0]?.uri.fsPath;
     if (!workspaceRoot) {
       vscode2.window.showErrorMessage("No workspace folder open");
       return;
     }
+    const outputChannel = vscode2.window.createOutputChannel("vscode-rhizome: Health Check");
+    outputChannel.show(true);
+    outputChannel.appendLine("=".repeat(60));
+    outputChannel.appendLine("vscode-rhizome Health Check");
+    outputChannel.appendLine("=".repeat(60));
+    outputChannel.appendLine("");
+    const check = await performHealthCheck(workspaceRoot);
+    for (const detail of check.details) {
+      outputChannel.appendLine(detail);
+    }
+    outputChannel.appendLine("");
+    if (check.healthy) {
+      outputChannel.appendLine("\u2713 All checks passed. Extension is ready to use.");
+    } else {
+      outputChannel.appendLine("\u2717 Some checks failed. See above for details.");
+    }
+  });
+  context.subscriptions.push(healthCheckDisposable);
+  let initDisposable = vscode2.commands.registerCommand("vscode-rhizome.init", async () => {
+    console.log("[vscode-rhizome.init] Command invoked");
+    const workspaceRoot = vscode2.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot) {
+      console.log("[vscode-rhizome.init] No workspace folder");
+      vscode2.window.showErrorMessage("No workspace folder open");
+      return;
+    }
+    console.log("[vscode-rhizome.init] Initializing at:", workspaceRoot);
     const initialized = await initializeRhizomeIfNeeded(workspaceRoot);
     if (initialized) {
+      console.log("[vscode-rhizome.init] Initialization successful");
       vscode2.window.showInformationMessage("Rhizome is ready in this workspace");
+    } else {
+      console.log("[vscode-rhizome.init] Initialization failed");
     }
   });
   context.subscriptions.push(initDisposable);
@@ -15804,11 +15890,16 @@ function activate(context) {
     // Apply to all files
     {
       async provideCompletionItems(document, position) {
+        console.log("[autocomplete] Triggered at line", position.line);
         const lineText = document.lineAt(position).text.substring(0, position.character);
+        console.log("[autocomplete] Line text:", lineText);
         if (!lineText.includes("@rhizome ask")) {
+          console.log("[autocomplete] Not in @rhizome ask context");
           return [];
         }
+        console.log("[autocomplete] Found @rhizome ask context");
         const personas = await getAvailablePersonas();
+        console.log("[autocomplete] Personas available:", Array.from(personas.keys()));
         const items = [];
         for (const [name, role] of personas.entries()) {
           const item = new vscode2.CompletionItem(name, vscode2.CompletionItemKind.User);
@@ -15817,6 +15908,7 @@ function activate(context) {
           item.insertText = name;
           items.push(item);
         }
+        console.log("[autocomplete] Returning", items.length, "completion items");
         return items;
       }
     },
@@ -15825,18 +15917,25 @@ function activate(context) {
   );
   context.subscriptions.push(completionProvider);
   let askPersonaDisposable = vscode2.commands.registerCommand("vscode-rhizome.askPersona", async () => {
+    console.log("[askPersona] Command invoked");
     const selection = getActiveSelection();
-    if (!selection)
+    if (!selection) {
+      console.log("[askPersona] No selection found");
       return;
+    }
+    console.log("[askPersona] Got selection, fetching personas");
     const personas = await getAvailablePersonas();
+    console.log("[askPersona] Available personas:", Array.from(personas.keys()));
     const personaOptions = Array.from(personas.entries()).map(([name, role]) => ({
       label: name,
       description: role
     }));
+    console.log("[askPersona] Showing quick picker");
     const picked = await vscode2.window.showQuickPick(personaOptions, {
       placeHolder: "Choose a persona to question your code",
       matchOnDescription: true
     });
+    console.log("[askPersona] User picked:", picked?.label);
     if (!picked)
       return;
     await askPersonaAboutSelection(picked.label, picked.label);
@@ -15963,6 +16062,12 @@ ${selectedText}`;
     }
   );
   context.subscriptions.push(documentWithPersonaDisposable);
+  console.log("[vscode-rhizome] Activation complete. Commands registered:");
+  console.log("[vscode-rhizome]   - vscode-rhizome.healthCheck");
+  console.log("[vscode-rhizome]   - vscode-rhizome.init");
+  console.log("[vscode-rhizome]   - vscode-rhizome.askPersona");
+  console.log("[vscode-rhizome]   - vscode-rhizome.documentWithPersona");
+  console.log("[vscode-rhizome]   - @rhizome ask <persona> autocomplete");
 }
 function deactivate() {
 }
