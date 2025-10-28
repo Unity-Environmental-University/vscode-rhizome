@@ -70,13 +70,26 @@ async function queryPersona(
 				console.log(`[queryPersona] Response preview: ${response.substring(0, 200)}...`);
 				resolve(response);
 			} catch (error: any) {
-				console.log(`[queryPersona] ERROR in execSync:`, (error as Error).message);
-				if (error.stderr) {
-					console.log(`[queryPersona] stderr:`, error.stderr.toString());
+				const errorMsg = (error as Error).message;
+				const stderrMsg = error.stderr?.toString() || '';
+				const stdoutMsg = error.stdout?.toString() || '';
+
+				console.log(`[queryPersona] ERROR in execSync:`, errorMsg);
+				if (stderrMsg) {
+					console.log(`[queryPersona] stderr:`, stderrMsg);
 				}
-				if (error.stdout) {
-					console.log(`[queryPersona] stdout:`, error.stdout.toString());
+				if (stdoutMsg) {
+					console.log(`[queryPersona] stdout:`, stdoutMsg);
 				}
+
+				// Detect rhizome dependency issues
+				if (stderrMsg.includes('No module named') || stderrMsg.includes('ModuleNotFoundError')) {
+					console.log(`[queryPersona] ❌ RHIZOME DEPENDENCY ISSUE`);
+					console.log(`[queryPersona] Rhizome is missing Python dependencies`);
+					console.log(`[queryPersona] This is a rhizome installation issue, not an extension bug`);
+					console.log(`[queryPersona] Try: pip install pyyaml (or reinstall rhizome)`);
+				}
+
 				reject(error);
 			}
 		});
@@ -236,10 +249,24 @@ async function getAvailablePersonas(): Promise<Map<string, string>> {
 
 		return personas;
 	} catch (error: any) {
-		console.log(`[getAvailablePersonas] ERROR fetching personas:`, (error as Error).message);
-		if (error.stderr) {
-			console.log(`[getAvailablePersonas] stderr:`, error.stderr.toString());
+		const errorMsg = (error as Error).message;
+		const stderrMsg = error.stderr?.toString() || '';
+		console.log(`[getAvailablePersonas] ERROR fetching personas:`, errorMsg);
+		if (stderrMsg) {
+			console.log(`[getAvailablePersonas] stderr:`, stderrMsg);
 		}
+
+		// Check for common rhizome dependency issues
+		if (stderrMsg.includes('No module named')) {
+			console.log(`[getAvailablePersonas] ❌ RHIZOME DEPENDENCY ISSUE DETECTED`);
+			console.log(`[getAvailablePersonas] Rhizome is missing a Python module`);
+			console.log(`[getAvailablePersonas] Try: pip install pyyaml`);
+		}
+		if (stderrMsg.includes('ModuleNotFoundError')) {
+			console.log(`[getAvailablePersonas] ❌ PYTHON MODULE NOT FOUND`);
+			console.log(`[getAvailablePersonas] This is a rhizome environment issue, not an extension issue`);
+		}
+
 		console.log(`[getAvailablePersonas] Falling back to hardcoded personas`);
 
 		// If rhizome persona list fails, return curated set of main personas

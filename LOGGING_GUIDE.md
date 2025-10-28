@@ -239,34 +239,54 @@ export OPENAI_API_KEY=sk-proj-xxxxx
 
 ## Common Issues & How to Debug
 
-### Issue 1: `ux-advocate` Hangs (Times Out)
+### Issue 1: `ux-advocate` Hangs (Times Out) OR Missing Python Module
 
 **Symptoms:**
 - Extension freezes when querying `ux-advocate`
+- Console shows: `Error loading personas: No module named 'yaml'`
+- Console shows: `❌ RHIZOME DEPENDENCY ISSUE`
 - Other personas work fine
 - Console shows `TIMEOUT: Query to ux-advocate exceeded 30000ms`
 
 **Debug steps:**
-1. Check API key:
-   ```bash
-   echo $OPENAI_API_KEY
-   # If empty, set it:
-   export OPENAI_API_KEY=sk-proj-xxxxx
-   ```
 
-2. Test directly:
-   ```bash
-   rhizome query --persona don-socratic <<< "test"  # This should work instantly
-   rhizome query --persona ux-advocate <<< "test"   # Does this hang?
-   ```
+**Step 1: Check for missing Python modules (MOST COMMON)**
+```
+Look for in console:
+[getAvailablePersonas] ❌ RHIZOME DEPENDENCY ISSUE DETECTED
+[getAvailablePersonas] stderr: Error loading personas: No module named 'yaml'
+```
 
-3. Check console logs:
-   - Look for `[checkApiKeyAvailable] RESULT: No API key found`
-   - Look for `[queryPersona] WARNING: No API key found`
+If you see this, rhizome is missing dependencies:
+```bash
+# Install missing module
+pip install pyyaml
 
-4. If ux-advocate still hangs with API key:
-   - It might be a persona inheritance issue
-   - Try: `rhizome query --persona una <<< "test"` (parent of ux-advocate)
+# OR reinstall rhizome to get all dependencies
+pip install --upgrade --force-reinstall @rhizome/cli
+```
+
+**Step 2: Check API key (if no dependency error)**
+```bash
+echo $OPENAI_API_KEY
+# If empty, set it:
+export OPENAI_API_KEY=sk-proj-xxxxx
+```
+
+**Step 3: Test directly**
+```bash
+rhizome query --persona don-socratic <<< "test"  # This should work instantly
+rhizome query --persona ux-advocate <<< "test"   # Does this hang?
+```
+
+**Step 4: Check console logs**
+- Look for `[checkApiKeyAvailable] RESULT: No API key found`
+- Look for `[queryPersona] WARNING: No API key found`
+- Look for `[queryPersona] ❌ RHIZOME DEPENDENCY ISSUE`
+
+**Step 5: If ux-advocate still hangs**
+- It might be a persona inheritance issue
+- Try: `rhizome query --persona una <<< "test"` (parent of ux-advocate)
 
 ### Issue 2: Persona List Not Showing
 
