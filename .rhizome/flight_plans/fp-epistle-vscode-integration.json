@@ -38,19 +38,19 @@
       "id": 3,
       "title": "Feature: 'Record Epistle' Right-Click Command (Letter Format)",
       "description": "Add right-click menu item: 'Record epistle about this code'. Opens dialog to choose personas, topic, context. Generates letter-style epistle template and saves to .rhizome/plugins/epistles/.",
-      "status": "pending"
+      "status": "completed"
     },
     {
-      "id": 3b,
+      "id": 3.5,
       "title": "Feature: Inline Epistle Comment Insertion",
       "description": "Add right-click option: 'Create inline epistle'. Inserts multi-persona comment block directly above selection (// [persona]: response format). Supports dynamic persona selection.",
-      "status": "pending"
+      "status": "completed"
     },
     {
-      "id": 3c,
+      "id": 3.75,
       "title": "Feature: Dynamic Persona from Source File",
       "description": "Analyze a source file's coding patterns, style, concerns (error handling, architectural decisions, naming conventions). Call rhizome CLI to synthesize a temporary persona that represents the file's perspective. Use in epistles.",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "id": 4,
