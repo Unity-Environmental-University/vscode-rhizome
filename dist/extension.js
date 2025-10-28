@@ -14875,7 +14875,7 @@ __export(extension_exports, {
   deactivate: () => deactivate
 });
 module.exports = __toCommonJS(extension_exports);
-var vscode = __toESM(require("vscode"));
+var vscode2 = __toESM(require("vscode"));
 
 // src/stubGenerator.ts
 function generateStub(functionName, params, returnType, language, options) {
@@ -15059,11 +15059,410 @@ function insertStub(code, line, stub, language) {
   return lines.join(lineEnding);
 }
 
+// src/voice/voiceControlPanel.ts
+var vscode = __toESM(require("vscode"));
+
+// src/voice/openaiSpeechClient.ts
+var https = __toESM(require("https"));
+var import_buffer = require("buffer");
+var import_crypto = require("crypto");
+async function transcribeAudioChunk(base64Audio, options = {}) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OpenAI API key not configured. Run the Rhizome init flow or set OPENAI_API_KEY.");
+  }
+  if (!base64Audio || base64Audio.length === 0) {
+    throw new Error("Empty audio payload received");
+  }
+  const audioBuffer = import_buffer.Buffer.from(base64Audio, "base64");
+  const boundary = `----rhizome-voice-${(0, import_crypto.randomBytes)(8).toString("hex")}`;
+  const model = options.model ?? "gpt-4o-transcribe";
+  const parts = [];
+  const push = (content) => {
+    parts.push(import_buffer.Buffer.from(content, "utf-8"));
+  };
+  push(`--${boundary}\r
+`);
+  push('Content-Disposition: form-data; name="model"\r\n\r\n');
+  push(`${model}\r
+`);
+  push(`--${boundary}\r
+`);
+  push('Content-Disposition: form-data; name="response_format"\r\n\r\n');
+  push("json\r\n");
+  push(`--${boundary}\r
+`);
+  push('Content-Disposition: form-data; name="file"; filename="chunk.webm"\r\n');
+  push("Content-Type: audio/webm\r\n\r\n");
+  parts.push(audioBuffer);
+  push("\r\n");
+  push(`--${boundary}--\r
+`);
+  const body = import_buffer.Buffer.concat(parts);
+  const requestOptions = {
+    hostname: "api.openai.com",
+    path: "/v1/audio/transcriptions",
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": `multipart/form-data; boundary=${boundary}`,
+      "Content-Length": body.length
+    }
+  };
+  const responseBody = await new Promise((resolve, reject) => {
+    const req = https.request(requestOptions, (res) => {
+      const chunks = [];
+      res.on("data", (chunk) => chunks.push(chunk));
+      res.on("error", reject);
+      res.on("end", () => {
+        const payload = import_buffer.Buffer.concat(chunks).toString("utf-8");
+        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+          resolve(payload);
+        } else {
+          reject(new Error(`OpenAI transcription failed (${res.statusCode ?? "unknown"}): ${payload}`));
+        }
+      });
+    });
+    req.on("error", reject);
+    req.write(body);
+    req.end();
+  });
+  try {
+    const parsed = JSON.parse(responseBody);
+    const text = typeof parsed.text === "string" ? parsed.text : String(responseBody).trim();
+    const duration = typeof parsed.duration === "number" ? parsed.duration : void 0;
+    return {
+      text: text.trim(),
+      durationSec: duration,
+      model: parsed.model ?? model
+    };
+  } catch {
+    return {
+      text: responseBody.trim(),
+      model
+    };
+  }
+}
+
+// src/voice/voiceTranscriber.ts
+var VoiceTranscriber = class {
+  constructor(options = {}, transcribe = transcribeAudioChunk) {
+    this.transcribe = transcribe;
+    this.pending = Promise.resolve();
+    this.outputChannel = options.outputChannel ?? createOutputChannel();
+    this.onTranscript = options.onTranscript ?? (() => {
+    });
+    this.onResult = options.onResult;
+  }
+  handleChunk(base64Audio, metadata = {}) {
+    this.pending = this.pending.then(async () => {
+      await this.processChunk(base64Audio, metadata);
+    }).catch((error) => {
+      this.reportError(error);
+    });
+  }
+  async processChunk(base64Audio, metadata) {
+    this.outputChannel.appendLine("Transcribing audio chunk\u2026");
+    const result = await this.transcribe(base64Audio);
+    const transcript = result.text;
+    if (!transcript || transcript.trim().length === 0) {
+      this.outputChannel.appendLine("Received empty transcript");
+      return;
+    }
+    this.outputChannel.appendLine(`[${(/* @__PURE__ */ new Date()).toLocaleTimeString()}] ${transcript.trim()}`);
+    this.outputChannel.show(true);
+    this.onTranscript(transcript.trim());
+    if (this.onResult) {
+      this.onResult({ ...result, ...metadata });
+    }
+  }
+  reportError(error) {
+    const message = `Voice transcription error: ${error.message}`;
+    this.outputChannel.appendLine(message);
+    if (vscodeApi) {
+      vscodeApi.window.showErrorMessage(message);
+    }
+  }
+};
+var vscodeApi;
+try {
+  vscodeApi = require("vscode");
+} catch {
+  vscodeApi = void 0;
+}
+function createOutputChannel() {
+  if (vscodeApi) {
+    return vscodeApi.window.createOutputChannel("Rhizome Voice Preview");
+  }
+  throw new Error("VS Code API unavailable: provide an OutputChannel in TranscriptHandlerOptions");
+}
+
+// src/voice/voiceUsageTracker.ts
+var DEFAULT_COST_PER_MINUTE_USD = 6e-3;
+var BYTES_PER_SECOND_FALLBACK = 32e3;
+var VoiceUsageTracker = class {
+  constructor(costPerMinuteUsd = DEFAULT_COST_PER_MINUTE_USD) {
+    this.costPerMinuteUsd = costPerMinuteUsd;
+    this.chunks = 0;
+    this.totalBytes = 0;
+    this.totalDurationSec = 0;
+  }
+  record(sample) {
+    this.chunks += 1;
+    if (sample.sizeBytes) {
+      this.totalBytes += sample.sizeBytes;
+    }
+    const duration = sample.durationSec ?? this.estimateDuration(sample.sizeBytes);
+    this.totalDurationSec += duration;
+    return this.getTotals();
+  }
+  getTotals() {
+    const minutes = this.totalDurationSec / 60;
+    const estimatedCostUSD = minutes * this.costPerMinuteUsd;
+    return {
+      chunks: this.chunks,
+      totalBytes: this.totalBytes,
+      totalDurationSec: this.totalDurationSec,
+      estimatedCostUSD
+    };
+  }
+  estimateDuration(sizeBytes) {
+    if (!sizeBytes || sizeBytes <= 0) {
+      return 0;
+    }
+    return sizeBytes / BYTES_PER_SECOND_FALLBACK;
+  }
+};
+
+// src/voice/voiceControlPanel.ts
+var VoiceControlPanel = class {
+  constructor(context, handlers = {}) {
+    this.context = context;
+    this.handlers = handlers;
+    this.outputChannel = vscode.window.createOutputChannel("Rhizome Voice Preview");
+    this.usageTracker = new VoiceUsageTracker();
+    this.transcriber = new VoiceTranscriber(
+      {
+        outputChannel: this.outputChannel,
+        onTranscript: (transcript) => {
+          vscode.window.setStatusBarMessage(`Voice transcript ready: ${truncate(transcript, 60)}`, 5e3);
+        },
+        onResult: async (result) => {
+          await this.handleTranscriptionResult(result);
+        }
+      }
+    );
+  }
+  show() {
+    if (this.panel) {
+      this.panel.reveal();
+      return;
+    }
+    this.panel = vscode.window.createWebviewPanel(
+      "rhizomeVoiceControl",
+      "Rhizome Voice Control (Preview)",
+      vscode.ViewColumn.One,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: [
+          vscode.Uri.joinPath(this.context.extensionUri, "media")
+        ]
+      }
+    );
+    this.panel.webview.html = this.getHtmlForWebview(this.panel.webview);
+    this.panel.onDidDispose(() => {
+      this.panel = void 0;
+    });
+    this.panel.webview.onDidReceiveMessage((message) => {
+      switch (message.type) {
+        case "voiceStatus":
+          vscode.window.setStatusBarMessage(message.value, 3e3);
+          break;
+        case "audioChunk":
+          this.handleAudioChunk(message.rawAudioBase64, message.size);
+          break;
+        case "error":
+          vscode.window.showErrorMessage(message.value);
+          break;
+        default:
+          break;
+      }
+    });
+  }
+  handleAudioChunk(base64Audio, sizeBytes) {
+    if (!base64Audio) {
+      vscode.window.showErrorMessage("Received empty audio payload from webview");
+      return;
+    }
+    this.transcriber.handleChunk(base64Audio, { sizeBytes });
+  }
+  async handleTranscriptionResult(result) {
+    const transcript = result.text.trim();
+    const totals = this.usageTracker.record({
+      sizeBytes: result.sizeBytes,
+      durationSec: result.durationSec
+    });
+    this.outputChannel.appendLine(
+      `[usage] chunks=${totals.chunks} bytes=${totals.totalBytes} duration=${totals.totalDurationSec.toFixed(2)}s cost=$${totals.estimatedCostUSD.toFixed(4)}`
+    );
+    this.postUsageUpdate(totals);
+    this.postTranscriptToWebview(transcript);
+    if (this.handlers.onTranscript) {
+      await this.handlers.onTranscript(
+        {
+          text: transcript,
+          durationSec: result.durationSec,
+          sizeBytes: result.sizeBytes
+        },
+        {
+          appendOutput: (line) => {
+            this.outputChannel.appendLine(line);
+          },
+          showOutput: () => this.outputChannel.show(true)
+        }
+      );
+    }
+  }
+  postUsageUpdate(totals) {
+    this.panel?.webview.postMessage({
+      type: "usageUpdate",
+      totals: {
+        chunks: totals.chunks,
+        totalBytes: totals.totalBytes,
+        totalDurationSec: totals.totalDurationSec,
+        estimatedCostUSD: totals.estimatedCostUSD
+      }
+    });
+  }
+  postTranscriptToWebview(transcript) {
+    this.panel?.webview.postMessage({
+      type: "transcript",
+      text: transcript
+    });
+  }
+  getHtmlForWebview(webview) {
+    const scriptUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.context.extensionUri, "media", "voicePanel.js")
+    );
+    const styleUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.context.extensionUri, "media", "voicePanel.css")
+    );
+    const nonce = getNonce();
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}'; connect-src ${webview.cspSource} https://api.openai.com;" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="${styleUri}" />
+    <title>Rhizome Voice Control</title>
+</head>
+<body>
+    <main>
+        <h1>Rhizome Voice Control (Preview)</h1>
+        <p>Opt-in to microphone access to experiment with voice-driven Rhizome prompts.</p>
+        <div class="controls">
+            <button id="startButton">Start Listening</button>
+            <button id="stopButton" disabled>Stop</button>
+        </div>
+        <section class="status" id="status">Idle</section>
+        <section class="usage" id="usage">Usage: 0 chunks \xB7 0.00s \xB7 $0.0000</section>
+        <section class="transcript" id="transcript"></section>
+    </main>
+    <script nonce="${nonce}" src="${scriptUri}"></script>
+</body>
+</html>`;
+  }
+};
+function getNonce() {
+  const possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  return Array.from({ length: 16 }, () => possible[Math.floor(Math.random() * possible.length)]).join("");
+}
+function truncate(text, maxLength) {
+  if (text.length <= maxLength) {
+    return text;
+  }
+  return `${text.slice(0, maxLength - 1)}\u2026`;
+}
+function registerVoiceControlCommand(context, handlers = {}) {
+  const panel = new VoiceControlPanel(context, handlers);
+  return vscode.commands.registerCommand("vscode-rhizome.openVoiceControl", () => {
+    panel.show();
+  });
+}
+
+// src/utils/rhizomePath.ts
+var fs = __toESM(require("fs"));
+var os = __toESM(require("os"));
+var path = __toESM(require("path"));
+var import_child_process = require("child_process");
+var RHIZOME_BINARY_NAME = "rhizome";
+var DEFAULT_RHIZOME_LOCATIONS = [
+  path.join(os.homedir(), ".local", "bin", RHIZOME_BINARY_NAME),
+  path.join(os.homedir(), "bin", RHIZOME_BINARY_NAME),
+  path.join(os.homedir(), ".rhizome", "bin", RHIZOME_BINARY_NAME),
+  "/usr/local/bin/rhizome",
+  "/usr/bin/rhizome"
+];
+function parseCustomLocations() {
+  const envPaths = process.env.RHIZOME_CUSTOM_PATHS;
+  if (!envPaths) {
+    return [];
+  }
+  return envPaths.split(path.delimiter).map((entry) => entry.trim()).filter((entry) => entry.length > 0);
+}
+function getCandidateLocations() {
+  const combined = [...parseCustomLocations(), ...DEFAULT_RHIZOME_LOCATIONS];
+  const seen = /* @__PURE__ */ new Set();
+  const deduped = [];
+  for (const location of combined) {
+    const normalized = path.normalize(location);
+    if (!seen.has(normalized)) {
+      seen.add(normalized);
+      deduped.push(normalized);
+    }
+  }
+  return deduped;
+}
+function findRhizomeOnDisk(pathExists = fs.existsSync) {
+  for (const candidate of getCandidateLocations()) {
+    if (pathExists(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+function isRhizomeInstalled() {
+  if (findRhizomeOnDisk()) {
+    return true;
+  }
+  try {
+    (0, import_child_process.execSync)(`${RHIZOME_BINARY_NAME} --version`, {
+      encoding: "utf-8",
+      timeout: 2e3,
+      stdio: "pipe"
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+function ensureLocalBinOnPath() {
+  const localBin = path.join(os.homedir(), ".local", "bin");
+  const pathValue = process.env.PATH ?? "";
+  const segments = pathValue.length > 0 ? pathValue.split(path.delimiter) : [];
+  if (!segments.includes(localBin)) {
+    segments.unshift(localBin);
+    process.env.PATH = segments.join(path.delimiter);
+  }
+}
+
 // src/extension.ts
 async function queryPersona(text, persona, timeoutMs = 3e4) {
   try {
-    const { execSync } = require("child_process");
-    const response = execSync(`rhizome query --persona ${persona}`, {
+    const { execSync: execSync2 } = require("child_process");
+    const response = execSync2(`rhizome query --persona ${persona}`, {
       input: text,
       encoding: "utf-8",
       timeout: timeoutMs
@@ -15075,8 +15474,8 @@ async function queryPersona(text, persona, timeoutMs = 3e4) {
 }
 async function getAvailablePersonas() {
   try {
-    const { execSync } = require("child_process");
-    const output = execSync("rhizome persona list", {
+    const { execSync: execSync2 } = require("child_process");
+    const output = execSync2("rhizome persona list", {
       encoding: "utf-8",
       timeout: 5e3,
       stdio: "pipe"
@@ -15118,14 +15517,14 @@ function formatPersonaOutput(channel, personaName, selectedCode, response) {
   channel.appendLine(response);
 }
 function getActiveSelection() {
-  const editor = vscode.window.activeTextEditor;
+  const editor = vscode2.window.activeTextEditor;
   if (!editor) {
-    vscode.window.showErrorMessage("No active editor");
+    vscode2.window.showErrorMessage("No active editor");
     return null;
   }
   const selectedText = editor.document.getText(editor.selection);
   if (!selectedText) {
-    vscode.window.showErrorMessage("Please select code to question");
+    vscode2.window.showErrorMessage("Please select code to question");
     return null;
   }
   return { editor, selectedText };
@@ -15139,24 +15538,11 @@ function detectLanguage(languageId) {
   }
   return null;
 }
-function isRhizomeInstalled() {
-  try {
-    const { execSync } = require("child_process");
-    execSync("rhizome --version", {
-      encoding: "utf-8",
-      timeout: 2e3,
-      stdio: "pipe"
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
 async function isUEUMember() {
-  const { execSync } = require("child_process");
+  const { execSync: execSync2 } = require("child_process");
   try {
     try {
-      execSync("gh auth status", {
+      execSync2("gh auth status", {
         encoding: "utf-8",
         timeout: 2e3,
         stdio: "pipe"
@@ -15165,7 +15551,7 @@ async function isUEUMember() {
       return false;
     }
     try {
-      const org = execSync("git config user.organization", {
+      const org = execSync2("git config user.organization", {
         encoding: "utf-8",
         timeout: 2e3,
         stdio: "pipe"
@@ -15176,7 +15562,7 @@ async function isUEUMember() {
     } catch {
     }
     try {
-      const orgs = execSync("gh org list", {
+      const orgs = execSync2("gh org list", {
         encoding: "utf-8",
         timeout: 5e3
       }).split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
@@ -15189,44 +15575,39 @@ async function isUEUMember() {
   }
 }
 async function diagnosticRhizomeMissing() {
-  const { execSync } = require("child_process");
+  const { execSync: execSync2 } = require("child_process");
+  const fs2 = require("fs");
   const diagnostics = [];
-  const commonPaths = [
-    "/usr/local/bin/rhizome",
-    "/usr/bin/rhizome",
-    `${process.env.HOME}/.local/bin/rhizome`,
-    `${process.env.HOME}/.rhizome/bin/rhizome`
-  ];
-  for (const path of commonPaths) {
-    try {
-      execSync(`test -f ${path}`, { stdio: "pipe" });
-      diagnostics.push(`Found rhizome at: ${path}`);
-    } catch {
+  for (const candidate of getCandidateLocations()) {
+    if (fs2.existsSync(candidate)) {
+      diagnostics.push(`Found rhizome at: ${candidate}`);
+    } else {
+      diagnostics.push(`Checked path (missing): ${candidate}`);
     }
   }
   diagnostics.push(`Current PATH: ${process.env.PATH}`);
   try {
-    execSync("which npm", { stdio: "pipe", timeout: 2e3 });
+    execSync2("which npm", { stdio: "pipe", timeout: 2e3 });
     diagnostics.push("npm is available");
   } catch {
     diagnostics.push("npm NOT found (required for rhizome installation)");
   }
   try {
-    execSync("which brew", { stdio: "pipe", timeout: 2e3 });
+    execSync2("which brew", { stdio: "pipe", timeout: 2e3 });
     diagnostics.push("brew is available (macOS)");
   } catch {
   }
   return diagnostics;
 }
 async function ensureOpenAIKeyConfigured(workspaceRoot) {
-  const configPath = vscode.Uri.joinPath(vscode.Uri.file(workspaceRoot), ".rhizome", "config.json");
+  const configPath = vscode2.Uri.joinPath(vscode2.Uri.file(workspaceRoot), ".rhizome", "config.json");
   try {
     if (process.env.OPENAI_API_KEY) {
       return true;
     }
-    const configExists = await vscode.workspace.fs.stat(configPath);
+    const configExists = await vscode2.workspace.fs.stat(configPath);
     if (configExists) {
-      const configContent = await vscode.workspace.fs.readFile(configPath);
+      const configContent = await vscode2.workspace.fs.readFile(configPath);
       const config = JSON.parse(new TextDecoder().decode(configContent));
       if (config.ai?.openai_key) {
         process.env.OPENAI_API_KEY = config.ai.openai_key;
@@ -15235,21 +15616,21 @@ async function ensureOpenAIKeyConfigured(workspaceRoot) {
     }
   } catch {
   }
-  const key = await vscode.window.showInputBox({
+  const key = await vscode2.window.showInputBox({
     prompt: "Enter your OpenAI API key (stored locally in .rhizome/config.json)",
     password: true,
     ignoreFocusOut: true
   });
   if (!key) {
-    vscode.window.showWarningMessage("OpenAI API key is required for don-socratic");
+    vscode2.window.showWarningMessage("OpenAI API key is required for don-socratic");
     return false;
   }
   try {
-    const rhizomePath = vscode.Uri.joinPath(vscode.Uri.file(workspaceRoot), ".rhizome");
-    const configPath2 = vscode.Uri.joinPath(rhizomePath, "config.json");
+    const rhizomePath = vscode2.Uri.joinPath(vscode2.Uri.file(workspaceRoot), ".rhizome");
+    const configPath2 = vscode2.Uri.joinPath(rhizomePath, "config.json");
     let config = {};
     try {
-      const existing = await vscode.workspace.fs.readFile(configPath2);
+      const existing = await vscode2.workspace.fs.readFile(configPath2);
       config = JSON.parse(new TextDecoder().decode(existing));
     } catch {
     }
@@ -15257,28 +15638,28 @@ async function ensureOpenAIKeyConfigured(workspaceRoot) {
       config.ai = {};
     config.ai.openai_key = key;
     const configContent = new TextEncoder().encode(JSON.stringify(config, null, 2));
-    await vscode.workspace.fs.writeFile(configPath2, configContent);
+    await vscode2.workspace.fs.writeFile(configPath2, configContent);
     process.env.OPENAI_API_KEY = key;
     await addToGitignore(workspaceRoot, ".rhizome/config.json");
-    vscode.window.showInformationMessage("OpenAI API key configured and stored securely");
+    vscode2.window.showInformationMessage("OpenAI API key configured and stored securely");
     return true;
   } catch (error) {
-    vscode.window.showErrorMessage(`Failed to save API key: ${error.message}`);
+    vscode2.window.showErrorMessage(`Failed to save API key: ${error.message}`);
     return false;
   }
 }
 async function addToGitignore(workspaceRoot, entry) {
-  const gitignorePath = vscode.Uri.joinPath(vscode.Uri.file(workspaceRoot), ".gitignore");
+  const gitignorePath = vscode2.Uri.joinPath(vscode2.Uri.file(workspaceRoot), ".gitignore");
   let content = "";
   try {
-    const existing = await vscode.workspace.fs.readFile(gitignorePath);
+    const existing = await vscode2.workspace.fs.readFile(gitignorePath);
     content = new TextDecoder().decode(existing);
   } catch {
   }
   if (!content.includes(entry)) {
     content += (content.endsWith("\n") ? "" : "\n") + entry + "\n";
     const encoded = new TextEncoder().encode(content);
-    await vscode.workspace.fs.writeFile(gitignorePath, encoded);
+    await vscode2.workspace.fs.writeFile(gitignorePath, encoded);
   }
 }
 async function initializeRhizomeIfNeeded(workspaceRoot) {
@@ -15286,75 +15667,75 @@ async function initializeRhizomeIfNeeded(workspaceRoot) {
     const diagnosticsBefore = await diagnosticRhizomeMissing();
     const isMember = await isUEUMember();
     if (isMember) {
-      vscode.window.showInformationMessage("Diagnostics before installation:\n" + diagnosticsBefore.join("\n"));
-      const response = await vscode.window.showErrorMessage(
+      vscode2.window.showInformationMessage("Diagnostics before installation:\n" + diagnosticsBefore.join("\n"));
+      const response = await vscode2.window.showErrorMessage(
         "rhizome CLI not found. You are a member of Unity-Environmental-University. Install rhizome now?",
         "Install rhizome",
         "View Guide"
       );
       if (response === "Install rhizome") {
         try {
-          vscode.window.showInformationMessage("Installing rhizome...");
-          const { execSync } = require("child_process");
-          execSync("npm install -g @rhizome/cli", {
+          vscode2.window.showInformationMessage("Installing rhizome...");
+          const { execSync: execSync2 } = require("child_process");
+          execSync2("npm install -g @rhizome/cli", {
             encoding: "utf-8",
             timeout: 6e4,
             stdio: "inherit"
           });
-          vscode.window.showInformationMessage("rhizome installed successfully!");
+          vscode2.window.showInformationMessage("rhizome installed successfully!");
           const diagnosticsAfter = await diagnosticRhizomeMissing();
-          vscode.window.showInformationMessage(
+          vscode2.window.showInformationMessage(
             "Diagnostics after installation:\n" + diagnosticsAfter.join("\n")
           );
           if (!isRhizomeInstalled()) {
-            vscode.window.showWarningMessage(
+            vscode2.window.showWarningMessage(
               "Installation completed but rhizome still not found in PATH. You may need to restart VSCode."
             );
             return false;
           }
           return await initializeRhizomeIfNeeded(workspaceRoot);
         } catch (error) {
-          vscode.window.showErrorMessage(`Failed to install rhizome: ${error.message}`);
+          vscode2.window.showErrorMessage(`Failed to install rhizome: ${error.message}`);
           const diagnosticsFailure = await diagnosticRhizomeMissing();
-          vscode.window.showInformationMessage(
+          vscode2.window.showInformationMessage(
             "Diagnostics after failed installation:\n" + diagnosticsFailure.join("\n")
           );
           return false;
         }
       } else if (response === "View Guide") {
-        vscode.env.openExternal(vscode.Uri.parse("https://github.com/your-rhizome-repo#installation"));
+        vscode2.env.openExternal(vscode2.Uri.parse("https://github.com/your-rhizome-repo#installation"));
       }
       return false;
     } else {
-      const response = await vscode.window.showWarningMessage(
+      const response = await vscode2.window.showWarningMessage(
         "rhizome CLI not found. Please install it to use vscode-rhizome.",
         "View Installation Guide"
       );
       if (response === "View Installation Guide") {
-        vscode.env.openExternal(vscode.Uri.parse("https://github.com/your-rhizome-repo#installation"));
+        vscode2.env.openExternal(vscode2.Uri.parse("https://github.com/your-rhizome-repo#installation"));
       }
       return false;
     }
   }
-  const rhizomePath = vscode.Uri.joinPath(vscode.Uri.file(workspaceRoot), ".rhizome");
+  const rhizomePath = vscode2.Uri.joinPath(vscode2.Uri.file(workspaceRoot), ".rhizome");
   try {
-    await vscode.workspace.fs.stat(rhizomePath);
+    await vscode2.workspace.fs.stat(rhizomePath);
     const keyConfigured = await ensureOpenAIKeyConfigured(workspaceRoot);
     return keyConfigured;
   } catch {
     try {
-      vscode.window.showInformationMessage("Initializing rhizome in workspace...");
-      const { execSync } = require("child_process");
-      execSync("rhizome init", {
+      vscode2.window.showInformationMessage("Initializing rhizome in workspace...");
+      const { execSync: execSync2 } = require("child_process");
+      execSync2("rhizome init --force", {
         cwd: workspaceRoot,
         encoding: "utf-8",
         timeout: 1e4
       });
-      vscode.window.showInformationMessage("Rhizome initialized in workspace");
+      vscode2.window.showInformationMessage("Rhizome initialized in workspace");
       const keyConfigured = await ensureOpenAIKeyConfigured(workspaceRoot);
       return keyConfigured;
     } catch (error) {
-      vscode.window.showErrorMessage(`Failed to initialize rhizome: ${error.message}`);
+      vscode2.window.showErrorMessage(`Failed to initialize rhizome: ${error.message}`);
       return false;
     }
   }
@@ -15364,18 +15745,18 @@ async function askPersonaAboutSelection(persona, personaDisplayName) {
   if (!selection)
     return;
   const { selectedText } = selection;
-  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  const workspaceRoot = vscode2.workspace.workspaceFolders?.[0]?.uri.fsPath;
   if (!workspaceRoot) {
-    vscode.window.showErrorMessage("No workspace folder open");
+    vscode2.window.showErrorMessage("No workspace folder open");
     return;
   }
   const initialized = await initializeRhizomeIfNeeded(workspaceRoot);
   if (!initialized) {
-    vscode.window.showErrorMessage("Could not initialize rhizome. Check workspace permissions.");
+    vscode2.window.showErrorMessage("Could not initialize rhizome. Check workspace permissions.");
     return;
   }
-  await vscode.window.showInformationMessage(`Asking ${personaDisplayName}...`);
-  const outputChannel = vscode.window.createOutputChannel("vscode-rhizome");
+  await vscode2.window.showInformationMessage(`Asking ${personaDisplayName}...`);
+  const outputChannel = vscode2.window.createOutputChannel("vscode-rhizome");
   outputChannel.show(true);
   try {
     const response = await queryPersona(selectedText, persona);
@@ -15390,30 +15771,31 @@ async function askPersonaAboutSelection(persona, personaDisplayName) {
 }
 function activate(context) {
   console.log("vscode-rhizome activated");
-  let initDisposable = vscode.commands.registerCommand("vscode-rhizome.init", async () => {
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  ensureLocalBinOnPath();
+  let initDisposable = vscode2.commands.registerCommand("vscode-rhizome.init", async () => {
+    const workspaceRoot = vscode2.workspace.workspaceFolders?.[0]?.uri.fsPath;
     if (!workspaceRoot) {
-      vscode.window.showErrorMessage("No workspace folder open");
+      vscode2.window.showErrorMessage("No workspace folder open");
       return;
     }
     const initialized = await initializeRhizomeIfNeeded(workspaceRoot);
     if (initialized) {
-      vscode.window.showInformationMessage("Rhizome is ready in this workspace");
+      vscode2.window.showInformationMessage("Rhizome is ready in this workspace");
     }
   });
   context.subscriptions.push(initDisposable);
-  let donSocraticDisposable = vscode.commands.registerCommand("vscode-rhizome.donSocratic", async () => {
+  let donSocraticDisposable = vscode2.commands.registerCommand("vscode-rhizome.donSocratic", async () => {
     await askPersonaAboutSelection("don-socratic", "don-socratic");
   });
   context.subscriptions.push(donSocraticDisposable);
-  let inlineQuestionDisposable = vscode.commands.registerCommand(
+  let inlineQuestionDisposable = vscode2.commands.registerCommand(
     "vscode-rhizome.inlineQuestion",
     async () => {
       await askPersonaAboutSelection("don-socratic", "don-socratic (inline)");
     }
   );
   context.subscriptions.push(inlineQuestionDisposable);
-  let askPersonaDisposable = vscode.commands.registerCommand("vscode-rhizome.askPersona", async () => {
+  let askPersonaDisposable = vscode2.commands.registerCommand("vscode-rhizome.askPersona", async () => {
     const selection = getActiveSelection();
     if (!selection)
       return;
@@ -15422,7 +15804,7 @@ function activate(context) {
       label: name,
       description: role
     }));
-    const picked = await vscode.window.showQuickPick(personaOptions, {
+    const picked = await vscode2.window.showQuickPick(personaOptions, {
       placeHolder: "Choose a persona to question your code",
       matchOnDescription: true
     });
@@ -15431,29 +15813,31 @@ function activate(context) {
     await askPersonaAboutSelection(picked.label, picked.label);
   });
   context.subscriptions.push(askPersonaDisposable);
-  let stubDisposable = vscode.commands.registerCommand("vscode-rhizome.stub", async () => {
-    const editor = vscode.window.activeTextEditor;
+  const voiceControlDisposable = registerVoiceControlCommand(context);
+  context.subscriptions.push(voiceControlDisposable);
+  let stubDisposable = vscode2.commands.registerCommand("vscode-rhizome.stub", async () => {
+    const editor = vscode2.window.activeTextEditor;
     if (!editor) {
-      vscode.window.showErrorMessage("No active editor");
+      vscode2.window.showErrorMessage("No active editor");
       return;
     }
     const document = editor.document;
     const code = document.getText();
     const language = detectLanguage(document.languageId);
     if (!language) {
-      vscode.window.showErrorMessage(
+      vscode2.window.showErrorMessage(
         `Unsupported language: ${document.languageId}. Use TypeScript, JavaScript, or Python.`
       );
       return;
     }
     const stubs = findStubComments(code, language);
     if (stubs.length === 0) {
-      vscode.window.showWarningMessage("No @rhizome stub comments found in this file");
+      vscode2.window.showWarningMessage("No @rhizome stub comments found in this file");
       return;
     }
     let targetStub = stubs[0];
     if (stubs.length > 1) {
-      const picked = await vscode.window.showQuickPick(
+      const picked = await vscode2.window.showQuickPick(
         stubs.map((s) => `Line ${s.line}: ${s.functionName}`),
         { placeHolder: "Which function to stub?" }
       );
@@ -15464,14 +15848,73 @@ function activate(context) {
     }
     const stub = generateStub(targetStub.functionName, targetStub.params, targetStub.returnType, language);
     const modifiedCode = insertStub(code, targetStub.line, stub, language);
-    const fullRange = new vscode.Range(document.positionAt(0), document.positionAt(code.length));
-    const edit = new vscode.TextEdit(fullRange, modifiedCode);
-    const workspaceEdit = new vscode.WorkspaceEdit();
+    const fullRange = new vscode2.Range(document.positionAt(0), document.positionAt(code.length));
+    const edit = new vscode2.TextEdit(fullRange, modifiedCode);
+    const workspaceEdit = new vscode2.WorkspaceEdit();
     workspaceEdit.set(document.uri, [edit]);
-    await vscode.workspace.applyEdit(workspaceEdit);
-    vscode.window.showInformationMessage(`Stub created for ${targetStub.functionName}`);
+    await vscode2.workspace.applyEdit(workspaceEdit);
+    vscode2.window.showInformationMessage(`Stub created for ${targetStub.functionName}`);
   });
   context.subscriptions.push(stubDisposable);
+  let documentWithPersonaDisposable = vscode2.commands.registerCommand(
+    "vscode-rhizome.documentWithPersona",
+    async () => {
+      const selection = getActiveSelection();
+      if (!selection)
+        return;
+      const { editor, selectedText } = selection;
+      const document = editor.document;
+      const personasMap = await getAvailablePersonas();
+      if (personasMap.size === 0) {
+        vscode2.window.showErrorMessage("No personas available. Check rhizome installation.");
+        return;
+      }
+      const personaOptions = Array.from(personasMap.entries()).map(([name, role]) => ({
+        label: name,
+        description: role || `Ask ${name} to document this`
+      }));
+      const picked = await vscode2.window.showQuickPick(personaOptions, {
+        placeHolder: "Which persona should document this code?"
+      });
+      if (!picked)
+        return;
+      const workspaceRoot = vscode2.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      if (!workspaceRoot) {
+        vscode2.window.showErrorMessage("No workspace folder open");
+        return;
+      }
+      const initialized = await initializeRhizomeIfNeeded(workspaceRoot);
+      if (!initialized) {
+        vscode2.window.showErrorMessage("Could not initialize rhizome.");
+        return;
+      }
+      const prompt = `Please provide clear documentation/comments for this code:
+
+${selectedText}`;
+      try {
+        const response = await queryPersona(prompt, picked.label);
+        const language = detectLanguage(document.languageId);
+        const commentPrefix = language === "python" ? "#" : "//";
+        const commentLines = response.split("\n").map((line) => `${commentPrefix} ${line}`);
+        const comment = commentLines.join("\n");
+        const insertPos = editor.selection.start;
+        const edit = new vscode2.TextEdit(
+          new vscode2.Range(insertPos, insertPos),
+          `${comment}
+`
+        );
+        const workspaceEdit = new vscode2.WorkspaceEdit();
+        workspaceEdit.set(document.uri, [edit]);
+        await vscode2.workspace.applyEdit(workspaceEdit);
+        vscode2.window.showInformationMessage(`${picked.label} documentation added above selection`);
+      } catch (error) {
+        vscode2.window.showErrorMessage(
+          `Failed to get documentation from ${picked.label}: ${error.message}`
+        );
+      }
+    }
+  );
+  context.subscriptions.push(documentWithPersonaDisposable);
 }
 function deactivate() {
 }

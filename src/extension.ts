@@ -1,7 +1,7 @@
 
 import * as vscode from 'vscode';
 import { generateStub, findStubComments, insertStub } from './stubGenerator';
-import { registerVoiceControlCommand } from './voice/voiceControlPanel';
+import { registerVoiceControlCommand, VoiceTranscriptPayload, VoicePanelHandlerTools } from './voice/voiceControlPanel';
 import { ensureLocalBinOnPath, getCandidateLocations, isRhizomeInstalled } from './utils/rhizomePath';
 
 /**
@@ -450,10 +450,11 @@ async function initializeRhizomeIfNeeded(workspaceRoot: string): Promise<boolean
 		return keyConfigured;
 	} catch {
 		// .rhizome doesn't exist, try to initialize
+		// NOTE: --force flag auto-resolves conflicts from epistles plugin context sync
 		try {
 			vscode.window.showInformationMessage('Initializing rhizome in workspace...');
 			const { execSync } = require('child_process');
-			execSync('rhizome init', {
+			execSync('rhizome init --force', {
 				cwd: workspaceRoot,
 				encoding: 'utf-8',
 				timeout: 10000,
