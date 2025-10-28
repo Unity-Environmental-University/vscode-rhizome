@@ -1,0 +1,81 @@
+{
+  "id": "fp-1761669379",
+  "title": "Rhizome CLI Repo Init",
+  "requester": "rhizome",
+  "workflow": "custom",
+  "targets": [],
+  "stories": [],
+  "created_at": "2025-10-28T16:36:19Z",
+  "status": "archived",
+  "require_approval": false,
+  "approval": {
+    "state": "approved",
+    "by": null,
+    "at": null,
+    "notes": null
+  },
+  "steps": [
+    {
+      "id": 1,
+      "title": "Add rhizome init command using refresh_repo_context",
+      "status": "done"
+    },
+    {
+      "id": 2,
+      "title": "Delegate install.py init to rhizome CLI and deprecate legacy flags",
+      "status": "done"
+    },
+    {
+      "id": 3,
+      "title": "Extend tests/docs/personas for rhizome init flow",
+      "status": "done"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2025-10-28T16:56:22Z",
+      "type": "note",
+      "data": {
+        "text": "rhizome init command added; install shim delegates; tests/docs updated."
+      }
+    },
+    {
+      "ts": "2025-10-28T17:26:56Z",
+      "type": "note",
+      "data": {
+        "text": "Work complete; ready to archive plan."
+      }
+    }
+  ],
+  "personas": {
+    "active": [
+      "rhizome"
+    ],
+    "conducting": "rhizome",
+    "voices": {
+      "una": {
+        "active": true,
+        "mode": "guide",
+        "archive": []
+      },
+      "bro": {
+        "active": true,
+        "mode": "executor",
+        "archive": []
+      },
+      "root": {
+        "active": true,
+        "mode": "reasoner",
+        "archive": []
+      }
+    }
+  },
+  "phase": {
+    "current": "kitchen_table",
+    "entered_at": "2025-10-28T16:36:19Z",
+    "transitions": []
+  },
+  "sprouts": [],
+  "finished_at": "2025-10-28T17:23:59Z",
+  "archived_at": "2025-10-28T17:27:19Z"
+}

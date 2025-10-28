@@ -1,0 +1,149 @@
+{
+  "id": "fp-1761601520",
+  "title": "CLI Structure Review: Group Commands & Improve Help",
+  "requester": "hallie",
+  "workflow": "custom",
+  "targets": [],
+  "stories": [],
+  "created_at": "2025-10-27T21:45:20Z",
+  "status": "active",
+  "require_approval": false,
+  "approval": {
+    "state": "approved",
+    "by": null,
+    "at": null,
+    "notes": null
+  },
+  "steps": [
+    {
+      "id": 1,
+      "title": "ANALYZE: Define user entry points and mental model",
+      "status": "done"
+    },
+    {
+      "id": 2,
+      "title": "ANALYZE: Categorize commands: entry-level vs advanced vs administrative",
+      "status": "done"
+    },
+    {
+      "id": 3,
+      "title": "ISSUE: Persona commands scattered (8 top-level) instead of grouped",
+      "status": "done"
+    },
+    {
+      "id": 4,
+      "title": "ISSUE: Flight has 23 sub-commands with no workflow phase hierarchy visible",
+      "status": "done"
+    },
+    {
+      "id": 5,
+      "title": "ISSUE: Help text is mechanics-focused, not relationship-focused",
+      "status": "done"
+    },
+    {
+      "id": 6,
+      "title": "PROPOSAL: Nest persona-* commands under 'persona' subcommand",
+      "status": "done"
+    },
+    {
+      "id": 7,
+      "title": "PROPOSAL: Reorganize flight sub-commands by workflow phase (init→plan→track→close)",
+      "status": "in_progress"
+    },
+    {
+      "id": 8,
+      "title": "PROPOSAL: Enhance help descriptions to show workflow context and relationships",
+      "status": "in_progress"
+    },
+    {
+      "id": 9,
+      "title": "QUESTION: What are the 3-5 core workflows users need? (gather feedback)",
+      "status": "pending"
+    },
+    {
+      "id": 10,
+      "title": "QUESTION: Should 'run' (natural language dispatcher) be more prominent in help?",
+      "status": "pending"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2025-10-27T21:49:59Z",
+      "type": "note",
+      "data": {
+        "text": "✅ ANALYSIS COMPLETE: don-socratic reviewed CLI structure and identified 5 key structural issues. Created flight plan with issues, proposals, and guiding questions for improvement."
+      }
+    },
+    {
+      "ts": "2025-10-27T21:50:02Z",
+      "type": "note",
+      "data": {
+        "text": "✅ FIX: Enhanced 'run' command with --execute-agent flag. Now personas can autonomously execute commands and provide intelligent responses to users. Tested successfully with config_admin persona."
+      }
+    },
+    {
+      "ts": "2025-10-28T13:41:26Z",
+      "type": "note",
+      "data": {
+        "text": "✅ Step 6 COMPLETE: Nested persona-* commands under 'persona' parent. Reduced top-level commands from 26 to 19. New structure: persona {show,list,sprout,commands,adopt,init,merge}"
+      }
+    },
+    {
+      "ts": "2025-10-28T13:47:58Z",
+      "type": "note",
+      "data": {
+        "text": "🔄 Steps 7-8 IN PROGRESS: Flight phase organization + help text enhancement underway. Key insight from Don-Socratic epistle: **Need to show phase groups in --help output** (not just code comments). Also revealed: Must do user research before finalizing workflow phases. Updated step 9 to focus on user discovery."
+      }
+    },
+    {
+      "ts": "2025-10-28T13:48:13Z",
+      "type": "note",
+      "data": {
+        "text": "✨ NEW SYSTEM: Epistles Plugin created! Portable persona conversation system with context, registry, & cross-referencing. First epistle (Flight Commander ↔ Don-Socratic) captures design thinking on CLI reorganization. Plugin ready to lift to other rhizomes. See .rhizome/plugins/epistles/"
+      }
+    },
+    {
+      "ts": "2025-10-28T13:50:00Z",
+      "type": "note",
+      "data": {
+        "text": "🚀 POWER-USER FEATURE: Persona Advocates system added! Personas now advocate for files during refactors. Workflow: attach persona→refactor file→create epistle. Result: animated refactors with design rationale. MVP: advocate-attach, advocate-list, advocate-watch, advocate-epistle. Flight Commander advocates for flight_commands.py. See ADVOCATE_TUTORIAL.md"
+      }
+    },
+    {
+      "ts": "2025-10-28T13:52:00Z",
+      "type": "note",
+      "data": {
+        "text": "📚 DOCUMENTATION: Updated CLAUDE.md with Epistles & Persona Advocates feature section. All three epistles registered in registry. System principle captured: 'The value is always in the loop. We can never finish a thing fully. But we can document why we did it this way.'"
+      }
+    }
+  ],
+  "personas": {
+    "active": [
+      "rhizome"
+    ],
+    "conducting": "rhizome",
+    "voices": {
+      "una": {
+        "active": true,
+        "mode": "guide",
+        "archive": []
+      },
+      "bro": {
+        "active": true,
+        "mode": "executor",
+        "archive": []
+      },
+      "root": {
+        "active": true,
+        "mode": "reasoner",
+        "archive": []
+      }
+    }
+  },
+  "phase": {
+    "current": "kitchen_table",
+    "entered_at": "2025-10-27T21:45:20Z",
+    "transitions": []
+  },
+  "sprouts": []
+}

@@ -1,0 +1,282 @@
+{
+  "id": "fp-cli-implementation",
+  "title": "Build CLI for Don-Socratic Flight Plans",
+  "requester": "system",
+  "workflow": "don_socratic",
+  "targets": [
+    "Integrate masks, flight_modes, and pair assignments into CLI",
+    "Make don-socratic structure the default way work happens",
+    "Enable teams to use --phase, --mask, and pair assignments"
+  ],
+  "stories": [
+    {
+      "as": "a team lead",
+      "i_want": "to structure work using don-socratic phases",
+      "so_that": "my team thinks intentionally about design, implementation, and learning"
+    },
+    {
+      "as": "a developer",
+      "i_want": "to know which thinking mode I should adopt",
+      "so_that": "I can understand what my team is doing and contribute effectively"
+    }
+  ],
+  "created_at": "2025-10-27T21:50:00Z",
+  "status": "completed",
+  "require_approval": false,
+  "approval": {
+    "state": "approved",
+    "by": null,
+    "at": null,
+    "notes": null
+  },
+  "steps": [
+    {
+      "id": 1,
+      "title": "What should a don-socratic flight plan CLI look like from the user's perspective?",
+      "status": "done",
+      "type": "don_socratic",
+      "persona_a": "una",
+      "persona_b": "bro",
+      "answers": {
+        "don_asks": {
+          "text": "What should a don-socratic flight plan CLI look like from the user's perspective?",
+          "logged_at": "2025-10-27T21:52:00Z"
+        },
+        "persona_a_answers": {
+          "persona": "una",
+          "text": "The user is standing at the command line with a new problem. They need: (1) Clear entry point—not a wall of options. (2) Clarity about thinking mode—visible phase (kitchen_table/garden/library). (3) Guided structure—reflects what thinking patterns are active. (4) Semantic vocabulary—'kitchen_table', 'mask', 'pair', not technical jargon. (5) Reversible decisions—nothing locked in. Experience: enter problem → system suggests phase → system names thinking mode → work proceeds with clarity.",
+          "logged_at": "2025-10-27T21:52:00Z"
+        },
+        "persona_b_answers": {
+          "persona": "bro",
+          "text": "From the builder's perspective: (1) No friction on entry—`rhizome flight init --title \"X\"` works. Don't ask questions upfront. (2) Defaults that work—assume kitchen_table, una/bro/root. (3) Show the don-socratic structure—when I list my flight, I see what's waiting. (4) Typed, not freeform—`rhizome flight answer --step 1 --persona una \"Text\"` or `rhizome flight edit --step 1` for long-form. (5) Respect my time—both quick and deep entry modes. Experience: start flight → see what's needed → feed answers in → done.",
+          "logged_at": "2025-10-27T21:54:00Z"
+        },
+        "don_synthesizes": {
+          "text": "UNA wants clarity and semantic vocabulary. BRO wants low friction and speed. These aren't in conflict—complementary. Two modes emerge: (1) Guided mode (for new users)—asks questions, shows what to do next. (2) Direct mode (for experienced users)—`rhizome flight answer`, `rhizome flight synthesize`, `rhizome flight decide`. Same data structure, different CLI presentation. Gaps identified: (1) How to auto-detect which phase to suggest? (2) How to store user preference (guided vs. direct)? (3) How to show 'waiting for X' status clearly? These are implementation details, don't block decision.",
+          "gaps": [
+            "Auto-detect phase suggestion",
+            "Store user preference for guided vs. direct mode",
+            "Show waiting status clearly in CLI"
+          ],
+          "logged_at": "2025-10-27T21:56:00Z"
+        }
+      },
+      "decision": {
+        "action": "continue",
+        "reasoning": "Clarity + speed work together; don't require choosing between them. Implementation is straightforward. Both personas agree the synthesis is sound.",
+        "agreed_by": ["una", "bro", "don"],
+        "logged_at": "2025-10-27T21:56:30Z"
+      }
+    },
+    {
+      "id": 2,
+      "title": "How do we load flight_modes.yml and masks.yml hierarchically?",
+      "status": "done",
+      "type": "don_socratic",
+      "persona_a": "bro",
+      "persona_b": "root",
+      "answers": {
+        "don_asks": {
+          "text": "How do we load flight_modes.yml and masks.yml hierarchically?",
+          "logged_at": "2025-10-27T21:58:00Z"
+        },
+        "persona_a_answers": {
+          "persona": "bro",
+          "text": "From implementation angle: We need flight_modes.py loader that mirrors how config.py and personas work. Load order: (1) System default: rhizome/flight_modes.yml + rhizome/masks.yml. (2) User home: ~/.rhizome/flight_modes.yml + ~/.rhizome/masks.yml. (3) Repo local: .rhizome/flight_plan_modes.yml + .rhizome/masks.yml. (4) Flight override: flight JSON can specify custom phase or mask. Each level merges/overrides previous. Caching for performance. Functions needed: load_flight_modes(phase, repo_path=None), load_masks(repo_path=None), merge_modes(), merge_masks(). Error handling: missing files → use defaults, invalid YAML → return error with helpful message.",
+          "logged_at": "2025-10-27T21:58:30Z"
+        },
+        "persona_b_answers": {
+          "persona": "root",
+          "text": "From pattern angle: This mirrors personas.py hierarchy perfectly. Config system already solved this. We're not reinventing; we're extending. Key insight: Personas have 'modes' field already (in YAML). Flight modes should work same way—discoverable, mergeable, composable. The vscode-rhizome flight_plan_modes.yml is the reference. Pattern: (1) Default = what rhizome defines. (2) User = what I prefer. (3) Repo = what this project thinks. (4) Flight = what this work needs. Each persona can have different masks active per flight phase. Connection: Masks describe how to think; flight modes describe which thinking patterns matter in each phase.",
+          "logged_at": "2025-10-27T21:59:00Z"
+        },
+        "don_synthesizes": {
+          "text": "BRO provides the concrete implementation path (flight_modes.py loader). ROOT connects it to existing patterns (personas.py, config.py). Key insight: We're not building new—we're extending proven patterns. The loader should: (1) Look for flight_modes.yml + masks.yml at 4 levels (system/user/repo/flight). (2) Merge hierarchically (lower priority + higher priority = result). (3) Cache for performance. (4) Handle missing gracefully (use defaults). The architecture mirrors config.py exactly. Functions: load_flight_modes(phase, repo_path), load_masks(repo_path), merge_configs(). Error: malformed YAML → return clear error. Success: complete configuration ready for flight to use.",
+          "gaps": [
+            "Should flight_modes override be per-step or per-flight?",
+            "How granular should persona override be? (per-step, per-phase, per-flight)"
+          ],
+          "logged_at": "2025-10-27T22:00:00Z"
+        }
+      },
+      "decision": {
+        "action": "continue",
+        "reasoning": "Implementation path is clear (mirror personas.py/config.py). Pattern is proven. Gaps are design questions, not blockers. Build flight_modes.py loader next.",
+        "agreed_by": ["bro", "root", "don"],
+        "logged_at": "2025-10-27T22:00:30Z"
+      }
+    },
+    {
+      "id": 3,
+      "title": "What changes to flight.py schema are needed to support don-socratic steps?",
+      "status": "done",
+      "type": "don_socratic",
+      "persona_a": "una",
+      "persona_b": "bro",
+      "answers": {
+        "don_asks": {
+          "text": "What changes to flight.py schema are needed to support don-socratic steps?",
+          "logged_at": "2025-10-27T22:02:00Z"
+        },
+        "persona_a_answers": {
+          "persona": "una",
+          "text": "Schema clarity matters. A step needs to be clear about whether it's: (1) Traditional (just has title + status). (2) Don-socratic (has don asks, persona answers, don synthesis, decision). Current flight.py already has create_don_socratic_step() function—that's good. But we need to clarify in flight schema: (1) steps[] can contain mixed types (traditional + don-socratic). (2) Traditional step: {id, title, status}. (3) Don-socratic step: {id, title, status, type='don_socratic', persona_a, persona_b, answers{don_asks, persona_a_answers, persona_b_answers, don_synthesizes}, decision{action, reasoning, agreed_by}}. (4) Validators: is_don_socratic_step(), step_complete(). The schema should make it *obvious* what state a step is in without reading JSON carefully.",
+          "logged_at": "2025-10-27T22:02:30Z"
+        },
+        "persona_b_answers": {
+          "persona": "bro",
+          "text": "Implementation view: flight.py already has the structure. What we need: (1) Update create_proposed() to accept --type don_socratic or workflow='don_socratic'. (2) Add validators to ensure don-socratic steps aren't saved incomplete. (3) Add list/view commands that format don-socratic steps clearly (don't dump JSON, show state). (4) Add edit capability: rhizome flight answer, rhizome flight synthesize, rhizome flight decide. (5) Migrate old steps gracefully—if someone has mixed flight types, don't break them. (6) Testing: test that don-socratic steps enforce completion order (can't decide before synthesis, can't synthesize before answers). The schema is already good; CLI needs to respect it.",
+          "logged_at": "2025-10-27T22:03:00Z"
+        },
+        "don_synthesizes": {
+          "text": "UNA wants clarity (schema makes state obvious). BRO wants implementation support (validators, CLI commands). They align perfectly. Schema is already good; we're adding validators + CLI layer. Key changes: (1) Flight schema supports mixed step types (traditional + don-socratic). Already does. (2) Don-socratic steps must complete in order: persona_a → persona_b → don → decision. (3) Validators enforce this (can't mark step done until all logged). (4) CLI commands (answer, synthesize, decide) update step atomically. (5) List/view commands format don-socratic steps human-readably. Summary: Flight.py changes already committed; CLI needs these commands next.",
+          "gaps": [
+            "How to handle partial answers? (if one persona answers, then we wait, then step changes—conflict?)",
+            "Should we allow editing answers after they're logged?"
+          ],
+          "logged_at": "2025-10-27T22:04:00Z"
+        }
+      },
+      "decision": {
+        "action": "continue",
+        "reasoning": "Schema is good. Validators exist (create_don_socratic_step, is_don_socratic_step, step_complete). CLI layer comes next. Gaps are edge cases, address in CLI design.",
+        "agreed_by": ["una", "bro", "don"],
+        "logged_at": "2025-10-27T22:04:30Z"
+      }
+    },
+    {
+      "id": 4,
+      "title": "What CLI flags and commands are needed?",
+      "status": "done",
+      "type": "don_socratic",
+      "persona_a": "bro",
+      "persona_b": "una",
+      "answers": {
+        "don_asks": {
+          "text": "What CLI flags and commands are needed?",
+          "logged_at": "2025-10-27T22:06:00Z"
+        },
+        "persona_a_answers": {
+          "persona": "bro",
+          "text": "Commands needed (practical builder view): (1) rhizome flight new --title \"X\" [--phase kitchen_table] [--type don_socratic] — Creates flight, defaults to kitchen_table + don_socratic. (2) rhizome flight list [--json] — Shows flights with step completion status. (3) rhizome flight view <id> [--step 1] — Shows flight or step, formatted (not raw JSON). For don-socratic steps: shows which answers are waiting. (4) rhizome flight answer <id> <step> --persona <name> --text \"...\" or --editor — Logs answer. (5) rhizome flight synthesize <id> <step> --text \"...\" or --editor — Logs don synthesis. (6) rhizome flight decide <id> <step> --action revise|continue|reach_out --reasoning \"...\" — Logs decision. (7) rhizome flight edit --json — For advanced: edit raw JSON if needed. Also: --phase <name> flag to suggest/override phase when creating.",
+          "logged_at": "2025-10-27T22:06:30Z"
+        },
+        "persona_b_answers": {
+          "persona": "una",
+          "text": "From clarity perspective: Commands should make the don-socratic process *visible*. (1) `rhizome flight view` for don-socratic step should show: Step 1: What should the CLI look like? [in progress] — Don asks: \"...\" — Una answers: \"...\" ✓ — Bro answers: [waiting] — Don synthesizes: [waiting] — Decision: [waiting] (2) Status indicators: ✓ (done), [waiting], [in progress]. (3) No jargon—use words like 'answer', 'synthesis', 'decision', not 'persona_a_answers' or 'logged_at'. (4) When listing flights, show phase clearly: 'kitchen_table', not 'workflow: kitchen_table'. (5) Error messages should guide: 'Can't synthesize until both personas answer. Una is done; waiting for Bro.'",
+          "logged_at": "2025-10-27T22:07:00Z"
+        },
+        "don_synthesizes": {
+          "text": "BRO gives concrete commands. UNA gives clarity on how to present them. Synthesis: Commands work together in a flow. (1) Create: `rhizome flight new --title \"Build CLI\" --phase kitchen_table`. (2) View: `rhizome flight view <id>` shows state clearly. (3) Progress: `rhizome flight answer`, `synthesize`, `decide` update step in sequence. (4) Override: `--phase` flag on create suggests/overrides phase. (5) Formatting: Don't dump JSON; format as conversation (Question → Answer → Answer → Synthesis → Decision). (6) List: Show which flights are in which phase, steps waiting for input. Edge cases: (a) Can't answer if step already has answer from that persona (error: 'Update answers after logged?'—future feature). (b) Can't decide before synthesis. (c) Can't synthesize before both answers. Enforce these in CLI.",
+          "gaps": [
+            "Should --editor open $EDITOR or inline --text only?",
+            "Do we need --force flag to override completion order (for fixing mistakes)?"
+          ],
+          "logged_at": "2025-10-27T22:08:00Z"
+        }
+      },
+      "decision": {
+        "action": "continue",
+        "reasoning": "Commands are clear. Formatting is decided (conversation view, not JSON). Enforcement (can't synthesize before answers) is clear. Edge cases (--force, updating logged answers) are future. Build CLI commands now.",
+        "agreed_by": ["bro", "una", "don"],
+        "logged_at": "2025-10-27T22:08:30Z"
+      }
+    },
+    {
+      "id": 5,
+      "title": "How should `rhizome flight` guide users through the don-socratic process?",
+      "status": "done",
+      "type": "don_socratic",
+      "persona_a": "una",
+      "persona_b": "root",
+      "answers": {
+        "don_asks": {
+          "text": "How should `rhizome flight` guide users through the don-socratic process?",
+          "logged_at": "2025-10-27T22:10:00Z"
+        },
+        "persona_a_answers": {
+          "persona": "una",
+          "text": "Guidance should make the *thinking* visible. When user runs `rhizome flight view <id>`, they should see: (1) Flight title + current phase (kitchen_table). (2) For each don-socratic step: The question clearly stated. The *process* shown: What's waiting now? (Next person who needs to answer? Can you synthesize yet?) (3) Helpful prompts: 'Una answered. Waiting for Bro. Run: rhizome flight answer <id> 2 --persona bro --text \"...\"' (4) After synthesis: 'Don has synthesized. Review the synthesis. Then decide: revise|continue|reach_out. Run: rhizome flight decide <id> 2 --action continue'. (5) No ambiguity about what to do next. The CLI *names the next step*.",
+          "logged_at": "2025-10-27T22:10:30Z"
+        },
+        "persona_b_answers": {
+          "persona": "root",
+          "text": "From pattern perspective: This is pedagogy. Users learn don-socratic *by doing it*. (1) The CLI structure teaches the pattern: Don asks → Personas answer → Don synthesizes → All decide. (2) Each prompt reinforces the pattern: you see the question, you see what's needed, you act. (3) The process is *self-documenting*: no manual says 'this is a don-socratic flight'; the interface shows it. (4) Personas become real through guidance: 'Una thinks X. Bro thinks Y. What does Don say?' (5) Connection to flight_plan_modes: When phase = kitchen_table, guidance shows thinking patterns for that phase. 'In kitchen_table, we ask: clarity, assumptions, implications. Your question does this.'",
+          "logged_at": "2025-10-27T22:11:00Z"
+        },
+        "don_synthesizes": {
+          "text": "UNA wants clarity (guide names the next step). ROOT wants pedagogy (interface teaches pattern). They reinforce each other. Synthesis: CLI guidance should be *active*, not passive. (1) `rhizome flight view` shows: question, current step in the process (which answers are waiting), what command to run next. (2) Prompts are specific: 'Waiting for bro to answer' not 'step in progress'. (3) After each action (answer logged, synthesis done), next prompt appears: 'Great. Now don synthesize.' (4) Error messages guide: 'Can't synthesize yet—bro hasn't answered. Run: rhizome flight answer ...' (5) Phase guidance optional: `--guide` flag shows thinking patterns for current phase. 'Kitchen_table asks: clarity, assumptions, implications, fallback.' Implementation: prompt_for_next_action(step) function in flight_commands.py. Prompts tied to step state, not hardcoded.",
+          "gaps": [],
+          "logged_at": "2025-10-27T22:12:00Z"
+        }
+      },
+      "decision": {
+        "action": "continue",
+        "reasoning": "Guidance strategy is clear: active prompting, self-documenting interface, pedagogy built-in. No gaps identified. Ready to implement.",
+        "agreed_by": ["una", "root", "don"],
+        "logged_at": "2025-10-27T22:12:30Z"
+      }
+    }
+  ],
+  "log": [
+    {
+      "ts": "2025-10-27T21:50:00Z",
+      "type": "note",
+      "data": {
+        "text": "Flight plan created with don-socratic structure hardwired into flight.py.\n\nKey changes made to flight.py:\n- create_don_socratic_step(): Creates step with embedded don-asks, persona_a_answers, persona_b_answers, don_synthesizes, decision\n- log_answer(step, who, text): Log answer from persona_a, persona_b, or don\n- log_decision(step, action, reasoning, agreed_by): Log final decision and mark step done\n- is_don_socratic_step(): Check if step follows don-socratic pattern\n- step_complete(): Verify all answers and decision are logged before moving on\n\nThis flight plan will guide implementation through 5 don-socratic questions.\nDon directs conversation; personas answer; don synthesizes; all agree on next action."
+      }
+    },
+    {
+      "ts": "2025-10-27T22:13:00Z",
+      "type": "note",
+      "data": {
+        "text": "=== ALL 5 STEPS COMPLETED ===\n\nKITCHEN_TABLE PHASE: DONE\n\nStep 1: What should the CLI look like?\n- Decision: Two modes (guided + direct) serve different users; clarity + speed work together\n- Action: CONTINUE to implementation\n\nStep 2: How to load flight_modes.yml and masks.yml hierarchically?\n- Decision: Mirror personas.py/config.py pattern; flight_modes.py loader needed\n- Action: CONTINUE to build loader\n\nStep 3: What changes to flight.py schema are needed?\n- Decision: Schema already good; validators exist; CLI layer comes next\n- Action: CONTINUE to build CLI commands\n\nStep 4: What CLI flags and commands are needed?\n- Decision: 7 commands identified (new, list, view, answer, synthesize, decide, edit); conversation formatting decided\n- Action: CONTINUE to implement commands\n\nStep 5: How to guide users through the don-socratic process?\n- Decision: Active prompting; self-documenting interface; pedagogy built-in; no gaps\n- Action: CONTINUE to garden phase (implementation)\n\nREADY FOR: Garden phase (building the CLI with these specifications)"
+      }
+    }
+  ],
+  "personas": {
+    "active": [
+      "don",
+      "una",
+      "bro",
+      "root"
+    ],
+    "conducting": "don",
+    "voices": {
+      "una": {
+        "active": true,
+        "mask": "clarity_guardian",
+        "archive": []
+      },
+      "bro": {
+        "active": true,
+        "mask": "executor",
+        "archive": []
+      },
+      "root": {
+        "active": true,
+        "mask": "pattern_hunter",
+        "archive": []
+      },
+      "don": {
+        "active": true,
+        "mask": "questioner",
+        "archive": []
+      }
+    }
+  },
+  "phase": {
+    "current": "garden",
+    "entered_at": "2025-10-27T22:13:00Z",
+    "transitions": [
+      {
+        "from": "kitchen_table",
+        "to": "garden",
+        "at": "2025-10-27T22:13:00Z",
+        "note": "All 5 don-socratic questions answered and decided. Ready for implementation."
+      }
+    ]
+  },
+  "sprouts": []
+}

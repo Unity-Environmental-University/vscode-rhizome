@@ -1,0 +1,87 @@
+{
+  "id": "fp-1760023656",
+  "title": "Migrate rootsong guidance and scaffold UNA operations",
+  "requester": "hallie",
+  "workflow": "custom",
+  "targets": [],
+  "stories": [
+    {
+      "as": "developer",
+      "i_want": "rootsong guidance in this repo",
+      "so_that": "UNA operations follow consistent design principles and language patterns"
+    },
+    {
+      "as": "future contributor",
+      "i_want": "all operations and prompts to reflect rootsong patterns",
+      "so_that": "the codebase is coherent and maintainable following established design philosophy"
+    }
+  ],
+  "created_at": "2025-10-09T15:27:36Z",
+  "status": "shelved",
+  "require_approval": false,
+  "approval": {
+    "state": "approved",
+    "by": null,
+    "at": null,
+    "notes": null
+  },
+  "steps": [
+    {
+      "id": 1,
+      "title": "Locate rootsong guidance files in ../lisa_brain",
+      "status": "done"
+    },
+    {
+      "id": 2,
+      "title": "Copy rootsong documentation into docs/rootsong/",
+      "status": "done"
+    },
+    {
+      "id": 3,
+      "title": "Extract key rootsong principles and patterns into summary doc",
+      "status": "done"
+    },
+    {
+      "id": 4,
+      "title": "Audit rhizome.py help text and prompts for alignment opportunities",
+      "status": "done"
+    },
+    {
+      "id": 5,
+      "title": "Apply rootsong language patterns to command help text",
+      "status": "in_progress"
+    },
+    {
+      "id": 6,
+      "title": "Apply rootsong patterns to AI prompts and error messages",
+      "status": "pending"
+    },
+    {
+      "id": 7,
+      "title": "Update CLAUDE.md with rootsong principles and references",
+      "status": "pending"
+    },
+    {
+      "id": 8,
+      "title": "Verify all operations and language align with rootsong",
+      "status": "pending"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2025-10-09T15:29:34Z",
+      "type": "note",
+      "data": {
+        "text": "Found rootsong files in ../lisa_brain/docs/broetry/: rootsong.md (main), rootsong_commit_style.md, rootsong_dialectic.md, rootsong_tending.md, rootsong_gendered_v1.md, rootsong_test_results.md, plus prompts/ subdirectory"
+      }
+    },
+    {
+      "ts": "2025-10-09T15:34:22Z",
+      "type": "note",
+      "data": {
+        "text": "Audit complete. Created comprehensive rootsong_audit.md with 30+ command descriptions mapped to kitchen table/garden/library patterns. Identified AI prompts, error messages, and form-teaches-form opportunities. Priority: main description, flight commands, AI prompts, error mulching."
+      }
+    }
+  ],
+  "archived_at": "2025-10-09T15:37:08Z"
+}

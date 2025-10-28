@@ -1,0 +1,229 @@
+{
+  "id": "fp-1760027054",
+  "title": "Migrate rootsong guidance and scaffold UNA operations",
+  "requester": "hallie",
+  "workflow": "custom",
+  "targets": [],
+  "stories": [
+    {
+      "as": "developer",
+      "i_want": "rootsong guidance in this repo",
+      "so_that": "UNA operations follow consistent design principles and language patterns"
+    },
+    {
+      "as": "future contributor",
+      "i_want": "all operations and prompts to reflect rootsong patterns",
+      "so_that": "the codebase is coherent and maintainable following established design philosophy"
+    }
+  ],
+  "created_at": "2025-10-09T16:24:14Z",
+  "status": "active",
+  "require_approval": false,
+  "approval": {
+    "state": "approved",
+    "by": null,
+    "at": null,
+    "notes": null
+  },
+  "steps": [
+    {
+      "id": 1,
+      "title": "Locate rootsong guidance files in ../lisa_brain",
+      "status": "done"
+    },
+    {
+      "id": 2,
+      "title": "Copy rootsong documentation into docs/rootsong/",
+      "status": "done"
+    },
+    {
+      "id": 3,
+      "title": "Extract key rootsong principles and patterns into summary doc",
+      "status": "done"
+    },
+    {
+      "id": 4,
+      "title": "Audit una.py help text and prompts for alignment opportunities",
+      "status": "done"
+    },
+    {
+      "id": 5,
+      "title": "Apply rootsong language patterns to command help text",
+      "status": "done"
+    },
+    {
+      "id": 6,
+      "title": "Apply rootsong patterns to AI prompts and error messages",
+      "status": "done"
+    },
+    {
+      "id": 7,
+      "title": "Update CLAUDE.md with rootsong principles and references",
+      "status": "done"
+    },
+    {
+      "id": 8,
+      "title": "Verify all operations and language align with rootsong",
+      "status": "done"
+    },
+    {
+      "id": 10,
+      "title": "Try one short prompt in a live session (2 weeks)",
+      "status": "in_progress"
+    },
+    {
+      "id": 11,
+      "title": "Hallway demos (5 minutes); note friction",
+      "status": "pending"
+    },
+    {
+      "id": 14,
+      "title": "Spot-check docs/help for rootsong tone; trim where needed",
+      "status": "done"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2025-10-09T16:27:22Z",
+      "type": "note",
+      "data": {
+        "text": "Unshelved from archive; preserved step statuses and stories."
+      }
+    },
+    {
+      "ts": "2025-10-09T16:35:09Z",
+      "type": "note",
+      "data": {
+        "text": "Schoolhouse v0.1 TEMP templates added under docs/rootsong/prompts/schoolhouse/. Reversible drafts; no citations."
+      }
+    },
+    {
+      "ts": "2025-10-09T16:35:59Z",
+      "type": "note",
+      "data": {
+        "text": "Added Schoolhouse index and guidance to ROOTSONG_FOR_UNA.md; queued pilot and corridor test steps; started pilot."
+      }
+    },
+    {
+      "ts": "2025-10-09T16:36:32Z",
+      "type": "note",
+      "data": {
+        "text": "Published Schoolhouse Teacher Pack v0.1 (docs/rootsong/prompts/schoolhouse/teacher_pack.md)."
+      }
+    },
+    {
+      "ts": "2025-10-09T16:38:13Z",
+      "type": "revision",
+      "data": {
+        "text": "Shifted Schoolhouse to seed-word cards; dropped policy tone; kept rootsong voice."
+      }
+    },
+    {
+      "ts": "2025-10-09T16:38:13Z",
+      "type": "action",
+      "data": {
+        "actor": "unity-hallie",
+        "action": "plan_revised",
+        "object": "flight:fp-1760027054",
+        "qualifiers": [
+          "revision"
+        ],
+        "confidence": null,
+        "evidence": {
+          "repo": "una",
+          "branch": "main",
+          "commit": "2a6a8f6fd0ad5e5b85354d17ab8cdf6ebaf92f04",
+          "path": null,
+          "lines": null,
+          "note": "Shifted Schoolhouse to seed-word cards; dropped policy tone; kept rootsong voice."
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": null,
+        "timestamp": "2025-10-09T16:38:13Z"
+      }
+    },
+    {
+      "ts": "2025-10-09T16:38:13Z",
+      "type": "note",
+      "data": {
+        "text": "Seed cards: bell_ringer.md, exit_ticket.md, mini_lesson.md now minimal phrase sets."
+      }
+    },
+    {
+      "ts": "2025-10-09T16:39:22Z",
+      "type": "note",
+      "data": {
+        "text": "Applied rootsong voice to CLI help lines and AI prompts/errors (small, kind, reversible)."
+      }
+    },
+    {
+      "ts": "2025-10-09T16:40:13Z",
+      "type": "note",
+      "data": {
+        "text": "Updated CLAUDE.md with rootsong voice + Schoolhouse pointers; modernized entrypoint description."
+      }
+    },
+    {
+      "ts": "2025-10-09T16:40:13Z",
+      "type": "note",
+      "data": {
+        "text": "Verified ops language: README, CLI help, AI prompts. Tone aligned (small, clear, reversible)."
+      }
+    },
+    {
+      "ts": "2025-10-09T16:54:41Z",
+      "type": "revision",
+      "data": {
+        "text": "Removed standalone 'Schoolhouse' files and references; retained rootsong vibe inline. Avoided new buckets/names."
+      }
+    },
+    {
+      "ts": "2025-10-09T16:54:41Z",
+      "type": "action",
+      "data": {
+        "actor": "unity-hallie",
+        "action": "plan_revised",
+        "object": "flight:fp-1760027054",
+        "qualifiers": [
+          "revision"
+        ],
+        "confidence": null,
+        "evidence": {
+          "repo": "una",
+          "branch": "main",
+          "commit": "2a6a8f6fd0ad5e5b85354d17ab8cdf6ebaf92f04",
+          "path": null,
+          "lines": null,
+          "note": "Removed standalone 'Schoolhouse' files and references; retained rootsong vibe inline. Avoided new buckets/names."
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": null,
+        "timestamp": "2025-10-09T16:54:41Z"
+      }
+    },
+    {
+      "ts": "2025-10-09T16:54:41Z",
+      "type": "note",
+      "data": {
+        "text": "Deleted docs/rootsong/prompts/schoolhouse/* and trimmed references in CLAUDE.md and ROOTSONG_FOR_UNA.md."
+      }
+    },
+    {
+      "ts": "2025-10-09T16:55:22Z",
+      "type": "note",
+      "data": {
+        "text": "Renamed step #10 for lighter tone; verified ops language and marked #8 done."
+      }
+    }
+  ]
+}

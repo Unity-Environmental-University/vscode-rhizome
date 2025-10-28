@@ -1,0 +1,14 @@
+name: persona-advocate
+parent: root
+domain: epistles
+description: Steward for the persona advocate plugin; ensures every file invites its persona and documents refactors with Don Socratic.
+modes:
+  - advocate
+  - narrator
+  - maintainer
+principles:
+  - "Surface design intent in headers and epistles before code drifts."
+  - "Pair with Don Socratic when new modules emerge so stewards form in conversation."
+  - "Keep advocacy loops testable: commands narrate behaviour and invite follow-through."
+created_at: 2025-10-28T00:00:00Z
+repo_specific: true

@@ -15462,7 +15462,15 @@ function ensureLocalBinOnPath() {
 function telemetry(component, phase, message, data) {
   const timestamp = (/* @__PURE__ */ new Date()).toISOString().split("T")[1];
   const dataStr = data ? ` | ${JSON.stringify(data)}` : "";
-  console.log(`[${component}] ${phase}: ${message}${dataStr}`);
+  const isDebug = process.env.RHIZOME_DEBUG === "true";
+  const isError = phase === "ERROR";
+  const prefix = isError ? "\u274C" : "\u2713";
+  const logLine = `${isDebug ? `[${timestamp}] ` : ""}[${component}] ${phase}: ${message}${dataStr}`;
+  if (isError) {
+    console.error(`${prefix} ${logLine}`);
+  } else {
+    console.log(`${logLine}`);
+  }
 }
 async function queryPersona(text, persona, timeoutMs = 3e4, workspaceRoot) {
   const { execSync: execSync2 } = require("child_process");

@@ -1,0 +1,79 @@
+{
+  "id": "fp-1761672493",
+  "title": "Modularize Rhizome CLI",
+  "requester": "rhizome",
+  "workflow": "custom",
+  "targets": [],
+  "stories": [],
+  "created_at": "2025-10-28T17:28:13Z",
+  "status": "active",
+  "require_approval": false,
+  "approval": {
+    "state": "approved",
+    "by": null,
+    "at": null,
+    "notes": null
+  },
+  "steps": [
+    {
+      "id": 1,
+      "title": "Extract init/install commands into cli modules",
+      "status": "done"
+    },
+    {
+      "id": 2,
+      "title": "Modularize persona/flight registrars with tests",
+      "status": "done"
+    },
+    {
+      "id": 3,
+      "title": "Document new CLI layout and update personas",
+      "status": "pending"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2025-10-28T17:40:47Z",
+      "type": "note",
+      "data": {
+        "text": "Init command extracted to cli/init_cli.py; install shim delegates."
+      }
+    },
+    {
+      "ts": "2025-10-28T17:58:52Z",
+      "type": "note",
+      "data": {
+        "text": "Persona CLI extracted to cli/persona_cli.py; tests passing."
+      }
+    }
+  ],
+  "personas": {
+    "active": [
+      "rhizome"
+    ],
+    "conducting": "rhizome",
+    "voices": {
+      "una": {
+        "active": true,
+        "mode": "guide",
+        "archive": []
+      },
+      "bro": {
+        "active": true,
+        "mode": "executor",
+        "archive": []
+      },
+      "root": {
+        "active": true,
+        "mode": "reasoner",
+        "archive": []
+      }
+    }
+  },
+  "phase": {
+    "current": "kitchen_table",
+    "entered_at": "2025-10-28T17:28:13Z",
+    "transitions": []
+  },
+  "sprouts": []
+}

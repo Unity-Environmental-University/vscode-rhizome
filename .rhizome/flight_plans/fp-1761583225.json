@@ -1,0 +1,48 @@
+{
+  "id": "fp-1761583225",
+  "title": "Design: Pair Assignment in Flight Plans (Explicit vs Fluid)",
+  "requester": "chorus-design",
+  "workflow": "custom",
+  "targets": [],
+  "stories": [],
+  "created_at": "2025-10-27T16:40:25Z",
+  "status": "active",
+  "require_approval": false,
+  "approval": {
+    "state": "approved",
+    "by": null,
+    "at": null,
+    "notes": null
+  },
+  "steps": [],
+  "log": [],
+  "personas": {
+    "active": [
+      "rhizome"
+    ],
+    "conducting": "rhizome",
+    "voices": {
+      "una": {
+        "active": true,
+        "mode": "guide",
+        "archive": []
+      },
+      "bro": {
+        "active": true,
+        "mode": "executor",
+        "archive": []
+      },
+      "root": {
+        "active": true,
+        "mode": "reasoner",
+        "archive": []
+      }
+    }
+  },
+  "phase": {
+    "current": "kitchen_table",
+    "entered_at": "2025-10-27T16:40:25Z",
+    "transitions": []
+  },
+  "sprouts": []
+}

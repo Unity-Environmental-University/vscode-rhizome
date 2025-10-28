@@ -1,0 +1,168 @@
+{
+  "id": "fp-1760022692",
+  "title": "Modularize rhizome.py CLI script",
+  "requester": "hallie",
+  "workflow": "custom",
+  "targets": [],
+  "stories": [
+    {
+      "as": "developer",
+      "i_want": "rhizome.py to be under 500 lines",
+      "so_that": "the codebase is more maintainable and follows the existing modular architecture"
+    },
+    {
+      "as": "contributor",
+      "i_want": "clear separation between CLI parsing and business logic",
+      "so_that": "I can easily understand and extend UNA functionality"
+    }
+  ],
+  "created_at": "2025-10-09T15:11:32Z",
+  "status": "archived",
+  "require_approval": false,
+  "approval": {
+    "state": "approved",
+    "by": "hallie",
+    "at": "2025-10-09T15:16:52Z",
+    "notes": "Approved with testing-first approach and 7-file directory heuristic",
+    "snapshot": {
+      "ts": "2025-10-09T15:16:52Z",
+      "steps": [
+        "Extract action logging functions to actions.py module",
+        "Extract persona management functions to persona.py module",
+        "Move all flight plan command handlers to flight_cli.py",
+        "Extract graph/export operations to graph.py module",
+        "Create cli.py module for argparse setup and delegation",
+        "Refactor rhizome.py to be lightweight entry point (<100 lines) that imports and delegates",
+        "Update tests to verify all functionality still works",
+        "Update CLAUDE.md to reflect new modular architecture",
+        "Create comprehensive test scaffolding for current rhizome.py behavior before refactoring",
+        "Audit root directory: ensure no more than 7 non-config .py files; plan una/ subpackage if needed",
+        "Add integration tests for each extracted module"
+      ]
+    }
+  },
+  "steps": [
+    {
+      "id": 1,
+      "title": "Extract action logging functions to actions.py module",
+      "status": "in_progress"
+    },
+    {
+      "id": 2,
+      "title": "Extract persona management functions to persona.py module",
+      "status": "pending"
+    },
+    {
+      "id": 3,
+      "title": "Move all flight plan command handlers to flight_cli.py",
+      "status": "pending"
+    },
+    {
+      "id": 4,
+      "title": "Extract graph/export operations to graph.py module",
+      "status": "pending"
+    },
+    {
+      "id": 5,
+      "title": "Create cli.py module for argparse setup and delegation",
+      "status": "pending"
+    },
+    {
+      "id": 6,
+      "title": "Refactor rhizome.py to be lightweight entry point (<100 lines) that imports and delegates",
+      "status": "pending"
+    },
+    {
+      "id": 7,
+      "title": "Update tests to verify all functionality still works",
+      "status": "pending"
+    },
+    {
+      "id": 8,
+      "title": "Update CLAUDE.md to reflect new modular architecture",
+      "status": "pending"
+    },
+    {
+      "id": 9,
+      "title": "Create comprehensive test scaffolding for current rhizome.py behavior before refactoring",
+      "status": "done"
+    },
+    {
+      "id": 10,
+      "title": "Audit root directory: ensure no more than 7 non-config .py files; plan una/ subpackage if needed",
+      "status": "done"
+    },
+    {
+      "id": 11,
+      "title": "Add integration tests for each extracted module",
+      "status": "pending"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2025-10-09T15:16:04Z",
+      "type": "note",
+      "data": {
+        "text": "IMPORTANT: Steps 9-10 should be executed FIRST (before steps 1-8). Testing scaffolding must be in place before any refactoring. Directory organization heuristic: max 7 non-config .py files per directory. Current root has 6 files (ai.py, config.py, flight.py, rhizome_lib.py, web.py, __init__.py) so we're at threshold. After extraction, may need una/ subpackage structure."
+      }
+    },
+    {
+      "ts": "2025-10-09T15:22:04Z",
+      "type": "note",
+      "data": {
+        "text": "Step 10 complete: Audit shows root at 6-file threshold. Plan: create una/commands/ subpackage with 7 modules (actions, persona, memory, graph, init, flight_cli, misc). See .rhizome/modularization_plan.md for details."
+      }
+    },
+    {
+      "ts": "2025-10-09T15:23:57Z",
+      "type": "revision",
+      "data": {
+        "text": "Rethinking extraction strategy: avoid creating new monolithic catch-all modules. Focus on extracting only well-bounded subsystems (flight commands ~15 subcommands). Keep rhizome.py commands thin by extracting their business logic to focused helper modules instead of moving entire command handlers."
+      }
+    },
+    {
+      "ts": "2025-10-09T15:23:57Z",
+      "type": "action",
+      "data": {
+        "actor": "unity-hallie",
+        "action": "plan_revised",
+        "object": "flight:fp-1760022692",
+        "qualifiers": [
+          "revision"
+        ],
+        "confidence": null,
+        "evidence": {
+          "repo": "una",
+          "branch": "main",
+          "commit": "2a6a8f6fd0ad5e5b85354d17ab8cdf6ebaf92f04",
+          "path": null,
+          "lines": null,
+          "note": "Rethinking extraction strategy: avoid creating new monolithic catch-all modules. Focus on extracting only well-bounded subsystems (flight commands ~15 subcommands). Keep rhizome.py commands thin by extracting their business logic to focused helper modules instead of moving entire command handlers."
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": null,
+        "timestamp": "2025-10-09T15:23:57Z"
+      }
+    },
+    {
+      "ts": "2025-10-09T15:24:40Z",
+      "type": "note",
+      "data": {
+        "text": "REVISED STRATEGY: Instead of extracting all 39 commands to catch-all modules, we extract only well-bounded subsystems: 1) flight_commands.py (15+ subcommands), 2) persona_system.py (merge/init logic), 3) action_recorder.py (write_action logic), 4) exporters.py (export handlers). Command handlers stay in rhizome.py as thin wrappers. This reduces rhizome.py by ~70% (2533→700 lines) while avoiding monolithic modules. See .rhizome/revised_modularization_strategy.md"
+      }
+    },
+    {
+      "ts": "2025-10-09T15:55:01Z",
+      "type": "note",
+      "data": {
+        "text": "Shelved rootsong application plan (fp-1760023656) using new 'shelved' status. Rootsong docs copied to docs/rootsong/, audit complete. Will apply language after structure is stable. Resumed modularization plan with 29 green tests as foundation."
+      }
+    }
+  ],
+  "archived_at": "2025-10-09T16:24:14Z"
+}

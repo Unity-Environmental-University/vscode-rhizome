@@ -1,0 +1,70 @@
+{
+  "id": "fp-1761148665",
+  "title": "Implement Oxford Don TODOs - Student Workflow",
+  "requester": "rhizome",
+  "workflow": "custom",
+  "targets": [],
+  "stories": [
+    {
+      "as": "mason",
+      "i_want": "resilient API client with retry logic",
+      "so_that": "network failures don't lose student data"
+    },
+    {
+      "as": "una",
+      "i_want": "students to provide substantive responses",
+      "so_that": "shallow responses don't waste AI feedback tokens"
+    },
+    {
+      "as": "bro",
+      "i_want": "citations in AI feedback so students see the evidence",
+      "so_that": "feedback feels grounded, not hallucinated"
+    },
+    {
+      "as": "rhizome",
+      "i_want": "coordination across mason, bro, una for coherent implementation",
+      "so_that": "all pieces fit together"
+    }
+  ],
+  "created_at": "2025-10-22T15:57:45Z",
+  "status": "archived",
+  "require_approval": false,
+  "approval": {
+    "state": "approved",
+    "by": null,
+    "at": null,
+    "notes": null
+  },
+  "steps": [],
+  "log": [],
+  "personas": {
+    "active": [
+      "rhizome"
+    ],
+    "conducting": "rhizome",
+    "voices": {
+      "una": {
+        "active": true,
+        "mode": "guide",
+        "archive": []
+      },
+      "bro": {
+        "active": true,
+        "mode": "executor",
+        "archive": []
+      },
+      "root": {
+        "active": true,
+        "mode": "reasoner",
+        "archive": []
+      }
+    }
+  },
+  "phase": {
+    "current": "kitchen_table",
+    "entered_at": "2025-10-22T15:57:45Z",
+    "transitions": []
+  },
+  "sprouts": [],
+  "archived_at": "2025-10-22T15:59:10Z"
+}

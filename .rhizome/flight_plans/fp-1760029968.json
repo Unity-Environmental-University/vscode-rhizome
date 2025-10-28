@@ -1,0 +1,178 @@
+{
+  "id": "fp-1760029968",
+  "title": "V3 Planning Interface Wireframe",
+  "requester": "hallie",
+  "workflow": "product",
+  "targets": [],
+  "stories": [
+    {
+      "as": "developer",
+      "i_want": "file and follow flight plans tied to code without leaving UI",
+      "so_that": "I stay in flow and correlate changes to plans"
+    },
+    {
+      "as": "developer",
+      "i_want": "page into sub‑flight plans when available",
+      "so_that": "I can break down work without cluttering the main board"
+    },
+    {
+      "as": "learning designer",
+      "i_want": "set up flight plans for myself and SMEs",
+      "so_that": "work moves predictably across roles"
+    },
+    {
+      "as": "SME",
+      "i_want": "AI scaffold and gentle pushback while drafting",
+      "so_that": "I produce usable drafts faster with clarity"
+    },
+    {
+      "as": "PM",
+      "i_want": "see status across repos/courses and drill in",
+      "so_that": "I can unblock teams and report accurately"
+    }
+  ],
+  "created_at": "2025-10-09T17:12:48Z",
+  "status": "active",
+  "require_approval": true,
+  "approval": {
+    "state": "approved",
+    "by": "hallie",
+    "at": "2025-10-09T17:17:05Z",
+    "notes": "Stories validated: course as top view; runs from course repo template.",
+    "snapshot": {
+      "ts": "2025-10-09T17:17:05Z",
+      "steps": []
+    }
+  },
+  "steps": [
+    {
+      "id": 1,
+      "title": "Gather and validate user stories",
+      "status": "done"
+    },
+    {
+      "id": 2,
+      "title": "Draft layout: course-scoped left nav, plan board, details drawer",
+      "status": "done"
+    },
+    {
+      "id": 3,
+      "title": "Implement interactive wireframe (HTML/JS) with working modals",
+      "status": "done"
+    },
+    {
+      "id": 4,
+      "title": "Dev mode: code-linked plans + sub-plan breadcrumb/peek",
+      "status": "in_progress"
+    },
+    {
+      "id": 5,
+      "title": "Designer/SME mode: create plans; AI scaffold/pushback mock",
+      "status": "pending"
+    },
+    {
+      "id": 6,
+      "title": "Course switcher + repo template assumptions",
+      "status": "pending"
+    },
+    {
+      "id": 7,
+      "title": "Document next-step MVPs and risks",
+      "status": "pending"
+    },
+    {
+      "id": 8,
+      "title": "Iter 1: usability pass (inline new plan, keyboard focus, clearer AI pushback)",
+      "status": "done"
+    },
+    {
+      "id": 9,
+      "title": "Iter 2: hints toggle, simpler details pane, cleaner sub‑plan peek",
+      "status": "pending"
+    },
+    {
+      "id": 10,
+      "title": "Move V3 wireframes under wireframes/v3/",
+      "status": "done"
+    },
+    {
+      "id": 11,
+      "title": "Create V4 ideal SME assignment flow (objectives → rubric → instructions)",
+      "status": "done"
+    },
+    {
+      "id": 12,
+      "title": "V4 Iter 1: guided SME flow (chips, passive highlights, question buttons)",
+      "status": "done"
+    },
+    {
+      "id": 13,
+      "title": "V4 Iter 2: personas + validation-mcp simulation",
+      "status": "done"
+    },
+    {
+      "id": 14,
+      "title": "V4 Iter 3: passive overlays + validation shortcut",
+      "status": "in_progress"
+    },
+    {
+      "id": 15,
+      "title": "V4 Iter 1A: feel-preserving + exemplars/paste guard/quick check",
+      "status": "pending"
+    },
+    {
+      "id": 16,
+      "title": "V4 Iter 1B: field helpers + inline lookup + sim",
+      "status": "pending"
+    },
+    {
+      "id": 17,
+      "title": "V4 Iter 1C: inline chips + ribbon tips",
+      "status": "pending"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2025-10-09T17:18:07Z",
+      "type": "note",
+      "data": {
+        "text": "Added static wireframe at wireframes/v3_planning_wireframe.html (presentable, working modals)."
+      }
+    },
+    {
+      "ts": "2025-10-09T17:21:11Z",
+      "type": "note",
+      "data": {
+        "text": "Added iter1 (wireframes/v3_planning_wireframe_iter1.html) and iter2 (wireframes/v3_planning_wireframe_iter2.html)."
+      }
+    },
+    {
+      "ts": "2025-10-09T17:32:27Z",
+      "type": "note",
+      "data": {
+        "text": "V3 moved to wireframes/v3; added v4_sme_assignment_flow.html focusing on SME guided draft with AI reflection prompts."
+      }
+    },
+    {
+      "ts": "2025-10-09T17:38:09Z",
+      "type": "note",
+      "data": {
+        "text": "Created v4_sme_assignment_flow_iter1.html with guided UX: LO focus, suggestion chips, passive highlight heuristics, question buttons, tiny preview."
+      }
+    },
+    {
+      "ts": "2025-10-09T17:43:10Z",
+      "type": "note",
+      "data": {
+        "text": "Added iter2 (personas, simulated student via validation-mcp mock) and iter3 (passive overlays, nudges, validation shortcut)."
+      }
+    },
+    {
+      "ts": "2025-10-09T17:46:01Z",
+      "type": "note",
+      "data": {
+        "text": "Added iter1a/1b/1c variants refining SME feel while adding minimal guidance and validation mocks."
+      }
+    }
+  ]
+}

@@ -33,7 +33,18 @@ import { ensureLocalBinOnPath, getCandidateLocations, isRhizomeInstalled } from 
 function telemetry(component: string, phase: string, message: string, data?: Record<string, any>) {
 	const timestamp = new Date().toISOString().split('T')[1];
 	const dataStr = data ? ` | ${JSON.stringify(data)}` : '';
-	console.log(`[${component}] ${phase}: ${message}${dataStr}`);
+	const isDebug = process.env.RHIZOME_DEBUG === 'true';
+	const isError = phase === 'ERROR';
+
+	// Format: [HH:MM:SS.mmm] [COMPONENT] PHASE: MESSAGE | data
+	const prefix = isError ? '❌' : '✓';
+	const logLine = `${isDebug ? `[${timestamp}] ` : ''}[${component}] ${phase}: ${message}${dataStr}`;
+
+	if (isError) {
+		console.error(`${prefix} ${logLine}`);
+	} else {
+		console.log(`${logLine}`);
+	}
 }
 
 /**

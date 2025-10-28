@@ -1,0 +1,11 @@
+name: sprout_list_test_1761673237162843
+parent: root
+domain: testing
+description: Test persona
+modes:
+  - reasoner
+  - skeptic
+  - advocate
+  - synthesis
+created_at: 2025-10-28T17:40:37Z
+repo_specific: true

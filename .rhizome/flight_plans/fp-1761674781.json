@@ -1,0 +1,86 @@
+{
+  "id": "fp-1761674781",
+  "title": "Persona Context Manager",
+  "requester": "rhizome-architect",
+  "workflow": "custom",
+  "targets": [],
+  "stories": [],
+  "created_at": "2025-10-28T18:06:21Z",
+  "status": "active",
+  "require_approval": false,
+  "approval": {
+    "state": "approved",
+    "by": null,
+    "at": null,
+    "notes": null
+  },
+  "steps": [
+    {
+      "id": 1,
+      "title": "Design heuristics for PersonaContextManager (context/context manager module)",
+      "status": "pending"
+    },
+    {
+      "id": 2,
+      "title": "Integrate context manager with persona CLI and epistolary",
+      "status": "done"
+    },
+    {
+      "id": 3,
+      "title": "Test context heuristics and document usage",
+      "status": "pending"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2025-10-28T19:06:26Z",
+      "type": "action",
+      "data": {
+        "actor": "hallie",
+        "action": "una_init",
+        "object": "local_context_setup",
+        "qualifiers": [
+          "scaffold",
+          "idempotent"
+        ],
+        "evidence": {
+          "repo": "vscode-rhizome",
+          "branch": "feature/utilities",
+          "commit": "c21d5e727326afb6fe3e7c36585a9df18cbfde64",
+          "path": ".env.example",
+          "note": "ctx=/Users/hallie/Documents/repos/vscode-rhizome/.rhizome user_key=none"
+        },
+        "timestamp": "2025-10-28T19:06:26Z"
+      }
+    }
+  ],
+  "personas": {
+    "active": [
+      "rhizome"
+    ],
+    "conducting": "rhizome",
+    "voices": {
+      "una": {
+        "active": true,
+        "mode": "guide",
+        "archive": []
+      },
+      "bro": {
+        "active": true,
+        "mode": "executor",
+        "archive": []
+      },
+      "root": {
+        "active": true,
+        "mode": "reasoner",
+        "archive": []
+      }
+    }
+  },
+  "phase": {
+    "current": "kitchen_table",
+    "entered_at": "2025-10-28T18:06:21Z",
+    "transitions": []
+  },
+  "sprouts": []
+}

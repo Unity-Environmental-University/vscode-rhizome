@@ -213,11 +213,53 @@ All telemetry follows this pattern:
 
 ## How to Read Telemetry
 
-Open VS Code console and run the command:
+### Opening the Debug Console
+
 1. Press `Ctrl+Shift+P` (Cmd+Shift+P on Mac)
 2. Type: `Developer: Toggle Developer Tools`
 3. Click the "Console" tab
 4. Look for logs starting with `[COMPONENT]`
+
+### Understanding Log Markers
+
+- ✓ (check mark) — Normal step (no emoji in output, just normal log)
+- ❌ (red X) — Error detected, logged to console.error
+- `[HH:MM:SS.mmm]` — Timestamp (only visible in DEBUG mode)
+
+### Enabling Debug Mode (Full Timestamps & Verbosity)
+
+For debugging concurrency issues, timeouts, or complex workflows:
+
+```bash
+# Set environment variable before starting VS Code
+export RHIZOME_DEBUG=true
+code /path/to/project
+
+# Or in PowerShell (Windows):
+$env:RHIZOME_DEBUG='true'
+code /path/to/project
+```
+
+**What changes in DEBUG mode:**
+- Each log includes HH:MM:SS timestamp
+- Helpful for tracking timeout sequences
+- Useful for debugging concurrent persona queries
+- Shows exact timing of each phase
+
+**Example output (normal):**
+```
+[QUERY] START: Query to persona: dev-guide
+[QUERY] STEP: Init phase: checking configuration
+```
+
+**Example output (DEBUG=true):**
+```
+[12:34:56.789] [QUERY] START: Query to persona: dev-guide
+[12:34:56.791] [QUERY] STEP: Init phase: checking configuration
+[12:34:56.825] [QUERY] STEP: API key confirmed available
+```
+
+Note the millisecond precision: 789, 791, 825 (2ms, 34ms between steps)
 
 ## Debugging Guide
 

@@ -1,0 +1,136 @@
+{
+  "id": "fp-1760622081",
+  "title": "Deprecate legacy .una context",
+  "requester": "chorus",
+  "workflow": "custom",
+  "targets": [],
+  "stories": [
+    {
+      "as": "multi-repo maintainers",
+      "i_want": "a clean migration from .una to .rhizome",
+      "so_that": "we can rely on one context directory without breaking older setups"
+    }
+  ],
+  "created_at": "2025-10-16T13:41:21Z",
+  "status": "done",
+  "require_approval": false,
+  "approval": {
+    "state": "approved",
+    "by": null,
+    "at": null,
+    "notes": null
+  },
+  "steps": [
+    {
+      "id": 1,
+      "title": "UNA clarifies: inventory current  usage across CLI and docs",
+      "status": "done"
+    },
+    {
+      "id": 2,
+      "title": "ROOT checks: decide migration strategy (.una preserved as alias, .rhizome primary)",
+      "status": "done"
+    },
+    {
+      "id": 3,
+      "title": "BRO ships: add CLI/tooling to migrate existing .una dirs into .rhizome",
+      "status": "done"
+    },
+    {
+      "id": 4,
+      "title": "RHIZOME harmonizes: ensure CLI detects legacy .una and prompts migration",
+      "status": "done"
+    },
+    {
+      "id": 5,
+      "title": "UNA documents: publish migration guide and deprecation notice",
+      "status": "done"
+    },
+    {
+      "id": 6,
+      "title": "ROOT verifies: tests cover mixed repos (.una only, .rhizome only, both)",
+      "status": "done"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2025-10-16T13:42:09Z",
+      "type": "note",
+      "data": {
+        "text": "Step 1 wording: 'UNA clarifies: inventory current .una usage across CLI and docs' (escaping shell ate the literal earlier)."
+      }
+    },
+    {
+      "ts": "2025-10-16T13:45:26Z",
+      "type": "note",
+      "data": {
+        "text": "Step 1 inventory: only user-visible '.una' references remain in .env.example, historical actions, and graph edges; code defaults now prefer .rhizome or .local_context."
+      }
+    },
+    {
+      "ts": "2025-10-16T13:45:59Z",
+      "type": "note",
+      "data": {
+        "text": "Step 2 proposal: detection order becomes env > .rhizome > .una (deprecated warning) > .local_context. Add 'rhizome context migrate --from-una' to move contents into .rhizome while keeping backup. CLI prints once-per-run warning when legacy .una is active."
+      }
+    },
+    {
+      "ts": "2025-10-16T13:49:32Z",
+      "type": "note",
+      "data": {
+        "text": "Step 3 update: Added 'rhizome context migrate --from-una' to copy legacy directories into .rhizome (backup optional). Command supports dry-run preview and logs migration action."
+      }
+    },
+    {
+      "ts": "2025-10-16T13:49:40Z",
+      "type": "note",
+      "data": {
+        "text": "Step 4 update: CLI now emits stderr warning when legacy .una is active, guiding users to the migrate command."
+      }
+    },
+    {
+      "ts": "2025-10-16T14:04:30Z",
+      "type": "note",
+      "data": {
+        "text": "Step 5 update: Documented migration flow in docs/una/UNA_CONTEXT_MIGRATION.md, updated README and .env.example to point at .rhizome and reference the new migrate command."
+      }
+    },
+    {
+      "ts": "2025-10-16T14:05:28Z",
+      "type": "note",
+      "data": {
+        "text": "Step 6 outline: Added CLI tests covering (.una warning, .rhizome preference, migrate command). Pytest not run (binary unavailable), but tests compile with python3 -m compileall."
+      }
+    }
+  ],
+  "personas": {
+    "active": [
+      "rhizome"
+    ],
+    "conducting": "rhizome",
+    "voices": {
+      "una": {
+        "active": true,
+        "mode": "guide",
+        "archive": []
+      },
+      "bro": {
+        "active": true,
+        "mode": "executor",
+        "archive": []
+      },
+      "root": {
+        "active": true,
+        "mode": "reasoner",
+        "archive": []
+      }
+    }
+  },
+  "phase": {
+    "current": "kitchen_table",
+    "entered_at": "2025-10-16T13:41:21Z",
+    "transitions": []
+  },
+  "sprouts": [],
+  "finished_at": "2025-10-16T14:05:39Z"
+}

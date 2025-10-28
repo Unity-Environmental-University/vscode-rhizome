@@ -1,0 +1,75 @@
+{
+  "id": "fp-1761583384",
+  "title": "Design: Pair Assignment in Flight Plans (Explicit vs Fluid)",
+  "requester": "chorus-design",
+  "workflow": "kitchen_table",
+  "targets": [
+    "How should pair assignments work in flight steps?",
+    "Should masks be locked to personas or fluid?",
+    "What's the right balance of structure vs flexibility?"
+  ],
+  "stories": [
+    {
+      "as": "a development team",
+      "i_want": "clear guidance on how to pair for different work",
+      "so_that": "we know who works together and what perspectives they bring"
+    },
+    {
+      "as": "a new developer",
+      "i_want": "to understand why certain pairs work together",
+      "so_that": "I can adapt when the standard pair isn't available"
+    }
+  ],
+  "created_at": "2025-10-27T16:43:04Z",
+  "status": "active",
+  "require_approval": false,
+  "approval": {
+    "state": "approved",
+    "by": null,
+    "at": null,
+    "notes": null
+  },
+  "steps": [
+    {
+      "id": 1,
+      "title": "UNA clarifies: What problem are we solving with pair assignments?",
+      "status": "pending"
+    },
+    {
+      "id": 2,
+      "title": "BRO proposes: Explicit assignment (pair locked to step, masks locked to personas)",
+      "status": "pending"
+    },
+    {
+      "id": 3,
+      "title": "ROOT adds: Fluid assignment (pair chosen at startup, renegotiated as needed)",
+      "status": "pending"
+    },
+    {
+      "id": 4,
+      "title": "UNA identifies tension: Explicit is clear (onboarding), fluid is adaptive (reality)",
+      "status": "pending"
+    },
+    {
+      "id": 5,
+      "title": "BRO challenges: Can we get both? Explicit framework, fluid execution?",
+      "status": "pending"
+    },
+    {
+      "id": 6,
+      "title": "ROOT synthesizes: Use default assignments (explicit), allow override (fluid)",
+      "status": "pending"
+    },
+    {
+      "id": 7,
+      "title": "UNA documents the decision: Why this design, what problems it solves, what constraints remain",
+      "status": "pending"
+    },
+    {
+      "id": 8,
+      "title": "BRO sketches implementation: What data structure, how does system enforce/suggest?",
+      "status": "pending"
+    }
+  ],
+  "log": []
+}

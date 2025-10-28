@@ -1,0 +1,191 @@
+{
+  "id": "fp-step-ingestion",
+  "title": "Design: Step Ingestion with Don-Socratic Questioning",
+  "requester": "system",
+  "workflow": "don_socratic",
+  "targets": [
+    "Allow bulk step creation from JSON/YAML",
+    "Question each step before acceptance (don-socratic)",
+    "Generate templates if syntax/clarity fails",
+    "Provide CLI to ingest corrected templates"
+  ],
+  "stories": [
+    {
+      "as": "a team lead",
+      "i_want": "to paste 10 steps at once instead of typing them one by one",
+      "so_that": "I can set up a flight plan quickly"
+    },
+    {
+      "as": "an AI agent",
+      "i_want": "to generate steps programmatically without manual review",
+      "so_that": "flight planning becomes automated"
+    },
+    {
+      "as": "the system",
+      "i_want": "to catch unclear or malformed steps before they enter the flight",
+      "so_that": "bad steps don't corrupt the flight plan"
+    }
+  ],
+  "created_at": "2025-10-27T22:15:00Z",
+  "status": "active",
+  "require_approval": false,
+  "approval": {
+    "state": "approved",
+    "by": null,
+    "at": null,
+    "notes": null
+  },
+  "steps": [
+    {
+      "id": 1,
+      "title": "What should the step ingestion workflow look like?",
+      "status": "done",
+      "type": "don_socratic",
+      "persona_a": "una",
+      "persona_b": "bro",
+      "answers": {
+        "don_asks": {
+          "text": "What should the step ingestion workflow look like?",
+          "logged_at": "2025-10-27T22:16:00Z"
+        },
+        "persona_a_answers": {
+          "persona": "una",
+          "text": "Clear workflow at every stage: (1) Syntax validation (is JSON/YAML valid?). (2) Questioning (is title clear, why, success criteria?). (3) Acceptance/rejection (clear steps in, unclear steps out). If syntax fails: show error, generate template. If clarity fails: generate template with questions, guide to fill out. User experience: validate → question → offer corrections → re-ingest. Key: clarity gates acceptance. No unclear steps slip through.",
+          "logged_at": "2025-10-27T22:16:00Z"
+        },
+        "persona_b_answers": {
+          "persona": "bro",
+          "text": "Implementation view: Need (1) validate_steps_yaml(path) → (valid, errors). (2) Question engine: is title clear? why? success criteria? (3) Template generator: create /tmp/rhizome-steps-TIMESTAMP.yml with blanks + guiding questions. (4) Ingest command: `rhizome flight ingest <path> [--corrected] [--force]`. (5) State tracking: steps in staging until all pass. Code flow: validate → question → template if issues → user edits → re-ingest. Builder experience: paste 10 steps → system catches issues → fix once in template → done. Fast, doesn't require back-and-forth.",
+          "logged_at": "2025-10-27T22:17:00Z"
+        },
+        "don_synthesizes": {
+          "text": "UNA gates on clarity; BRO speeds with templating. Workflow: syntax validation → clarity questioning → template generation if issues → user correction → re-ingest. Functions: validate_steps_yaml(), question_step(), generate_correction_template(), ingest_steps(corrected, force). Serves both speed (bulk input) and quality (questioning). No gaps. Ready to design questioning logic.",
+          "gaps": [],
+          "logged_at": "2025-10-27T22:18:00Z"
+        }
+      },
+      "decision": {
+        "action": "continue",
+        "reasoning": "Workflow gates on clarity + speed through templating. Implementation straightforward. Serves bulk creation and quality gates.",
+        "agreed_by": ["una", "bro", "don"],
+        "logged_at": "2025-10-27T22:18:30Z"
+      }
+    },
+    {
+      "id": 2,
+      "title": "How should rhizome question steps before accepting them?",
+      "status": "pending",
+      "type": "don_socratic",
+      "persona_a": "bro",
+      "persona_b": "root",
+      "answers": {
+        "don_asks": {
+          "text": "How should rhizome question steps before accepting them?",
+          "logged_at": null
+        },
+        "persona_a_answers": {
+          "persona": "bro",
+          "text": null,
+          "logged_at": null
+        },
+        "persona_b_answers": {
+          "persona": "root",
+          "text": null,
+          "logged_at": null
+        },
+        "don_synthesizes": {
+          "text": null,
+          "gaps": [],
+          "logged_at": null
+        }
+      },
+      "decision": {
+        "action": null,
+        "reasoning": null,
+        "agreed_by": [],
+        "logged_at": null
+      }
+    },
+    {
+      "id": 3,
+      "title": "What should the template generation and correction flow be?",
+      "status": "pending",
+      "type": "don_socratic",
+      "persona_a": "una",
+      "persona_b": "bro",
+      "answers": {
+        "don_asks": {
+          "text": "What should the template generation and correction flow be?",
+          "logged_at": null
+        },
+        "persona_a_answers": {
+          "persona": "una",
+          "text": null,
+          "logged_at": null
+        },
+        "persona_b_answers": {
+          "persona": "bro",
+          "text": null,
+          "logged_at": null
+        },
+        "don_synthesizes": {
+          "text": null,
+          "gaps": [],
+          "logged_at": null
+        }
+      },
+      "decision": {
+        "action": null,
+        "reasoning": null,
+        "agreed_by": [],
+        "logged_at": null
+      }
+    }
+  ],
+  "log": [
+    {
+      "ts": "2025-10-27T22:15:00Z",
+      "type": "note",
+      "data": {
+        "text": "Flight plan created for step ingestion feature.\n\nUser request: Rhizome should allow JSON/YAML bulk step creation, but question each step before acceptance. If syntax wrong or clarity missing, generate /tmp/ template and guide user to fill out and re-ingest.\n\nThis bridges two needs:\n1. Bulk/programmatic step creation (fast, scalable)\n2. Don-socratic questioning (ensures quality, catches errors)\n\nSolution: Ingestion with questioning built-in."
+      }
+    }
+  ],
+  "personas": {
+    "active": [
+      "don",
+      "una",
+      "bro",
+      "root"
+    ],
+    "conducting": "don",
+    "voices": {
+      "una": {
+        "active": true,
+        "mask": "clarity_guardian",
+        "archive": []
+      },
+      "bro": {
+        "active": true,
+        "mask": "executor",
+        "archive": []
+      },
+      "root": {
+        "active": true,
+        "mask": "pattern_hunter",
+        "archive": []
+      },
+      "don": {
+        "active": true,
+        "mask": "questioner",
+        "archive": []
+      }
+    }
+  },
+  "phase": {
+    "current": "kitchen_table",
+    "entered_at": "2025-10-27T22:15:00Z",
+    "transitions": []
+  },
+  "sprouts": []
+}

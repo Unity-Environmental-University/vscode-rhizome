@@ -1,0 +1,242 @@
+{
+  "id": "fp-1760721310",
+  "title": "Clarify rhizome learning + VS Code integration",
+  "requester": "Claude",
+  "workflow": "custom",
+  "targets": [],
+  "stories": [],
+  "created_at": "2025-10-17T17:15:10Z",
+  "status": "active",
+  "require_approval": false,
+  "approval": {
+    "state": "approved",
+    "by": null,
+    "at": null,
+    "notes": null
+  },
+  "steps": [
+    {
+      "id": 1,
+      "title": "Test hook on real commit",
+      "status": "pending"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2025-10-17T17:15:35Z",
+      "type": "summary",
+      "data": {
+        "action": "log_compressed",
+        "object": "flight_plan_log",
+        "original_count": 14,
+        "action_summary": {
+          "planning_questions_logged": 1,
+          "requirements_clarified": 1,
+          "caught_at_boundary": 1,
+          "framework_shifted": 1,
+          "appearing_competent_caught_again": 1,
+          "cycle_understood": 1,
+          "design_explored": 1,
+          "implementation_started": 1,
+          "methodology_shifted_to_seed": 1,
+          "seed_identified": 1,
+          "seed_planted": 1,
+          "real_need_surfaced": 1,
+          "friction_question_surfaced": 1,
+          "design_locked": 1
+        },
+        "note": "Compressed 14 entries into summary. Keeping last 3 entries in full."
+      }
+    },
+    {
+      "ts": "2025-10-17T17:30:43Z",
+      "type": "action",
+      "data": {
+        "actor": "unknown",
+        "action": "architecture_clarified",
+        "object": "rhizome-independence",
+        "qualifiers": [],
+        "confidence": null,
+        "evidence": {
+          "repo": "una",
+          "branch": "rhizome",
+          "commit": "8a9a809ddd96316c88f2c1383b03b2b100e493d7",
+          "path": null,
+          "lines": null,
+          "note": "Rhizome is the core. Git hooks call rhizome CLI. Editors (VS Code, vim, whatever) just integrate to rhizome via MCP or CLI. Rhizome learns, rhizome grows. Portable."
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": null,
+        "standpoint": {
+          "persona": "bro",
+          "role": "executor",
+          "phase": "kitchen_table"
+        },
+        "standpoint_label": "bro-as-executor-(kitchen_table)",
+        "certainty": 0.95,
+        "key_basis": [
+          "Hallie: 'We're CLI 4 life friend. I'd rather build rhizome than depend on a specific CLI.'"
+        ],
+        "key_gaps": [
+          "None. This is the direction. Rhizome as a portable, composable system. Not tied to any editor or AI tool."
+        ],
+        "timestamp": "2025-10-17T17:30:43Z"
+      }
+    },
+    {
+      "ts": "2025-10-17T18:16:18Z",
+      "type": "action",
+      "data": {
+        "actor": "unknown",
+        "action": "garden_phase_implementation",
+        "object": "git-hook-mcp-plugin",
+        "qualifiers": [],
+        "confidence": null,
+        "evidence": {
+          "repo": "una",
+          "branch": "rhizome",
+          "commit": "f946c479085341811cdb2c60a5fe47896200cf3b",
+          "path": null,
+          "lines": null,
+          "note": null
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": null,
+        "standpoint": {
+          "persona": "bro",
+          "role": "executor",
+          "phase": "garden"
+        },
+        "standpoint_label": "bro-as-executor-(garden)",
+        "certainty": 0.88,
+        "uncertainty": 0.15,
+        "key_basis": [
+          "Hook tested non-interactive. MCP server minimal but working. Plugin skeleton with decompose command."
+        ],
+        "key_gaps": [
+          "Real-world usage untested. sync_learning placeholder. Plugin not wired to rhizome yet."
+        ],
+        "timestamp": "2025-10-17T18:16:18Z"
+      }
+    },
+    {
+      "ts": "2025-10-17T18:21:34Z",
+      "type": "action",
+      "data": {
+        "actor": "unknown",
+        "action": "hook_tested",
+        "object": "pre-commit-certainty",
+        "qualifiers": [],
+        "confidence": null,
+        "evidence": {
+          "repo": "una",
+          "branch": "rhizome",
+          "commit": "5966ddaa0a4be2f0fd3b8052525c45758f6ba54d",
+          "path": null,
+          "lines": null,
+          "note": null
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": null,
+        "standpoint": {
+          "persona": "bro",
+          "role": "executor",
+          "phase": "garden"
+        },
+        "standpoint_label": "bro-as-executor-(garden)",
+        "certainty": 0.88,
+        "key_basis": [
+          "Created test file with rewrite pattern. Hook detected and generated non-interactive template. Filled template with genuine certainty assessment. Committed successfully with hook running on commit itself."
+        ],
+        "key_gaps": [
+          "Need to test on real uncertain commits from actual development work. MCP and plugin not wired yet."
+        ],
+        "timestamp": "2025-10-17T18:21:34Z"
+      }
+    },
+    {
+      "ts": "2025-10-20T20:48:18Z",
+      "type": "action",
+      "data": {
+        "actor": "vscode-rhizome",
+        "action": "propose",
+        "object": "persona-registry-system",
+        "qualifiers": [],
+        "confidence": null,
+        "evidence": {
+          "repo": "una",
+          "branch": "rhizome",
+          "commit": "b452cb40cf47f30061f5fa713d7b4711e41e0ebc",
+          "path": null,
+          "lines": null,
+          "note": "Design: rhizome repo contains personas/registry/ with canonical persona definitions. Templates reference needed personas via manifest. Users run: rhizome persona-fetch --from-registry <name>. Rhizome pulls from repo. Anyone can propose new personas via PR to rhizome. Benefits: decentralized ownership, canonical source, portable templates, discoverable registry."
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": "Decentralized persona registry: templates fetch personas from rhizome repo",
+        "standpoint": {
+          "persona": "rhizome",
+          "role": "conductor",
+          "phase": "kitchen_table"
+        },
+        "standpoint_label": "rhizome-as-conductor-(kitchen_table)",
+        "certainty": 0.85,
+        "key_basis": [
+          "Use case: 1cc course template needs don-socratic persona; cloned instances should inherit it without manual setup"
+        ],
+        "key_gaps": [
+          "Manifest format? Fetch implementation? PR workflow for new personas?"
+        ],
+        "timestamp": "2025-10-20T20:48:18Z"
+      }
+    }
+  ],
+  "personas": {
+    "active": [
+      "rhizome"
+    ],
+    "conducting": "rhizome",
+    "voices": {
+      "una": {
+        "active": true,
+        "mode": "guide",
+        "archive": []
+      },
+      "bro": {
+        "active": true,
+        "mode": "executor",
+        "archive": []
+      },
+      "root": {
+        "active": true,
+        "mode": "reasoner",
+        "archive": []
+      }
+    }
+  },
+  "phase": {
+    "current": "kitchen_table",
+    "entered_at": "2025-10-17T17:15:10Z",
+    "transitions": []
+  },
+  "sprouts": []
+}

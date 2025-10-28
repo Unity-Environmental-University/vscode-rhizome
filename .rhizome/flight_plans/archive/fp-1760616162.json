@@ -1,0 +1,185 @@
+{
+  "id": "fp-1760616162",
+  "title": "Hierarchical Personas: User + Repo + Flight Levels",
+  "requester": "rhizome_chorus",
+  "workflow": "custom",
+  "targets": [
+    "developer",
+    "learning_designer",
+    "course_builder"
+  ],
+  "stories": [
+    {
+      "as": "learning designer",
+      "i_want": "carry my voice across all my projects",
+      "so_that": "each course has consistent approach"
+    },
+    {
+      "as": "team lead",
+      "i_want": "see where each persona comes from",
+      "so_that": "I understand precedence and prevent naming chaos"
+    },
+    {
+      "as": "executor",
+      "i_want": "ship a global rhizome command",
+      "so_that": "any repo can use it without setup"
+    }
+  ],
+  "created_at": "2025-10-16T12:02:42Z",
+  "status": "archived",
+  "require_approval": true,
+  "approval": {
+    "state": "pending",
+    "by": null,
+    "at": null,
+    "notes": null
+  },
+  "steps": [
+    {
+      "id": 1,
+      "title": "Design cascade precedence (7 layers) - UNA guide mode",
+      "status": "pending"
+    },
+    {
+      "id": 2,
+      "title": "Define PersonaRegistry class interface - Root reasoner mode",
+      "status": "pending"
+    },
+    {
+      "id": 3,
+      "title": "Define CLI commands (list, show, sprout) - Bro executor mode",
+      "status": "pending"
+    },
+    {
+      "id": 4,
+      "title": "Update install.sh: user personas + global command - Bro ships, Root checks clean slate",
+      "status": "done"
+    },
+    {
+      "id": 5,
+      "title": "Create personas.py: PersonaRegistry + cascade loading - Root quality, Bro reviews",
+      "status": "done"
+    },
+    {
+      "id": 6,
+      "title": "Update config.py: expose user/repo paths - Bro executes, Root verifies cross-platform",
+      "status": "done"
+    },
+    {
+      "id": 7,
+      "title": "Add CLI: persona list, show, sprout commands - Bro builds, Root checks error handling",
+      "status": "done"
+    },
+    {
+      "id": 8,
+      "title": "Add unit tests: cascade resolution (7-layer test) - Root leads quality",
+      "status": "done"
+    },
+    {
+      "id": 9,
+      "title": "Add integration tests: install, list, show, sprout - Root verifies end-to-end",
+      "status": "done"
+    },
+    {
+      "id": 10,
+      "title": "Document: Persona Hierarchy & cascading precedence - UNA curator mode",
+      "status": "done"
+    },
+    {
+      "id": 11,
+      "title": "Document: How to sprout custom personas (user + repo levels) - UNA guides",
+      "status": "done"
+    },
+    {
+      "id": 12,
+      "title": "Commit & verify all tests pass (garden verb + pattern) - Bro ships, all celebrate",
+      "status": "done"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2025-10-16T12:16:35Z",
+      "type": "note",
+      "data": {
+        "text": "Library complete. All 12 steps done. 59/59 tests pass. Ready to celebrate and move to next phase."
+      }
+    }
+  ],
+  "personas": {
+    "active": [
+      "rhizome"
+    ],
+    "conducting": "una",
+    "voices": {
+      "una": {
+        "active": true,
+        "mode": "guide",
+        "archive": [
+          {
+            "phase": "kitchen_table",
+            "mode": "guide",
+            "ended_at": "2025-10-16T12:05:14Z"
+          },
+          {
+            "phase": "garden",
+            "mode": "guide",
+            "ended_at": "2025-10-16T12:13:25Z"
+          }
+        ]
+      },
+      "bro": {
+        "active": true,
+        "mode": "executor",
+        "archive": [
+          {
+            "phase": "kitchen_table",
+            "mode": "executor",
+            "ended_at": "2025-10-16T12:05:14Z"
+          },
+          {
+            "phase": "garden",
+            "mode": "executor",
+            "ended_at": "2025-10-16T12:13:25Z"
+          }
+        ]
+      },
+      "root": {
+        "active": true,
+        "mode": "reasoner",
+        "archive": [
+          {
+            "phase": "kitchen_table",
+            "mode": "reasoner",
+            "ended_at": "2025-10-16T12:05:14Z"
+          },
+          {
+            "phase": "garden",
+            "mode": "reasoner",
+            "ended_at": "2025-10-16T12:13:25Z"
+          }
+        ]
+      }
+    }
+  },
+  "phase": {
+    "current": "library",
+    "entered_at": "2025-10-16T12:13:25Z",
+    "transitions": [
+      {
+        "from": "kitchen_table",
+        "to": "garden",
+        "at": "2025-10-16T12:05:14Z",
+        "conductor_note": "Rhizome conducting garden phase"
+      },
+      {
+        "from": "garden",
+        "to": "library",
+        "at": "2025-10-16T12:13:25Z",
+        "conductor_note": "Rhizome conducting library phase"
+      }
+    ]
+  },
+  "sprouts": [],
+  "finished_at": "2025-10-16T12:12:29Z",
+  "archived_at": "2025-10-16T12:16:35Z"
+}

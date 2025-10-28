@@ -1,0 +1,80 @@
+{
+  "id": "fp-1761668353",
+  "title": "Repo Init Integration",
+  "requester": "install-steward",
+  "workflow": "custom",
+  "targets": [],
+  "stories": [],
+  "created_at": "2025-10-28T16:19:13Z",
+  "status": "archived",
+  "require_approval": false,
+  "approval": {
+    "state": "approved",
+    "by": null,
+    "at": null,
+    "notes": null
+  },
+  "steps": [
+    {
+      "id": 1,
+      "title": "Wire CLI init subcommand to refresh_repo_context",
+      "status": "done"
+    },
+    {
+      "id": 2,
+      "title": "Add regression tests for init helper (plan build/execute)",
+      "status": "done"
+    },
+    {
+      "id": 3,
+      "title": "Document install vs init split and update personas/docs",
+      "status": "done"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2025-10-28T16:20:20Z",
+      "type": "note",
+      "data": {
+        "text": "Repo init helper ready; wire CLI subcommand next."
+      }
+    },
+    {
+      "ts": "2025-10-28T16:29:17Z",
+      "type": "note",
+      "data": {
+        "text": "install/init split implemented; init helper covered by new tests and docs updated."
+      }
+    }
+  ],
+  "personas": {
+    "active": [
+      "rhizome"
+    ],
+    "conducting": "rhizome",
+    "voices": {
+      "una": {
+        "active": true,
+        "mode": "guide",
+        "archive": []
+      },
+      "bro": {
+        "active": true,
+        "mode": "executor",
+        "archive": []
+      },
+      "root": {
+        "active": true,
+        "mode": "reasoner",
+        "archive": []
+      }
+    }
+  },
+  "phase": {
+    "current": "kitchen_table",
+    "entered_at": "2025-10-28T16:19:13Z",
+    "transitions": []
+  },
+  "sprouts": [],
+  "archived_at": "2025-10-28T17:27:11Z"
+}

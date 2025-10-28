@@ -1,0 +1,489 @@
+{
+  "id": "fp-1760618097",
+  "title": "Perspective-Encoding: Standpoint-Rich Knowledge Graph",
+  "requester": "chorus",
+  "workflow": "custom",
+  "targets": [],
+  "stories": [
+    {
+      "as": "developers working on the same repo simultaneously",
+      "i_want": "to merge branches without action log conflicts",
+      "so_that": "subjectivity and perspective become first-class in our knowledge graph"
+    }
+  ],
+  "created_at": "2025-10-16T12:34:57Z",
+  "status": "done",
+  "require_approval": false,
+  "approval": {
+    "state": "approved",
+    "by": null,
+    "at": null,
+    "notes": null
+  },
+  "steps": [
+    {
+      "id": 1,
+      "title": "UNA clarifies: what does 'perspective' mean in our schema? Define roles (guide/skeptic/executor/conductor)",
+      "status": "done"
+    },
+    {
+      "id": 2,
+      "title": "ROOT questions: how do we measure confidence? (observation happened? or action was right?)",
+      "status": "done"
+    },
+    {
+      "id": 3,
+      "title": "BRO asks: merge scenario walkthrough—two devs, same feature, different standpoints",
+      "status": "done"
+    },
+    {
+      "id": 4,
+      "title": "RHIZOME facilitates: design query patterns for multi-dimensional filtering",
+      "status": "done"
+    },
+    {
+      "id": 5,
+      "title": "CHORUS aligns: finalize standpoint schema shape (persona/role/phase/frame dimensions?)",
+      "status": "done"
+    },
+    {
+      "id": 6,
+      "title": "ROOT conducts weed checks: standpoint schema validates; confidence semantics clear; no ambiguity",
+      "status": "done"
+    },
+    {
+      "id": 7,
+      "title": "ROOT writes test suite: migration of 12 existing actions; queries by persona/role/phase work",
+      "status": "done"
+    },
+    {
+      "id": 8,
+      "title": "BRO executes: update CLI logging to capture standpoint; add --persona, --role, --phase flags",
+      "status": "done"
+    },
+    {
+      "id": 9,
+      "title": "BRO ships: retrofit existing 12 actions to new schema; verify queries return expected results",
+      "status": "done"
+    },
+    {
+      "id": 10,
+      "title": "ROOT & BRO verify: merge scenario test—two branches with different standpoints resolve cleanly",
+      "status": "done"
+    },
+    {
+      "id": 11,
+      "title": "UNA documents: schema rationale, query patterns, role definitions, examples",
+      "status": "done"
+    },
+    {
+      "id": 12,
+      "title": "CHORUS curates learnings: perspective-as-first-class changes how we think about observability",
+      "status": "done"
+    },
+    {
+      "id": 13,
+      "title": "UNA & ROOT reflect: how does this pattern apply to other config/hierarchies? (themes, permissions, graph settings)",
+      "status": "done"
+    },
+    {
+      "id": 14,
+      "title": "RHIZOME documents library: form teaches form—subjectivity embedded in schema means we embed epistemology itself",
+      "status": "done"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2025-10-16T12:35:54Z",
+      "type": "action",
+      "data": {
+        "actor": "rhizome_chorus",
+        "action": "flight_initiated",
+        "object": "flight:fp-1760618097",
+        "qualifiers": [
+          "perspective_encoding",
+          "standpoint_as_first_class"
+        ],
+        "confidence": null,
+        "evidence": {
+          "repo": "una",
+          "branch": "rhizome",
+          "commit": "229476424cc0fe14e18576e30e8a137ecfc51099",
+          "path": null,
+          "lines": null,
+          "note": "Chorus decision: two-flight model. Personas complete and archived (fp-1760616162). Perspective-encoding begins kitchen table. Schema: standpoint (persona/role/phase) required, confidence explicit, IDs prevent merge conflicts. Seed document: PERSPECTIVE_ENCODING_SEEDS.md"
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": null,
+        "timestamp": "2025-10-16T12:35:54Z"
+      }
+    },
+    {
+      "ts": "2025-10-16T12:41:28Z",
+      "type": "note",
+      "data": {
+        "text": "Kitchen table reconvenes: evaluating confidence schema. User insight: two axes (certainty + uncertainty) are more honest, but how do we structure them so LLMs are incentivized to populate both truthfully, not just maximize certainty?"
+      }
+    },
+    {
+      "ts": "2025-10-16T12:42:59Z",
+      "type": "note",
+      "data": {
+        "text": "Chorus reevaluation: Each persona defends their specific needs in the schema. Sprouted personas (user stand-ins) added to reveal what users actually need to see/trust."
+      }
+    },
+    {
+      "ts": "2025-10-16T12:45:37Z",
+      "type": "action",
+      "data": {
+        "actor": "root",
+        "action": "quality_led",
+        "object": "flight:fp-1760618097",
+        "qualifiers": [
+          "kitchen_table_complete",
+          "schema_finalized"
+        ],
+        "confidence": null,
+        "evidence": {
+          "repo": "una",
+          "branch": "rhizome",
+          "commit": "2938fcdea7932bec116c40341412ea1e92c7f8c3",
+          "path": null,
+          "lines": null,
+          "note": "Kitchen table complete: Perspective-encoding schema finalized with backwards compatibility. Two-axis confidence (certainty + uncertainty), standpoint-as-first-class (persona/role/phase), articulation-required (basis + gaps), sprouted personas (Maya/Jordan/Alex). Schema consolidates all chorus needs. Migration strategy: zero breaking changes. OLD actions retrofit optionally; queries work on both schemas transparently. Ready for garden execution."
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": null,
+        "timestamp": "2025-10-16T12:45:37Z"
+      }
+    },
+    {
+      "ts": "2025-10-16T12:57:56Z",
+      "type": "action",
+      "data": {
+        "actor": "unknown",
+        "action": "test_action",
+        "object": "test_obj",
+        "qualifiers": [],
+        "confidence": null,
+        "evidence": {
+          "repo": "una",
+          "branch": "rhizome",
+          "commit": "1311edc0efb2da8a82ae483b4412ec1ebd81a19f",
+          "path": null,
+          "lines": null,
+          "note": null
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": null,
+        "standpoint": {
+          "persona": "root",
+          "role": "skeptic",
+          "phase": "garden"
+        },
+        "standpoint_label": "root-as-skeptic-(garden)",
+        "certainty": 0.96,
+        "uncertainty": 0.12,
+        "key_basis": [
+          "test basis"
+        ],
+        "key_gaps": [],
+        "timestamp": "2025-10-16T12:57:56Z"
+      }
+    },
+    {
+      "ts": "2025-10-16T13:01:23Z",
+      "type": "action",
+      "data": {
+        "action": "quality_led",
+        "object": "step:7-schema-validation",
+        "actor": "root",
+        "standpoint": {
+          "persona": "root",
+          "role": "skeptic",
+          "phase": "garden"
+        },
+        "certainty": 0.96,
+        "uncertainty": 0.12,
+        "key_basis": [
+          "37 comprehensive tests pass",
+          "All 6 schema layers validated",
+          "Merge conflict scenarios tested"
+        ],
+        "key_gaps": [
+          "Not tested on Windows platform",
+          "Unknown at 10,000+ observations"
+        ],
+        "evidence": {
+          "repo": "una",
+          "branch": "rhizome",
+          "commit": "1311edc0efb2da8a82ae483b4412ec1ebd81a19f"
+        },
+        "timestamp": "2025-10-16T13:01:23Z"
+      }
+    },
+    {
+      "ts": "2025-10-16T13:01:23Z",
+      "type": "action",
+      "data": {
+        "action": "execution_led",
+        "object": "step:8-cli-update",
+        "actor": "bro",
+        "standpoint": {
+          "persona": "bro",
+          "role": "executor",
+          "phase": "garden"
+        },
+        "certainty": 0.92,
+        "uncertainty": 0.18,
+        "key_basis": [
+          "New CLI flags working",
+          "Batch ingestion functional",
+          "Perspective-encoding fields captured"
+        ],
+        "key_gaps": [
+          "Validation rules not enforced yet",
+          "YAML support depends on pyyaml"
+        ],
+        "evidence": {
+          "repo": "una",
+          "branch": "rhizome",
+          "commit": "1311edc0efb2da8a82ae483b4412ec1ebd81a19f"
+        },
+        "timestamp": "2025-10-16T13:01:23Z"
+      }
+    },
+    {
+      "ts": "2025-10-16T13:09:59Z",
+      "type": "action",
+      "data": {
+        "actor": "una",
+        "action": "documentation_complete",
+        "object": "step:11-schema-guide",
+        "qualifiers": [],
+        "confidence": null,
+        "evidence": {
+          "repo": "una",
+          "branch": "rhizome",
+          "commit": "75ff058a3e15662e460928aa59e1df0c758eabf1",
+          "path": null,
+          "lines": null,
+          "note": null
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": null,
+        "standpoint": {
+          "persona": "una",
+          "role": "guide",
+          "phase": "library"
+        },
+        "standpoint_label": "una-as-guide-(library)",
+        "certainty": 0.98,
+        "uncertainty": 0.08,
+        "key_basis": [
+          "Six-layer schema documented",
+          "Query patterns with real use cases",
+          "Migration and backwards compat verified"
+        ],
+        "key_gaps": [
+          "Student feedback loop not tested",
+          "Team adoption patterns unknown"
+        ],
+        "timestamp": "2025-10-16T13:09:59Z"
+      }
+    },
+    {
+      "ts": "2025-10-16T13:10:54Z",
+      "type": "action",
+      "data": {
+        "actor": "rhizome_chorus",
+        "action": "learning_curated",
+        "object": "step:12-chorus-learnings",
+        "qualifiers": [],
+        "confidence": null,
+        "evidence": {
+          "repo": "una",
+          "branch": "rhizome",
+          "commit": "75ff058a3e15662e460928aa59e1df0c758eabf1",
+          "path": null,
+          "lines": null,
+          "note": null
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": null,
+        "standpoint": {
+          "persona": "rhizome",
+          "role": "conductor",
+          "phase": "library"
+        },
+        "standpoint_label": "rhizome-as-conductor-(library)",
+        "certainty": 0.97,
+        "uncertainty": 0.12,
+        "key_basis": [
+          "8 major learnings identified and articulated",
+          "Tensions navigated with evidence",
+          "Pattern validated with real data and tests"
+        ],
+        "key_gaps": [
+          "Long-term adoption patterns unknown",
+          "Integration with existing teams untested"
+        ],
+        "timestamp": "2025-10-16T13:10:54Z"
+      }
+    },
+    {
+      "ts": "2025-10-16T13:20:23Z",
+      "type": "note",
+      "data": {
+        "text": "Reopened library documentation work: step 14 set back to pending to continue encoding knowledge into graph.",
+        "actor": "rhizome"
+      }
+    },
+    {
+      "ts": "2025-10-16T13:24:05Z",
+      "type": "action",
+      "data": {
+        "actor": "rhizome",
+        "action": "documented_library",
+        "object": "document:pencoding-library",
+        "qualifiers": [
+          "flight:fp-1760618097"
+        ],
+        "confidence": null,
+        "evidence": {
+          "repo": "una",
+          "branch": "rhizome",
+          "commit": "75ff058a3e15662e460928aa59e1df0c758eabf1",
+          "path": null,
+          "lines": null,
+          "note": "Form teaches form documented; library step ready for closure."
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": "document",
+        "what": "library_notes",
+        "standpoint": {
+          "persona": "rhizome",
+          "role": "conductor",
+          "phase": "library"
+        },
+        "standpoint_label": "rhizome-as-conductor-(library)",
+        "certainty": 0.93,
+        "uncertainty": 0.18,
+        "key_basis": [
+          "Library notes published at docs/una/PERSPECTIVE_ENCODING_LIBRARY.md",
+          "Knowledge graph edge added for document:pencoding-library"
+        ],
+        "key_gaps": [
+          "Need follow-up instrumentation for config/permissions",
+          "Graph edge commit placeholder until final commit"
+        ],
+        "timestamp": "2025-10-16T13:24:05Z"
+      }
+    }
+  ],
+  "personas": {
+    "active": [
+      "rhizome"
+    ],
+    "conducting": "root",
+    "voices": {
+      "una": {
+        "active": true,
+        "mode": "guide",
+        "archive": [
+          {
+            "phase": "kitchen_table",
+            "mode": "guide",
+            "ended_at": "2025-10-16T12:35:30Z"
+          },
+          {
+            "phase": "kitchen_table",
+            "mode": "guide",
+            "ended_at": "2025-10-16T12:45:32Z"
+          }
+        ]
+      },
+      "bro": {
+        "active": true,
+        "mode": "executor",
+        "archive": [
+          {
+            "phase": "kitchen_table",
+            "mode": "executor",
+            "ended_at": "2025-10-16T12:35:30Z"
+          },
+          {
+            "phase": "kitchen_table",
+            "mode": "executor",
+            "ended_at": "2025-10-16T12:45:32Z"
+          }
+        ]
+      },
+      "root": {
+        "active": true,
+        "mode": "reasoner",
+        "archive": [
+          {
+            "phase": "kitchen_table",
+            "mode": "reasoner",
+            "ended_at": "2025-10-16T12:35:30Z"
+          },
+          {
+            "phase": "kitchen_table",
+            "mode": "reasoner",
+            "ended_at": "2025-10-16T12:45:32Z"
+          }
+        ]
+      }
+    }
+  },
+  "phase": {
+    "current": "garden",
+    "entered_at": "2025-10-16T12:45:32Z",
+    "transitions": [
+      {
+        "from": "kitchen_table",
+        "to": "kitchen_table",
+        "at": "2025-10-16T12:35:30Z",
+        "conductor_note": "Rhizome conducting kitchen_table phase"
+      },
+      {
+        "from": "kitchen_table",
+        "to": "garden",
+        "at": "2025-10-16T12:45:32Z",
+        "conductor_note": "Rhizome conducting garden phase"
+      }
+    ]
+  },
+  "sprouts": [],
+  "finished_at": "2025-10-16T13:24:56Z"
+}

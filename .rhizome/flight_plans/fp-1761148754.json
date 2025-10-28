@@ -1,0 +1,219 @@
+{
+  "id": "fp-1761148754",
+  "title": "Implement Oxford Don TODOs - API & Validation",
+  "requester": "rhizome",
+  "workflow": "custom",
+  "targets": [],
+  "stories": [
+    {
+      "as": "mason",
+      "i_want": "resilient API client with exponential backoff retry logic",
+      "so_that": "network failures don't lose student data mid-session"
+    },
+    {
+      "as": "una",
+      "i_want": "validation that ensures students provide substantive responses",
+      "so_that": "shallow/empty responses are caught before wasting tokens"
+    },
+    {
+      "as": "rhizome",
+      "i_want": "coordination between mason and una on coherent implementation",
+      "so_that": "both pieces work together seamlessly"
+    }
+  ],
+  "created_at": "2025-10-22T15:59:14Z",
+  "status": "active",
+  "require_approval": false,
+  "approval": {
+    "state": "approved",
+    "by": null,
+    "at": null,
+    "notes": null
+  },
+  "steps": [
+    {
+      "id": 1,
+      "title": "mason: Create retry utility function with exponential backoff logic",
+      "status": "done"
+    },
+    {
+      "id": 2,
+      "title": "mason: Integrate retry logic into apiCall() wrapper in api.js",
+      "status": "done"
+    },
+    {
+      "id": 3,
+      "title": "mason: Add response validation schema for API responses",
+      "status": "done"
+    },
+    {
+      "id": 4,
+      "title": "una: Create validation utility for substantive responses (min length, word count)",
+      "status": "done"
+    },
+    {
+      "id": 5,
+      "title": "una: Integrate validation into ReflectionPage.jsx before submit",
+      "status": "done"
+    },
+    {
+      "id": 6,
+      "title": "una: Add user feedback messages for validation failures",
+      "status": "done"
+    },
+    {
+      "id": 7,
+      "title": "rhizome: Test both API resilience and validation together",
+      "status": "done"
+    },
+    {
+      "id": 8,
+      "title": "rhizome: Document retry behavior and validation rules",
+      "status": "done"
+    },
+    {
+      "id": 9,
+      "title": "Implement rhizome run command with persona delegation",
+      "status": "done"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2025-10-23T12:33:01Z",
+      "type": "action",
+      "data": {
+        "actor": "unknown",
+        "action": "work",
+        "object": "task",
+        "qualifiers": [],
+        "confidence": null,
+        "evidence": {
+          "repo": "rhizome",
+          "branch": "rhizome",
+          "commit": "19abe8bef4e9eba4f95c69cf7c996e790348e1b5",
+          "path": null,
+          "lines": null,
+          "note": "Highest risk area. Unknown VSCode extension patterns. Need to: register command, create webview panel, wire message passing (extension ↔ webview), handle async responses from rhizome CLI backend."
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": "Implement extension.ts: VSCode command registration, message passing, webview lifecycle",
+        "timestamp": "2025-10-23T12:33:01Z"
+      }
+    },
+    {
+      "ts": "2025-10-23T12:33:07Z",
+      "type": "action",
+      "data": {
+        "actor": "unknown",
+        "action": "work",
+        "object": "task",
+        "qualifiers": [],
+        "confidence": null,
+        "evidence": {
+          "repo": "rhizome",
+          "branch": "rhizome",
+          "commit": "19abe8bef4e9eba4f95c69cf7c996e790348e1b5",
+          "path": null,
+          "lines": null,
+          "note": "New capability: ask a persona something directly, get LLM response with persona voice. Minimum viable: single-turn Q&A with persona identity. Design questions: local context? which personas? new CLI command or extend existing? Error handling for LLM failures. Extension.ts will depend on this—may be needed sooner rather than later."
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": "Design & implement rhizome CLI persona-LLM interaction (URGENT)",
+        "timestamp": "2025-10-23T12:33:07Z"
+      }
+    },
+    {
+      "ts": "2025-10-23T19:46:42Z",
+      "type": "action",
+      "data": {
+        "actor": "unknown",
+        "action": "suggest",
+        "object": "principle",
+        "qualifiers": [],
+        "confidence": null,
+        "evidence": {
+          "repo": "rhizome",
+          "branch": "rhizome",
+          "commit": "570f70142577fc2607a189858ad7301e137efcd1",
+          "path": null,
+          "lines": null,
+          "note": "When learning a complex pattern (stub generation, VSCode APIs, etc.), don't explain—build a dead-simple, fully working toy example first. User can load it, run it, see the clockwork. THEN use that as scaffold for the real thing. Pattern: requirement → 5-min toy example → implementation. Must be executable code, never pseudocode or theory."
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": "Toy-Example-First Learning: Minimal executable examples before complex implementation",
+        "timestamp": "2025-10-23T19:46:42Z"
+      }
+    },
+    {
+      "ts": "2025-10-23T19:57:48Z",
+      "type": "action",
+      "data": {
+        "actor": "unknown",
+        "action": "work",
+        "object": "task",
+        "qualifiers": [],
+        "confidence": null,
+        "evidence": {
+          "repo": "rhizome",
+          "branch": "rhizome",
+          "commit": "570f70142577fc2607a189858ad7301e137efcd1",
+          "path": null,
+          "lines": null,
+          "note": "Next Star Trek themed learning extension after vscode-startrek-code. User selects code/commit → @captainslog marker → generates Captain's Log entry via OpenAI → inserts as comment. Teaches same pattern (find→transform→insert) but with Star Trek flavor. Makes learning artifacts cohesive and fun. Scope: executable, fully typed, self-documenting."
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": "Build vscode-startrek-captain-log: toy extension for future learning artifact",
+        "timestamp": "2025-10-23T19:57:48Z"
+      }
+    }
+  ],
+  "personas": {
+    "active": [
+      "rhizome"
+    ],
+    "conducting": "rhizome",
+    "voices": {
+      "una": {
+        "active": true,
+        "mode": "guide",
+        "archive": []
+      },
+      "bro": {
+        "active": true,
+        "mode": "executor",
+        "archive": []
+      },
+      "root": {
+        "active": true,
+        "mode": "reasoner",
+        "archive": []
+      }
+    }
+  },
+  "phase": {
+    "current": "kitchen_table",
+    "entered_at": "2025-10-22T15:59:14Z",
+    "transitions": []
+  },
+  "sprouts": []
+}
