@@ -32,7 +32,7 @@
       "id": 2,
       "title": "Scaffold: Epistle Plugin Integration Path",
       "description": "Create vscode-rhizome epistle scaffolding directory & basic structure. Copy epistle plugin templates, set up registry, prepare for CLI integration.",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "id": 3,
