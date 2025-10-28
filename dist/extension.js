@@ -15467,21 +15467,33 @@ async function queryPersona(text, persona, timeoutMs = 3e4, workspaceRoot) {
       input: text,
       encoding: "utf-8",
       timeout: timeoutMs,
-      cwd
+      cwd,
       // Ensure rhizome runs in workspace to find .rhizome folder
+      stdio: ["pipe", "pipe", "pipe"]
+      // Capture both stdout and stderr
     });
     return response;
   } catch (error) {
-    throw new Error(`Rhizome query failed: ${error.message}`);
+    let errorDetail = error.message;
+    if (error.stderr) {
+      errorDetail = error.stderr.toString();
+    } else if (error.stdout) {
+      errorDetail = error.stdout.toString();
+    }
+    throw new Error(`Rhizome query failed:
+${errorDetail}`);
   }
 }
 async function getAvailablePersonas() {
   try {
     const { execSync: execSync2 } = require("child_process");
+    const cwd = vscode2.workspace.workspaceFolders?.[0]?.uri.fsPath;
     const output = execSync2("rhizome persona list", {
       encoding: "utf-8",
       timeout: 5e3,
-      stdio: "pipe"
+      stdio: "pipe",
+      cwd
+      // Run in workspace context
     });
     const personas = /* @__PURE__ */ new Map();
     const lines = output.split("\n");

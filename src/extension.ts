@@ -42,10 +42,18 @@ async function queryPersona(
 			encoding: 'utf-8',
 			timeout: timeoutMs,
 			cwd: cwd, // Ensure rhizome runs in workspace to find .rhizome folder
+			stdio: ['pipe', 'pipe', 'pipe'], // Capture both stdout and stderr
 		});
 		return response;
 	} catch (error: any) {
-		throw new Error(`Rhizome query failed: ${(error as Error).message}`);
+		// Extract actual error details from the exception
+		let errorDetail = (error as Error).message;
+		if (error.stderr) {
+			errorDetail = error.stderr.toString();
+		} else if (error.stdout) {
+			errorDetail = error.stdout.toString();
+		}
+		throw new Error(`Rhizome query failed:\n${errorDetail}`);
 	}
 }
 
@@ -58,10 +66,12 @@ async function queryPersona(
 async function getAvailablePersonas(): Promise<Map<string, string>> {
 	try {
 		const { execSync } = require('child_process');
+		const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 		const output = execSync('rhizome persona list', {
 			encoding: 'utf-8',
 			timeout: 5000,
 			stdio: 'pipe',
+			cwd: cwd, // Run in workspace context
 		});
 
 		const personas = new Map<string, string>();
