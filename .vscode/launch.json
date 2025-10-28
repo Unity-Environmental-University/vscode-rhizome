@@ -9,6 +9,9 @@
 				"--extensionDevelopmentPath=${workspaceFolder}",
 				"${workspaceFolder}/test-workspace"
 			],
+			"env": {
+				"RHIZOME_DEBUG": "true"
+			},
 			"outFiles": [
 				"${workspaceFolder}/dist/**/*.js"
 			],
