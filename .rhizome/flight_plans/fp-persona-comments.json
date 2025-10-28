@@ -1,0 +1,49 @@
+{
+  "id": "fp-persona-comments",
+  "title": "Persona comments: Ask a persona to document/comment a code section",
+  "requester": "As a developer using vscode-rhizome, I want to select a code section and ask a persona to provide comments, documentation, or implementation suggestions for that section, so that I can leverage expert perspectives while writing code.",
+  "workflow": "kitchen_table",
+  "targets": ["src/extension.ts"],
+  "stories": [
+    {
+      "as": "developer using vscode-rhizome",
+      "i_want": "to right-click on a code section and ask a persona to document it with helpful comments",
+      "so_that": "I can get expert perspectives while writing code"
+    },
+    {
+      "as": "developer",
+      "i_want": "to ask a persona to provide implementation details for a rough sketch or stub",
+      "so_that": "I can leverage expert guidance to fill out code"
+    },
+    {
+      "as": "developer",
+      "i_want": "to ask a persona to suggest improvements or refactoring for a selected code block",
+      "so_that": "I can maintain high quality code with expert input"
+    }
+  ],
+  "steps": [
+    {
+      "id": 1,
+      "title": "Design interaction: what does 'persona comment' look like? (UI/UX decision)",
+      "status": "pending"
+    },
+    {
+      "id": 2,
+      "title": "Implement persona-comment command with prompt template",
+      "status": "pending"
+    },
+    {
+      "id": 3,
+      "title": "Insert response as code comment (language-aware syntax)",
+      "status": "pending"
+    },
+    {
+      "id": 4,
+      "title": "Test end-to-end: selection → persona → insertion",
+      "status": "pending"
+    }
+  ],
+  "status": "active",
+  "require_approval": false,
+  "created_at": "2025-10-28T18:05:00Z"
+}

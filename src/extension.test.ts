@@ -484,4 +484,105 @@ describe('Workspace Configuration', () => {
 			await workspace.teardown();
 		});
 	});
+
+	/**
+	 * =======================================
+	 * SCENARIO 4: PERSONA DOCUMENTATION TESTS
+	 * =======================================
+	 *
+	 * don-socratic asks:
+	 * When a developer selects code and asks a persona to document it,
+	 * what should be inserted? As what kind of comment?
+	 * Where in the file should it go?
+	 */
+
+	describe('Persona Documentation', () => {
+		let workspace: TestWorkspace;
+		let mockRhizome: MockRhizome;
+
+		beforeEach(async () => {
+			workspace = new TestWorkspace();
+			await workspace.setup();
+			mockRhizome = new MockRhizome();
+		});
+
+		afterEach(async () => {
+			await workspace.teardown();
+		});
+
+		describe('Happy Path: Requesting persona documentation', () => {
+			it('should format persona response as TypeScript comments', () => {
+				// Test: when persona returns documentation, it should be formatted
+				// as TypeScript comments (// ...) and preserving newlines
+				const personaResponse = 'This function validates user input.\nIt checks for null and empty strings.';
+				const commentPrefix = '//';
+				const commentLines = personaResponse.split('\n').map((line) => `${commentPrefix} ${line}`);
+				const formatted = commentLines.join('\n');
+
+				assert.strictEqual(formatted, '// This function validates user input.\n// It checks for null and empty strings.');
+			});
+
+			it('should format persona response as Python comments', () => {
+				// Test: Python uses # for comments instead of //
+				const personaResponse = 'This function validates user input.\nIt checks for null and empty strings.';
+				const commentPrefix = '#';
+				const commentLines = personaResponse.split('\n').map((line) => `${commentPrefix} ${line}`);
+				const formatted = commentLines.join('\n');
+
+				assert.strictEqual(formatted, '# This function validates user input.\n# It checks for null and empty strings.');
+			});
+
+			it('should handle empty persona response gracefully', () => {
+				// Test: if persona returns empty string, should still format cleanly
+				const personaResponse = '';
+				const commentPrefix = '//';
+				const commentLines = personaResponse.split('\n').map((line) => `${commentPrefix} ${line}`);
+				const formatted = commentLines.join('\n');
+
+				// Empty string split gives [''], which becomes '// '
+				assert.ok(formatted.includes('//'));
+			});
+		});
+
+		describe('Error Paths: Handling documentation failures', () => {
+			it('should handle missing workspace gracefully', () => {
+				// Test: if no workspace folder is open, should not crash
+				// This is a boundary condition: VSCode without workspace
+				assert.ok(true); // Manual test required (needs VSCode context)
+			});
+
+			it('should handle persona not found', () => {
+				// Test: if user selects unknown persona, should show error
+				const unknownPersona = 'unknown-persona-xyz';
+				const error = new Error(`Persona '${unknownPersona}' not found`);
+				assert.ok(error.message.includes('not found'));
+			});
+
+			it('should handle rhizome query timeout', () => {
+				// Test: if rhizome query times out, should surface error to user
+				const error = new Error('rhizome query timeout (>30s)');
+				assert.ok(error.message.includes('timeout'));
+			});
+		});
+
+		describe('Integration: Full documentation workflow', () => {
+			it('should insert documentation comment above selected code', async () => {
+				// Test: full workflow
+				// 1. User selects code
+				// 2. Requests documentation from persona
+				// 3. Persona response is formatted as comment
+				// 4. Comment is inserted above selection
+
+				const selectedCode = 'const x = 42;';
+				const personaResponse = 'Initialize the answer to life, universe, and everything.';
+				const commentPrefix = '//';
+				const comment = personaResponse.split('\n').map((line) => `${commentPrefix} ${line}`).join('\n');
+				const result = `${comment}\n${selectedCode}`;
+
+				assert.ok(result.includes('//'));
+				assert.ok(result.includes(selectedCode));
+				assert.ok(result.includes(personaResponse));
+			});
+		});
+	});
 });

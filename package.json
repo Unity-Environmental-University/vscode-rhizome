@@ -55,6 +55,11 @@
       {
         "command": "vscode-rhizome.stubInfer",
         "title": "Stub this function (with LLM inference)"
+      },
+      {
+        "command": "vscode-rhizome.documentWithPersona",
+        "title": "Ask a persona to document this",
+        "description": "Have a persona provide documentation/comments on selected code"
       }
     ],
     "menus": {
@@ -72,6 +77,11 @@
         {
           "command": "vscode-rhizome.askPersona",
           "group": "1_modification@3",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "vscode-rhizome.documentWithPersona",
+          "group": "1_modification@4",
           "when": "editorHasSelection"
         }
       ]

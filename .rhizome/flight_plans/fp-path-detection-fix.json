@@ -2,8 +2,10 @@
   "id": "fp-path-detection-fix",
   "title": "Fix PATH detection for rhizome CLI",
   "requester": "As a developer with rhizome installed in ~/.local/bin, I want the extension to find it without requiring me to modify my shell PATH, so that the extension works out-of-the-box",
-  "workflow": "todo",
-  "targets": ["src/extension.ts"],
+  "workflow": "done",
+  "targets": [
+    "src/extension.ts"
+  ],
   "stories": [
     {
       "id": 1,
@@ -18,29 +20,85 @@
     {
       "id": 1,
       "title": "Refactor isRhizomeInstalled(): check common paths directly before trying execSync",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "id": 2,
       "title": "Add ~/.local/bin to process.env.PATH at extension startup if not already present",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "id": 3,
       "title": "Test against scenarios: ~/.local/bin, /usr/local/bin, missing, custom paths",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "id": 4,
       "title": "Document the detection strategy in code comments (dev-guide questions)",
-      "status": "pending"
+      "status": "completed"
     }
   ],
-  "status": "active",
+  "status": "completed",
   "require_approval": false,
   "created_at": "2025-10-28T17:40:00Z",
   "phase": {
     "current": "kitchen_table",
     "entered_at": "2025-10-28T17:40:00Z"
-  }
+  },
+  "log": [
+    {
+      "ts": "2025-10-28T17:57:36Z",
+      "type": "action",
+      "data": {
+        "actor": "claude-code",
+        "action": "decide",
+        "object": "rhizome-path-detection-refactor",
+        "qualifiers": [],
+        "confidence": 0.95,
+        "evidence": {
+          "repo": "vscode-rhizome",
+          "branch": "main",
+          "commit": "03941051aa548c66a594dff6346c05bd9989e415",
+          "path": null,
+          "lines": null,
+          "note": "Check common paths directly (fs.existsSync) before PATH lookup. If found, add to process.env.PATH for subprocess calls. Handles ~/.local/bin case without requiring shell config."
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": "Robust rhizome detection for common installation locations",
+        "standpoint": {
+          "phase": "garden"
+        },
+        "standpoint_label": "(garden)",
+        "timestamp": "2025-10-28T17:57:36Z"
+      }
+    },
+    {
+      "ts": "2025-10-28T17:57:40Z",
+      "type": "action",
+      "data": {
+        "actor": "system",
+        "action": "link_commit",
+        "object": "",
+        "qualifiers": [
+          "post-commit"
+        ],
+        "confidence": 1.0,
+        "evidence": {
+          "repo": "vscode-rhizome",
+          "branch": "main",
+          "commit": "03941051aa548c66a594dff6346c05bd9989e415",
+          "path": null,
+          "lines": null,
+          "note": "Refactored isRhizomeInstalled(): check common paths before PATH lookup"
+        },
+        "agent": null,
+        "timestamp": "2025-10-28T17:57:40Z"
+      }
+    }
+  ]
 }

@@ -2,6 +2,7 @@
 import * as vscode from 'vscode';
 import { generateStub, findStubComments, insertStub } from './stubGenerator';
 import { registerVoiceControlCommand } from './voice/voiceControlPanel';
+import { ensureLocalBinOnPath, getCandidateLocations, isRhizomeInstalled } from './utils/rhizomePath';
 
 /**
  * @rhizome: how do libraries work here?
@@ -151,61 +152,6 @@ function detectLanguage(languageId: string): 'typescript' | 'javascript' | 'pyth
 	return null;
 }
 /**
- * Helper: Check if rhizome CLI is available
- *
- * don-socratic asks:
- * What if rhizome is on disk but not in the user's PATH?
- * How should we detect it? Check common paths first? Or rely on PATH?
- *
- * APPROACH (from dev-guide advice):
- * 1. Check common installation paths directly (fs.existsSync)
- * 2. If found, add that dir to process.env.PATH for subprocess calls
- * 3. Fall back to execSync('rhizome --version') if not in common paths
- * 4. This handles the ~/.local/bin case without requiring shell config
- *
- * Common paths checked:
- * - ~/.local/bin/rhizome (npm install -g default on Linux)
- * - /usr/local/bin/rhizome (manual or Homebrew on macOS)
- * - /opt/rhizome/bin/rhizome (custom installation)
- * - Then relies on user's PATH
- */
-function isRhizomeInstalled(): boolean {
-	const fs = require('fs');
-	const path = require('path');
-	const { execSync } = require('child_process');
-
-	// Check common installation paths
-	const commonPaths = [
-		path.join(process.env.HOME || '', '.local', 'bin', 'rhizome'),
-		'/usr/local/bin/rhizome',
-		'/opt/rhizome/bin/rhizome',
-	];
-
-	for (const p of commonPaths) {
-		if (fs.existsSync(p)) {
-			// Found it! Update PATH for subprocess calls
-			const dirPath = path.dirname(p);
-			if (!process.env.PATH?.includes(dirPath)) {
-				process.env.PATH = dirPath + ':' + (process.env.PATH || '');
-			}
-			return true;
-		}
-	}
-
-	// Not in common paths, try PATH-based lookup
-	try {
-		execSync('rhizome --version', {
-			encoding: 'utf-8',
-			timeout: 2000,
-			stdio: 'pipe',
-		});
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-/**
  * Helper: Check if user is member of Unity-Environmental-University
  *
  * don-socratic asks:
@@ -281,22 +227,15 @@ async function isUEUMember(): Promise<boolean> {
  */
 async function diagnosticRhizomeMissing(): Promise<string[]> {
 	const { execSync } = require('child_process');
+	const fs = require('fs');
 	const diagnostics: string[] = [];
 
-	// Check common installation paths
-	const commonPaths = [
-		'/usr/local/bin/rhizome',
-		'/usr/bin/rhizome',
-		`${process.env.HOME}/.local/bin/rhizome`,
-		`${process.env.HOME}/.rhizome/bin/rhizome`,
-	];
-
-	for (const path of commonPaths) {
-		try {
-			execSync(`test -f ${path}`, { stdio: 'pipe' });
-			diagnostics.push(`Found rhizome at: ${path}`);
-		} catch {
-			// Not found, continue
+	// Check installation paths that we probe proactively (see getCandidateLocations)
+	for (const candidate of getCandidateLocations()) {
+		if (fs.existsSync(candidate)) {
+			diagnostics.push(`Found rhizome at: ${candidate}`);
+		} else {
+			diagnostics.push(`Checked path (missing): ${candidate}`);
 		}
 	}
 
@@ -578,6 +517,7 @@ async function askPersonaAboutSelection(persona: string, personaDisplayName: str
  */
 export function activate(context: vscode.ExtensionContext) {
 	console.log('vscode-rhizome activated');
+	ensureLocalBinOnPath();
 
 	// ======================================
 	// COMMAND: initialize rhizome in workspace
@@ -737,6 +677,94 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	context.subscriptions.push(stubDisposable);
+
+	/**
+	 * Command: documentWithPersona
+	 *
+	 * don-socratic asks:
+	 * When we ask a persona to document code, what should the output look like?
+	 * Should it be a block comment before the selection? After? Inline?
+	 * Who decides the placement—the persona or the user?
+	 *
+	 * ANSWER:
+	 * We insert persona's response as a comment block ABOVE the selection.
+	 * This follows the pattern of JSDoc/docstring conventions.
+	 * The persona suggests documentation; the user integrates it.
+	 */
+	let documentWithPersonaDisposable = vscode.commands.registerCommand(
+		'vscode-rhizome.documentWithPersona',
+		async () => {
+			const selection = getActiveSelection();
+			if (!selection) return;
+
+			const { editor, selectedText } = selection;
+			const document = editor.document;
+
+			// Get available personas
+			const personasMap = await getAvailablePersonas();
+			if (personasMap.size === 0) {
+				vscode.window.showErrorMessage('No personas available. Check rhizome installation.');
+				return;
+			}
+
+			// Show quick pick to choose persona
+			const personaOptions = Array.from(personasMap.entries()).map(([name, role]) => ({
+				label: name,
+				description: role || `Ask ${name} to document this`,
+			}));
+			const picked = await vscode.window.showQuickPick(personaOptions, {
+				placeHolder: 'Which persona should document this code?',
+			});
+
+			if (!picked) return;
+
+			// Ensure rhizome is initialized
+			const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+			if (!workspaceRoot) {
+				vscode.window.showErrorMessage('No workspace folder open');
+				return;
+			}
+
+			const initialized = await initializeRhizomeIfNeeded(workspaceRoot);
+			if (!initialized) {
+				vscode.window.showErrorMessage('Could not initialize rhizome.');
+				return;
+			}
+
+			// Build prompt: ask persona to document the code
+			const prompt = `Please provide clear documentation/comments for this code:\n\n${selectedText}`;
+
+			try {
+				const response = await queryPersona(prompt, picked.label);
+
+				// Detect language and format comment
+				const language = detectLanguage(document.languageId);
+				const commentPrefix = language === 'python' ? '#' : '//';
+				const commentLines = response.split('\n').map((line) => `${commentPrefix} ${line}`);
+				const comment = commentLines.join('\n');
+
+				// Get insertion position (above selection)
+				const insertPos = editor.selection.start;
+
+				// Insert comment
+				const edit = new vscode.TextEdit(
+					new vscode.Range(insertPos, insertPos),
+					`${comment}\n`
+				);
+				const workspaceEdit = new vscode.WorkspaceEdit();
+				workspaceEdit.set(document.uri, [edit]);
+				await vscode.workspace.applyEdit(workspaceEdit);
+
+				vscode.window.showInformationMessage(`${picked.label} documentation added above selection`);
+			} catch (error: any) {
+				vscode.window.showErrorMessage(
+					`Failed to get documentation from ${picked.label}: ${(error as Error).message}`
+				);
+			}
+		}
+	);
+
+	context.subscriptions.push(documentWithPersonaDisposable);
 }
 
 export function deactivate() {}
