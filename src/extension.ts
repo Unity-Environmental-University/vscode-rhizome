@@ -98,7 +98,13 @@ async function queryPersona(
 		const timeoutPromise = new Promise<string>((_, reject) => {
 			setTimeout(() => {
 				console.log(`[queryPersona] TIMEOUT: Query to ${persona} exceeded ${timeoutMs}ms`);
-				reject(new Error(`Query to ${persona} timed out after ${timeoutMs}ms. Persona may be slow or API key may be missing/invalid.`));
+				console.log(`[queryPersona] Persona: ${persona} is not responding within ${timeoutMs}ms`);
+				console.log(`[queryPersona] Possible causes:`);
+				console.log(`[queryPersona]   1. Missing API key (check checkApiKeyAvailable logs above)`);
+				console.log(`[queryPersona]   2. API is slow or unreachable`);
+				console.log(`[queryPersona]   3. Persona has a circular dependency or infinite loop`);
+				console.log(`[queryPersona]   4. Python module missing (look for "No module named" errors)`);
+				reject(new Error(`${persona} timed out after ${timeoutMs}ms. Check debug console for details.`));
 			}, timeoutMs + 1000); // Give execSync a chance to timeout first
 		});
 
@@ -1165,41 +1171,58 @@ export function activate(context: vscode.ExtensionContext) {
 			const prompt = `Please provide clear documentation/comments for this code:\n\n${selectedText}`;
 			console.log('[documentWithPersona] Querying persona with prompt length:', prompt.length);
 
-			try {
-				const response = await queryPersona(prompt, picked.label, 30000, workspaceRoot);
-				console.log('[documentWithPersona] Got response from persona:', response.substring(0, 100) + '...');
+			// Show progress while querying
+			await vscode.window.withProgress(
+				{
+					location: vscode.ProgressLocation.Notification,
+					title: `Asking ${picked.label} to document your code...`,
+					cancellable: false,
+				},
+				async (progress) => {
+					progress.report({ message: 'Waiting for response (this may take 10-30 seconds)...' });
+					console.log('[documentWithPersona] Showing progress notification');
 
-				// Detect language and format comment
-				const language = detectLanguage(document.languageId);
-				const commentPrefix = language === 'python' ? '#' : '//';
-				console.log('[documentWithPersona] Language:', document.languageId, 'Prefix:', commentPrefix);
+					try {
+						console.log('[documentWithPersona] Calling queryPersona now...');
+						console.log('[documentWithPersona] Timeout set to 15 seconds. If persona hangs, check logs for dependency issues.');
+						const response = await queryPersona(prompt, picked.label, 15000, workspaceRoot);
+						console.log('[documentWithPersona] Got response from persona:', response.substring(0, 100) + '...');
 
-				const commentLines = response.split('\n').map((line) => `${commentPrefix} ${line}`);
-				const comment = commentLines.join('\n');
-				console.log('[documentWithPersona] Formatted comment:', comment.substring(0, 100) + '...');
+						// Detect language and format comment
+						const language = detectLanguage(document.languageId);
+						const commentPrefix = language === 'python' ? '#' : '//';
+						console.log('[documentWithPersona] Language:', document.languageId, 'Prefix:', commentPrefix);
 
-				// Get insertion position (above selection)
-				const insertPos = editor.selection.start;
-				console.log('[documentWithPersona] Insert position:', insertPos);
+						const commentLines = response.split('\n').map((line) => `${commentPrefix} ${line}`);
+						const comment = commentLines.join('\n');
+						console.log('[documentWithPersona] Formatted comment:', comment.substring(0, 100) + '...');
 
-				// Insert comment
-				const edit = new vscode.TextEdit(
-					new vscode.Range(insertPos, insertPos),
-					`${comment}\n`
-				);
-				const workspaceEdit = new vscode.WorkspaceEdit();
-				workspaceEdit.set(document.uri, [edit]);
-				console.log('[documentWithPersona] Applying edit...');
-				await vscode.workspace.applyEdit(workspaceEdit);
-				console.log('[documentWithPersona] Edit applied successfully');
+						// Get insertion position (above selection)
+						const insertPos = editor.selection.start;
+						console.log('[documentWithPersona] Insert position:', insertPos);
 
-				vscode.window.showInformationMessage(`${picked.label} documentation added above selection`);
-			} catch (error: any) {
-				console.log('[documentWithPersona] Error:', (error as Error).message);
-				vscode.window.showErrorMessage(
-					`Failed to get documentation from ${picked.label}: ${(error as Error).message}`
-				);
-			}
+						// Insert comment
+						const edit = new vscode.TextEdit(
+							new vscode.Range(insertPos, insertPos),
+							`${comment}\n`
+						);
+						const workspaceEdit = new vscode.WorkspaceEdit();
+						workspaceEdit.set(document.uri, [edit]);
+						console.log('[documentWithPersona] Applying edit...');
+						await vscode.workspace.applyEdit(workspaceEdit);
+						console.log('[documentWithPersona] Edit applied successfully');
+
+						progress.report({ message: 'Documentation added! ✓' });
+						vscode.window.showInformationMessage(`${picked.label} documentation added above selection`);
+					} catch (error: any) {
+						console.log('[documentWithPersona] Error in progress:', (error as Error).message);
+						progress.report({ message: `Error: ${(error as Error).message}` });
+						vscode.window.showErrorMessage(
+							`Failed to get documentation from ${picked.label}: ${(error as Error).message}`
+						);
+					}
+				}
+			);
 		}
 	);
 
