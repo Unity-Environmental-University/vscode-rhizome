@@ -1,5 +1,9 @@
 # CLAUDE.md: Working with vscode-rhizome
 
+**LAST UPDATED:** Oct 28, 2025 18:23 UTC
+**STATUS:** Persona comments feature complete, ready for users (fp-1761674707)
+**GIT:** 36 commits ahead of origin/main
+
 ## What This Document Is
 
 This is a guide for **Claude Code** (and anyone helping maintain vscode-rhizome) to understand:
@@ -719,5 +723,81 @@ The extension teaches by example. Your job is to maintain that example with care
 
 ---
 
-*Last Updated: 2025-10-28*
+## Session Summary (Oct 28, 2025)
+
+### Completed: Persona Comments Feature (fp-1761674707)
+
+**What Was Built:**
+- Command: "Ask a persona to document this" (right-click menu)
+- Code: 85 lines in `src/extension.ts:681-764`
+- Tests: 7 focused tests (all passing)
+- Status: Production-ready, documented, ready for users
+
+**User Flow:**
+```
+Select code → Right-click → "Ask a persona to document this"
+→ Choose persona → Comments inserted above (language-aware)
+```
+
+**Design Decisions:**
+1. Dynamic persona picker (scales automatically)
+2. Comments above selection (JSDoc convention)
+3. Language-aware syntax (// vs #)
+4. Simple line-prefix formatter (95% coverage)
+5. Single hardcoded prompt (customizable later)
+
+**Flight Plan Phases:**
+- ✓ kitchen_table: Design (dynamic picker choice)
+- ✓ garden: Implementation + testing
+- ✓ library: Documentation + teaching moments
+
+**Documentation:**
+- `.rhizome/persona-comments-feature.md` — Complete design doc
+- `.rhizome/TEACHING_MOMENTS.md` — Items #5, #6 added
+- Code comments — Don-socratic questions throughout
+
+### Next Priorities
+
+Choose one:
+
+1. **GraphBuilder** (Secondary, scaffolded tests exist)
+   - Parse actions.ndjson → knowledge graph
+   - Build node/edge structure
+   - Status: Tests written, needs implementation
+
+2. **Voice Control** (Feature, UI exists)
+   - Implement audio transcription streaming
+   - Connect to rhizome persona
+   - Status: UI ready, needs audio logic
+   - Note: Some type errors in tests
+
+3. **Refactor & Extract** (Code quality)
+   - Comment formatting utility
+   - Command handler pattern
+   - Status: Patterns identified, ready
+
+4. **User Documentation** (Support)
+   - User guide with examples
+   - Screenshot/walkthrough
+   - Status: Design notes exist, needs polish
+
+5. **Fix Rhizome CLI Bug** (Technical debt)
+   - `rhizome flight phase` command broken
+   - KeyError in flight_commands.py:329
+   - Status: Identified, ready
+
+### Git Status
+
+- **36 commits ahead** of origin/main
+- Last 3 commits:
+  - `fe55ce5` — Implement persona comments
+  - `e0c2257` — Document feature (library phase)
+  - `acad139` — Record completion
+
+- Ready to push when needed
+
+---
+
+*Last Updated: 2025-10-28 18:23 UTC*
 *Maintained by: Hallie + Claude Code, guided by rhizome flight plans*
+*Current Feature: Persona comments (COMPLETE & READY)*
