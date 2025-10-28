@@ -34,6 +34,11 @@
         "description": "Set up rhizome context in workspace"
       },
       {
+        "command": "vscode-rhizome.diagnoseEnvironment",
+        "title": "vscode-rhizome: Diagnose Environment",
+        "description": "Check rhizome Python environment and installed modules"
+      },
+      {
         "command": "vscode-rhizome.installDeps",
         "title": "vscode-rhizome: Install Dependencies",
         "description": "Install missing Python dependencies for rhizome (pyyaml, etc.)"

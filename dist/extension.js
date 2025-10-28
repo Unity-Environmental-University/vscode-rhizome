@@ -16051,56 +16051,124 @@ function activate(context) {
     }
   });
   context.subscriptions.push(initDisposable);
+  let diagnosisDisposable = vscode2.commands.registerCommand("vscode-rhizome.diagnoseEnvironment", async () => {
+    console.log("[diagnoseEnvironment] Starting rhizome environment diagnosis");
+    const { execSync: execSync2 } = require("child_process");
+    const outputChannel = vscode2.window.createOutputChannel("vscode-rhizome: Environment Diagnosis");
+    outputChannel.show(true);
+    outputChannel.appendLine("=".repeat(70));
+    outputChannel.appendLine("RHIZOME ENVIRONMENT DIAGNOSIS");
+    outputChannel.appendLine("=".repeat(70));
+    outputChannel.appendLine("");
+    try {
+      outputChannel.appendLine("1. RHIZOME INSTALLATION");
+      const rhizomeWhich = execSync2("which rhizome", { encoding: "utf-8" }).trim();
+      outputChannel.appendLine(`   Location: ${rhizomeWhich}`);
+      outputChannel.appendLine("");
+      outputChannel.appendLine("2. PYTHON ENVIRONMENT");
+      const pythonPath = execSync2("which python3", { encoding: "utf-8" }).trim();
+      const pythonVersion = execSync2("python3 --version", { encoding: "utf-8" }).trim();
+      outputChannel.appendLine(`   Python: ${pythonPath}`);
+      outputChannel.appendLine(`   Version: ${pythonVersion}`);
+      outputChannel.appendLine("");
+      outputChannel.appendLine("3. REQUIRED PYTHON MODULES");
+      try {
+        execSync2('python3 -c "import yaml; print(yaml.__version__)"', { stdio: "pipe", encoding: "utf-8" });
+        outputChannel.appendLine("   \u2713 pyyaml: INSTALLED");
+      } catch {
+        outputChannel.appendLine("   \u2717 pyyaml: MISSING");
+      }
+      outputChannel.appendLine("");
+      outputChannel.appendLine("4. PYTHON MODULE SEARCH PATHS (sys.path)");
+      const sysPath = execSync2(`python3 -c "import sys; print('\\n'.join(sys.path))"`, { encoding: "utf-8" });
+      sysPath.split("\n").filter((p) => p.trim()).forEach((p) => {
+        outputChannel.appendLine(`   - ${p}`);
+      });
+      outputChannel.appendLine("");
+      outputChannel.appendLine("5. PIP INFORMATION");
+      const pipVersion = execSync2("python3 -m pip --version", { encoding: "utf-8" }).trim();
+      outputChannel.appendLine(`   ${pipVersion}`);
+      outputChannel.appendLine("");
+      outputChannel.appendLine("6. INSTALLED PACKAGES (yaml-related)");
+      try {
+        const pipList = execSync2("python3 -m pip list | grep -i yaml", { encoding: "utf-8", stdio: "pipe" });
+        if (pipList.trim()) {
+          outputChannel.appendLine(`   ${pipList}`);
+        } else {
+          outputChannel.appendLine("   (none found)");
+        }
+      } catch {
+        outputChannel.appendLine("   (none found)");
+      }
+      outputChannel.appendLine("");
+      outputChannel.appendLine("=".repeat(70));
+      outputChannel.appendLine("RECOMMENDATIONS");
+      outputChannel.appendLine("=".repeat(70));
+      outputChannel.appendLine("");
+      outputChannel.appendLine("This is a RHIZOME INSTALLATION ISSUE, not an extension bug.");
+      outputChannel.appendLine("");
+      outputChannel.appendLine(`The problem: Rhizome requires Python module "pyyaml" but it's not`);
+      outputChannel.appendLine("installed in the Python environment rhizome uses.");
+      outputChannel.appendLine("");
+      outputChannel.appendLine("The real fix should be in rhizome itself:");
+      outputChannel.appendLine("- Rhizome should have a requirements.txt");
+      outputChannel.appendLine("- Rhizome should manage its own venv or dependencies");
+      outputChannel.appendLine("- Or be packaged as a standalone binary");
+      outputChannel.appendLine("");
+      outputChannel.appendLine("For now, try:");
+      outputChannel.appendLine("  python3 -m pip install pyyaml");
+      outputChannel.appendLine("");
+      outputChannel.appendLine("Then reload VSCode.");
+    } catch (error) {
+      outputChannel.appendLine(`ERROR: ${error.message}`);
+    }
+    vscode2.window.showInformationMessage("Diagnosis complete. See output panel for details.");
+  });
+  context.subscriptions.push(diagnosisDisposable);
   let installDepsDisposable = vscode2.commands.registerCommand("vscode-rhizome.installDeps", async () => {
     console.log("[vscode-rhizome.installDeps] Command invoked");
     const { execSync: execSync2 } = require("child_process");
-    console.log("[vscode-rhizome.installDeps] Detecting which Python rhizome uses...");
-    let rhizomePythonPath = "";
-    let pythonCmd = "python3";
-    try {
-      const rhizomeScript = execSync2("which rhizome", { encoding: "utf-8" }).trim();
-      console.log("[vscode-rhizome.installDeps] Rhizome script location:", rhizomeScript);
-      try {
-        const pythonVersion = execSync2("python3 --version 2>&1", { encoding: "utf-8" });
-        console.log("[vscode-rhizome.installDeps] Found python3:", pythonVersion.trim());
-        pythonCmd = "python3";
-      } catch {
-        console.log("[vscode-rhizome.installDeps] python3 not found, trying python");
-        pythonCmd = "python";
-      }
-    } catch (error) {
-      console.log("[vscode-rhizome.installDeps] Could not determine rhizome path:", error.message);
-    }
-    console.log("[vscode-rhizome.installDeps] Will use:", pythonCmd);
     const option = await vscode2.window.showQuickPick(
       [
         {
-          label: `${pythonCmd} -m pip install --upgrade pyyaml`,
-          description: "Install missing YAML module to the Python rhizome uses (RECOMMENDED)"
+          label: "python3 -m pip install pyyaml",
+          description: "\u{1F4E6} Install pyyaml to the system Python (MOST COMMON FIX)"
         },
         {
-          label: `${pythonCmd} -m pip install --upgrade pyyaml && rhizome version`,
-          description: "Install pyyaml AND immediately verify rhizome works"
+          label: "python3 -m pip install pyyaml && rhizome version",
+          description: "\u2713 Install pyyaml AND verify rhizome works"
         },
         {
-          label: `${pythonCmd} -m pip install --upgrade pyyaml ${pythonCmd} -m pip install --upgrade @rhizome/cli`,
-          description: "Install pyyaml AND fully upgrade rhizome CLI"
+          label: "cd /Users/hallie/Documents/repos/tools/rhizome && pip install -e .",
+          description: "\u{1F527} Install rhizome in development mode (installs all deps)"
         },
-        { label: "pip install pyyaml", description: "Traditional pip (may install to wrong Python)" }
+        {
+          label: "Show me the full terminal command to copy",
+          description: "\u{1F4BB} I'll copy and run it myself"
+        }
       ],
-      { placeHolder: "Choose which command to run" }
+      {
+        placeHolder: "Rhizome is missing pyyaml. Choose how to fix:",
+        title: 'Rhizome Dependency Issue - No module named "yaml"'
+      }
     );
     if (!option) {
       console.log("[vscode-rhizome.installDeps] User cancelled");
       return;
     }
     console.log("[vscode-rhizome.installDeps] User selected:", option.label);
-    const terminal = vscode2.window.createTerminal("vscode-rhizome: Install Dependencies");
+    if (option.label.includes("Show me")) {
+      vscode2.window.showInformationMessage(
+        "Copy and paste this into your terminal:\n\npython3 -m pip install pyyaml\n\nThen reload VSCode (Cmd+Shift+P \u2192 Reload Window)"
+      );
+      return;
+    }
+    const terminal = vscode2.window.createTerminal("rhizome: Install Dependencies");
     terminal.show();
     console.log("[vscode-rhizome.installDeps] Executing:", option.label);
     terminal.sendText(option.label, true);
     vscode2.window.showInformationMessage(
-      'Installing dependencies in terminal. When complete, reload VSCode (Cmd+Shift+P \u2192 Reload Window). Look for "\u2713" or success message.'
+      'Running in terminal. When you see "Successfully installed", close the terminal and reload VSCode (Cmd+Shift+P \u2192 Reload Window).'
     );
   });
   context.subscriptions.push(installDepsDisposable);
