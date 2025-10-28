@@ -1,0 +1,86 @@
+{
+  "id": "fp-1761682847",
+  "title": "Add comprehensive telemetry logging to persona workflows",
+  "requester": "As a developer using vscode-rhizome, I want detailed logs at each step of asking personas so that I can see exactly what's happening and debug issues easily.",
+  "workflow": "1. Add telemetry() helper function with [COMPONENT] PHASE: MESSAGE format",
+  "targets": [
+    "2. Add START/STEP/SUCCESS/RESULT logs to askPersona command"
+  ],
+  "stories": [],
+  "created_at": "2025-10-28T20:20:47Z",
+  "status": "completed",
+  "require_approval": false,
+  "approval": {
+    "state": "approved",
+    "by": null,
+    "at": null,
+    "notes": null
+  },
+  "steps": [
+    {
+      "id": 1,
+      "title": "Add telemetry() helper function with [COMPONENT] PHASE: MESSAGE format",
+      "status": "done"
+    },
+    {
+      "id": 2,
+      "title": "Add START/STEP/SUCCESS logs to askPersona command (quick picker flow)",
+      "status": "done"
+    },
+    {
+      "id": 3,
+      "title": "Add START/STEP/SUCCESS logs to documentWithPersona command (inline comments flow)",
+      "status": "done"
+    },
+    {
+      "id": 4,
+      "title": "Add detailed step logs to getAvailablePersonas (JSON/text/fallback paths)",
+      "status": "done"
+    },
+    {
+      "id": 5,
+      "title": "Add detailed step logs to queryPersona (init/execute/format/result)",
+      "status": "done"
+    },
+    {
+      "id": 6,
+      "title": "Test both flows end-to-end with F5 debugger and verify logs",
+      "status": "done"
+    },
+    {
+      "id": 7,
+      "title": "Document telemetry output: what each log means and when to check it",
+      "status": "done"
+    }
+  ],
+  "log": [],
+  "personas": {
+    "active": [
+      "rhizome"
+    ],
+    "conducting": "rhizome",
+    "voices": {
+      "una": {
+        "active": true,
+        "mode": "guide",
+        "archive": []
+      },
+      "bro": {
+        "active": true,
+        "mode": "executor",
+        "archive": []
+      },
+      "root": {
+        "active": true,
+        "mode": "reasoner",
+        "archive": []
+      }
+    }
+  },
+  "phase": {
+    "current": "kitchen_table",
+    "entered_at": "2025-10-28T20:20:47Z",
+    "transitions": []
+  },
+  "sprouts": []
+}

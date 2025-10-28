@@ -58,26 +58,25 @@ async function queryPersona(
 	const { execSync } = require('child_process');
 	const cwd = workspaceRoot || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
-	console.log(`[queryPersona] ========== QUERY START ==========`);
-	console.log(`[queryPersona] Persona: ${persona}`);
-	console.log(`[queryPersona] Timeout: ${timeoutMs}ms`);
-	console.log(`[queryPersona] Workspace: ${cwd}`);
-	console.log(`[queryPersona] Input length: ${text.length} chars`);
+	telemetry('QUERY', 'START', `Query to persona: ${persona}`);
+	telemetry('QUERY', 'STEP', 'Init phase: checking configuration', { persona, timeoutMs, workspace: cwd, inputLength: text.length });
 
 	// Check for API key BEFORE attempting query
-	console.log(`[queryPersona] Checking API key availability...`);
+	telemetry('QUERY', 'STEP', 'Checking API key availability...');
 	const hasApiKey = await checkApiKeyAvailable(cwd);
 	if (!hasApiKey) {
-		console.log(`[queryPersona] WARNING: No API key found. Query may fail or hang if persona requires API.`);
+		telemetry('QUERY', 'STEP', 'WARNING: No API key found. Query may fail or hang if persona requires API.');
+	} else {
+		telemetry('QUERY', 'STEP', 'API key confirmed available');
 	}
 
 	try {
-		console.log(`[queryPersona] Executing: rhizome query --persona ${persona}`);
-		console.log(`[queryPersona] CWD: ${cwd}`);
+		telemetry('QUERY', 'STEP', 'Execute phase: running rhizome query', { persona, cwd });
 
 		// Wrap execSync in a promise with explicit timeout to handle hanging better
 		const queryPromise = new Promise<string>((resolve, reject) => {
 			try {
+				telemetry('QUERY', 'STEP', `Executing: rhizome query --persona ${persona}`);
 				const response = execSync(`rhizome query --persona ${persona}`, {
 					input: text,
 					encoding: 'utf-8',
@@ -86,29 +85,20 @@ async function queryPersona(
 					stdio: ['pipe', 'pipe', 'pipe'], // Capture both stdout and stderr
 					maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large responses
 				});
-				console.log(`[queryPersona] SUCCESS: Got response from ${persona}`);
-				console.log(`[queryPersona] Response length: ${response.length} chars`);
-				console.log(`[queryPersona] Response preview: ${response.substring(0, 200)}...`);
+				telemetry('QUERY', 'STEP', 'Execute phase completed successfully', { responseLength: response.length });
+				telemetry('QUERY', 'STEP', 'Format phase: preparing response', { responseLength: response.length, preview: response.substring(0, 200) });
 				resolve(response);
 			} catch (error: any) {
 				const errorMsg = (error as Error).message;
 				const stderrMsg = error.stderr?.toString() || '';
 				const stdoutMsg = error.stdout?.toString() || '';
 
-				console.log(`[queryPersona] ERROR in execSync:`, errorMsg);
-				if (stderrMsg) {
-					console.log(`[queryPersona] stderr:`, stderrMsg);
-				}
-				if (stdoutMsg) {
-					console.log(`[queryPersona] stdout:`, stdoutMsg);
-				}
+				telemetry('QUERY', 'ERROR', 'Execute phase failed', { error: errorMsg, stderr: stderrMsg });
 
 				// Detect rhizome dependency issues
 				if (stderrMsg.includes('No module named') || stderrMsg.includes('ModuleNotFoundError')) {
-					console.log(`[queryPersona] ❌ RHIZOME DEPENDENCY ISSUE`);
-					console.log(`[queryPersona] Rhizome is missing Python dependencies`);
-					console.log(`[queryPersona] This is a rhizome installation issue, not an extension bug`);
-					console.log(`[queryPersona] Try: pip install pyyaml (or reinstall rhizome)`);
+					telemetry('QUERY', 'STEP', 'Rhizome dependency issue detected: missing Python module');
+					telemetry('QUERY', 'STEP', 'Recommendation: Run "pip install pyyaml" or reinstall rhizome');
 				}
 
 				reject(error);
@@ -118,22 +108,22 @@ async function queryPersona(
 		// Set a JS-level timeout as backup (execSync timeout might not work reliably)
 		const timeoutPromise = new Promise<string>((_, reject) => {
 			setTimeout(() => {
-				console.log(`[queryPersona] TIMEOUT: Query to ${persona} exceeded ${timeoutMs}ms`);
-				console.log(`[queryPersona] Persona: ${persona} is not responding within ${timeoutMs}ms`);
-				console.log(`[queryPersona] Possible causes:`);
-				console.log(`[queryPersona]   1. Missing API key (check checkApiKeyAvailable logs above)`);
-				console.log(`[queryPersona]   2. API is slow or unreachable`);
-				console.log(`[queryPersona]   3. Persona has a circular dependency or infinite loop`);
-				console.log(`[queryPersona]   4. Python module missing (look for "No module named" errors)`);
+				telemetry('QUERY', 'ERROR', `Timeout: Query to ${persona} exceeded ${timeoutMs}ms`);
+				telemetry('QUERY', 'STEP', 'Possible timeout causes:', {
+					cause1: 'Missing API key (check logs above)',
+					cause2: 'API is slow or unreachable',
+					cause3: 'Persona has circular dependency',
+					cause4: 'Python module missing'
+				});
 				reject(new Error(`${persona} timed out after ${timeoutMs}ms. Check debug console for details.`));
 			}, timeoutMs + 1000); // Give execSync a chance to timeout first
 		});
 
 		const result = await Promise.race([queryPromise, timeoutPromise]);
-		console.log(`[queryPersona] ========== QUERY END (SUCCESS) ==========`);
+		telemetry('QUERY', 'RESULT', 'Query completed successfully', { persona, responseLength: result.length });
+		telemetry('QUERY', 'SUCCESS', 'Query returned result ready for formatting');
 		return result;
 	} catch (error: any) {
-		console.log(`[queryPersona] ========== QUERY END (ERROR) ==========`);
 		// Extract actual error details from the exception
 		let errorDetail = (error as Error).message;
 		if (error.stderr) {
@@ -141,7 +131,7 @@ async function queryPersona(
 		} else if (error.stdout) {
 			errorDetail = error.stdout.toString();
 		}
-		console.log(`[queryPersona] Final error detail: ${errorDetail}`);
+		telemetry('QUERY', 'ERROR', 'Query failed with final error detail', { error: errorDetail });
 		throw new Error(`Rhizome query failed:\n${errorDetail}`);
 	}
 }
@@ -158,68 +148,68 @@ async function checkApiKeyAvailable(workspaceRoot?: string): Promise<boolean> {
 	const path = require('path');
 
 	const cwd = workspaceRoot || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-	console.log(`[checkApiKeyAvailable] Checking API key in workspace: ${cwd}`);
+	telemetry('APIKEY', 'START', 'Checking API key availability', { workspace: cwd });
 
 	// Check 1: Environment variables
+	telemetry('APIKEY', 'STEP', 'Checking environment variables for API keys');
 	const envKeys = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'RHIZOME_API_KEY'];
 	for (const key of envKeys) {
 		if (process.env[key]) {
-			console.log(`[checkApiKeyAvailable] Found ${key} in environment`);
+			telemetry('APIKEY', 'SUCCESS', `Found API key in environment`, { key });
 			return true;
 		}
 	}
-	console.log(`[checkApiKeyAvailable] No API keys in environment variables`);
+	telemetry('APIKEY', 'STEP', 'No API keys found in environment variables');
 
 	// Check 2: Rhizome config file
 	try {
 		const configPath = path.join(cwd, '.rhizome', 'config.json');
-		console.log(`[checkApiKeyAvailable] Checking config at: ${configPath}`);
+		telemetry('APIKEY', 'STEP', 'Checking rhizome config file', { configPath });
 
 		if (fs.existsSync(configPath)) {
 			const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-			console.log(`[checkApiKeyAvailable] Config exists. Checking for API keys...`);
-			console.log(`[checkApiKeyAvailable] Config structure:`, JSON.stringify(config, null, 2).substring(0, 500));
+			telemetry('APIKEY', 'STEP', 'Config file exists, checking for API key fields');
 
 			// Check various possible keys
 			if (config.ai?.openai_key) {
-				console.log(`[checkApiKeyAvailable] Found ai.openai_key in config`);
+				telemetry('APIKEY', 'SUCCESS', 'Found ai.openai_key in config');
 				return true;
 			}
 			if (config.ai?.key) {
-				console.log(`[checkApiKeyAvailable] Found ai.key in config`);
+				telemetry('APIKEY', 'SUCCESS', 'Found ai.key in config');
 				return true;
 			}
 			if (config.openai_api_key) {
-				console.log(`[checkApiKeyAvailable] Found openai_api_key in config`);
+				telemetry('APIKEY', 'SUCCESS', 'Found openai_api_key in config');
 				return true;
 			}
-			console.log(`[checkApiKeyAvailable] Config found but no API key field detected`);
+			telemetry('APIKEY', 'STEP', 'Config found but no API key field detected');
 		} else {
-			console.log(`[checkApiKeyAvailable] No config file found at ${configPath}`);
+			telemetry('APIKEY', 'STEP', 'No config file found at expected location');
 		}
 	} catch (error) {
-		console.log(`[checkApiKeyAvailable] Error reading config:`, (error as Error).message);
+		telemetry('APIKEY', 'STEP', 'Error reading config file', { error: (error as Error).message });
 	}
 
 	// Check 3: Try rhizome config command
 	try {
-		console.log(`[checkApiKeyAvailable] Attempting to read rhizome config via CLI...`);
+		telemetry('APIKEY', 'STEP', 'Attempting to read rhizome config via CLI');
 		const configOutput = execSync('rhizome config get ai', {
 			encoding: 'utf-8',
 			cwd: cwd,
 			stdio: ['pipe', 'pipe', 'pipe'],
 			timeout: 5000,
 		});
-		console.log(`[checkApiKeyAvailable] rhizome config output:`, configOutput.substring(0, 200));
+		telemetry('APIKEY', 'STEP', 'rhizome config command succeeded', { outputLength: configOutput.length });
 		if (configOutput && configOutput.includes('key')) {
-			console.log(`[checkApiKeyAvailable] Found key reference in rhizome config`);
+			telemetry('APIKEY', 'SUCCESS', 'Found key reference in rhizome config');
 			return true;
 		}
 	} catch (error) {
-		console.log(`[checkApiKeyAvailable] Could not read rhizome config:`, (error as Error).message);
+		telemetry('APIKEY', 'STEP', 'Could not read rhizome config via CLI', { error: (error as Error).message });
 	}
 
-	console.log(`[checkApiKeyAvailable] RESULT: No API key found`);
+	telemetry('APIKEY', 'RESULT', 'No API key found in any location');
 	return false;
 }
 
@@ -230,12 +220,12 @@ async function checkApiKeyAvailable(workspaceRoot?: string): Promise<boolean> {
  * Returns a map of persona name to description for quick picker.
  */
 async function getAvailablePersonas(): Promise<Map<string, string>> {
-	console.log(`[getAvailablePersonas] ========== FETCH PERSONAS START ==========`);
+	telemetry('PERSONAS', 'START', 'Fetching available personas from rhizome');
 	const { execSync } = require('child_process');
 	const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
-	console.log(`[getAvailablePersonas] Workspace: ${cwd}`);
-	console.log(`[getAvailablePersonas] Executing: rhizome persona list`);
+	telemetry('PERSONAS', 'STEP', 'Workspace context', { cwd });
+	telemetry('PERSONAS', 'STEP', 'Attempting JSON format first (rhizome persona list --json)');
 
 	try {
 		// Try JSON format first (requires rhizome with --json support)
@@ -247,24 +237,23 @@ async function getAvailablePersonas(): Promise<Map<string, string>> {
 				cwd: cwd, // Run in workspace context
 			});
 
-			console.log(`[getAvailablePersonas] ✓ JSON PATH: Got structured JSON from 'rhizome persona list --json'`);
+			telemetry('PERSONAS', 'STEP', 'JSON command succeeded, parsing structured output');
 			const personasObj = JSON.parse(jsonOutput);
 			const personas = new Map<string, string>();
 
+			telemetry('PERSONAS', 'STEP', `Parsing ${Object.keys(personasObj).length} personas from JSON`);
 			for (const [name, data] of Object.entries(personasObj)) {
 				const role = (data as any).role || '-';
 				personas.set(name, role);
-				console.log(`[getAvailablePersonas] Parsed: ${name} => ${role.substring(0, 50)}`);
+				telemetry('PERSONAS', 'STEP', `Parsed persona: ${name}`, { role: role.substring(0, 50) });
 			}
 
-			console.log(`[getAvailablePersonas] ========== FETCH PERSONAS END (JSON PATH - SUCCESS) ==========`);
-			console.log(`[getAvailablePersonas] Total personas found: ${personas.size}`);
-			console.log(`[getAvailablePersonas] Personas list:`, Array.from(personas.keys()).join(', '));
+			telemetry('PERSONAS', 'SUCCESS', 'All personas loaded successfully via JSON path', { count: personas.size, list: Array.from(personas.keys()) });
 
 			return personas;
 		} catch (jsonError: any) {
 			// Fall back to text parsing for older rhizome versions
-			console.log(`[getAvailablePersonas] JSON parsing failed, trying text format:`, (jsonError as Error).message);
+			telemetry('PERSONAS', 'STEP', 'JSON path failed, falling back to text format', { reason: (jsonError as Error).message });
 
 			const output = execSync('rhizome persona list', {
 				encoding: 'utf-8',
@@ -273,7 +262,7 @@ async function getAvailablePersonas(): Promise<Map<string, string>> {
 				cwd: cwd, // Run in workspace context
 			});
 
-			console.log(`[getAvailablePersonas] Raw output length: ${output.length} chars`);
+			telemetry('PERSONAS', 'STEP', `Text command succeeded, output length: ${output.length} chars`);
 
 			const personas = new Map<string, string>();
 
@@ -281,6 +270,8 @@ async function getAvailablePersonas(): Promise<Map<string, string>> {
 			// Format: "persona_name | role: description | source: ..."
 			const lines = output.split('\n');
 
+			telemetry('PERSONAS', 'STEP', `Parsing ${lines.length} lines from text output`);
+			let parsedCount = 0;
 			for (const line of lines) {
 				if (!line.trim()) continue;
 				// Handle leading whitespace: "  persona_name | role: description | source: ..."
@@ -289,38 +280,32 @@ async function getAvailablePersonas(): Promise<Map<string, string>> {
 					const name = match[1].trim();
 					const role = match[2].trim();
 					personas.set(name, role);
-					console.log(`[getAvailablePersonas] Parsed: ${name} => ${role.substring(0, 50)}`);
+					telemetry('PERSONAS', 'STEP', `Parsed persona: ${name}`, { role: role.substring(0, 50) });
+					parsedCount++;
 				} else {
-					console.log(`[getAvailablePersonas] Could not parse line: ${line.substring(0, 100)}`);
+					telemetry('PERSONAS', 'STEP', `Could not parse line (skipped)`, { line: line.substring(0, 100) });
 				}
 			}
 
-			console.log(`[getAvailablePersonas] ========== FETCH PERSONAS END (TEXT FALLBACK) ==========`);
-			console.log(`[getAvailablePersonas] Total personas found: ${personas.size}`);
-			console.log(`[getAvailablePersonas] Personas list:`, Array.from(personas.keys()).join(', '));
+			telemetry('PERSONAS', 'SUCCESS', 'All personas loaded successfully via text fallback', { count: personas.size, parsedLines: parsedCount, list: Array.from(personas.keys()) });
 
 			return personas;
 		}
 	} catch (error: any) {
 		const errorMsg = (error as Error).message;
 		const stderrMsg = error.stderr?.toString() || '';
-		console.log(`[getAvailablePersonas] ERROR fetching personas:`, errorMsg);
-		if (stderrMsg) {
-			console.log(`[getAvailablePersonas] stderr:`, stderrMsg);
-		}
+		telemetry('PERSONAS', 'ERROR', 'Failed to fetch personas from rhizome', { error: errorMsg, stderr: stderrMsg });
 
 		// Check for common rhizome dependency issues
 		if (stderrMsg.includes('No module named')) {
-			console.log(`[getAvailablePersonas] ❌ RHIZOME DEPENDENCY ISSUE DETECTED`);
-			console.log(`[getAvailablePersonas] Rhizome is missing a Python module`);
-			console.log(`[getAvailablePersonas] Try: pip install pyyaml`);
+			telemetry('PERSONAS', 'STEP', 'Rhizome dependency issue detected: missing Python module');
+			telemetry('PERSONAS', 'STEP', 'Recommendation: Run "pip install pyyaml"');
 		}
 		if (stderrMsg.includes('ModuleNotFoundError')) {
-			console.log(`[getAvailablePersonas] ❌ PYTHON MODULE NOT FOUND`);
-			console.log(`[getAvailablePersonas] This is a rhizome environment issue, not an extension issue`);
+			telemetry('PERSONAS', 'STEP', 'Python module not found: this is a rhizome environment issue');
 		}
 
-		console.log(`[getAvailablePersonas] Falling back to hardcoded personas`);
+		telemetry('PERSONAS', 'STEP', 'Using hardcoded fallback personas');
 
 		// If rhizome persona list fails, return curated set of main personas
 		const fallback = new Map([
@@ -331,8 +316,7 @@ async function getAvailablePersonas(): Promise<Map<string, string>> {
 			['dev-advocate', 'Strategist: What trade-off are we making?'],
 		]);
 
-		console.log(`[getAvailablePersonas] ========== FETCH PERSONAS END (FALLBACK) ==========`);
-		console.log(`[getAvailablePersonas] Fallback personas: ${Array.from(fallback.keys()).join(', ')}`);
+		telemetry('PERSONAS', 'SUCCESS', 'Fallback personas loaded', { count: fallback.size, list: Array.from(fallback.keys()) });
 
 		return fallback;
 	}

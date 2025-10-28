@@ -15459,24 +15459,28 @@ function ensureLocalBinOnPath() {
 }
 
 // src/extension.ts
+function telemetry(component, phase, message, data) {
+  const timestamp = (/* @__PURE__ */ new Date()).toISOString().split("T")[1];
+  const dataStr = data ? ` | ${JSON.stringify(data)}` : "";
+  console.log(`[${component}] ${phase}: ${message}${dataStr}`);
+}
 async function queryPersona(text, persona, timeoutMs = 3e4, workspaceRoot) {
   const { execSync: execSync2 } = require("child_process");
   const cwd = workspaceRoot || vscode2.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  console.log(`[queryPersona] ========== QUERY START ==========`);
-  console.log(`[queryPersona] Persona: ${persona}`);
-  console.log(`[queryPersona] Timeout: ${timeoutMs}ms`);
-  console.log(`[queryPersona] Workspace: ${cwd}`);
-  console.log(`[queryPersona] Input length: ${text.length} chars`);
-  console.log(`[queryPersona] Checking API key availability...`);
+  telemetry("QUERY", "START", `Query to persona: ${persona}`);
+  telemetry("QUERY", "STEP", "Init phase: checking configuration", { persona, timeoutMs, workspace: cwd, inputLength: text.length });
+  telemetry("QUERY", "STEP", "Checking API key availability...");
   const hasApiKey = await checkApiKeyAvailable(cwd);
   if (!hasApiKey) {
-    console.log(`[queryPersona] WARNING: No API key found. Query may fail or hang if persona requires API.`);
+    telemetry("QUERY", "STEP", "WARNING: No API key found. Query may fail or hang if persona requires API.");
+  } else {
+    telemetry("QUERY", "STEP", "API key confirmed available");
   }
   try {
-    console.log(`[queryPersona] Executing: rhizome query --persona ${persona}`);
-    console.log(`[queryPersona] CWD: ${cwd}`);
+    telemetry("QUERY", "STEP", "Execute phase: running rhizome query", { persona, cwd });
     const queryPromise = new Promise((resolve, reject) => {
       try {
+        telemetry("QUERY", "STEP", `Executing: rhizome query --persona ${persona}`);
         const response = execSync2(`rhizome query --persona ${persona}`, {
           input: text,
           encoding: "utf-8",
@@ -15488,54 +15492,45 @@ async function queryPersona(text, persona, timeoutMs = 3e4, workspaceRoot) {
           maxBuffer: 10 * 1024 * 1024
           // 10MB buffer for large responses
         });
-        console.log(`[queryPersona] SUCCESS: Got response from ${persona}`);
-        console.log(`[queryPersona] Response length: ${response.length} chars`);
-        console.log(`[queryPersona] Response preview: ${response.substring(0, 200)}...`);
+        telemetry("QUERY", "STEP", "Execute phase completed successfully", { responseLength: response.length });
+        telemetry("QUERY", "STEP", "Format phase: preparing response", { responseLength: response.length, preview: response.substring(0, 200) });
         resolve(response);
       } catch (error) {
         const errorMsg = error.message;
         const stderrMsg = error.stderr?.toString() || "";
         const stdoutMsg = error.stdout?.toString() || "";
-        console.log(`[queryPersona] ERROR in execSync:`, errorMsg);
-        if (stderrMsg) {
-          console.log(`[queryPersona] stderr:`, stderrMsg);
-        }
-        if (stdoutMsg) {
-          console.log(`[queryPersona] stdout:`, stdoutMsg);
-        }
+        telemetry("QUERY", "ERROR", "Execute phase failed", { error: errorMsg, stderr: stderrMsg });
         if (stderrMsg.includes("No module named") || stderrMsg.includes("ModuleNotFoundError")) {
-          console.log(`[queryPersona] \u274C RHIZOME DEPENDENCY ISSUE`);
-          console.log(`[queryPersona] Rhizome is missing Python dependencies`);
-          console.log(`[queryPersona] This is a rhizome installation issue, not an extension bug`);
-          console.log(`[queryPersona] Try: pip install pyyaml (or reinstall rhizome)`);
+          telemetry("QUERY", "STEP", "Rhizome dependency issue detected: missing Python module");
+          telemetry("QUERY", "STEP", 'Recommendation: Run "pip install pyyaml" or reinstall rhizome');
         }
         reject(error);
       }
     });
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => {
-        console.log(`[queryPersona] TIMEOUT: Query to ${persona} exceeded ${timeoutMs}ms`);
-        console.log(`[queryPersona] Persona: ${persona} is not responding within ${timeoutMs}ms`);
-        console.log(`[queryPersona] Possible causes:`);
-        console.log(`[queryPersona]   1. Missing API key (check checkApiKeyAvailable logs above)`);
-        console.log(`[queryPersona]   2. API is slow or unreachable`);
-        console.log(`[queryPersona]   3. Persona has a circular dependency or infinite loop`);
-        console.log(`[queryPersona]   4. Python module missing (look for "No module named" errors)`);
+        telemetry("QUERY", "ERROR", `Timeout: Query to ${persona} exceeded ${timeoutMs}ms`);
+        telemetry("QUERY", "STEP", "Possible timeout causes:", {
+          cause1: "Missing API key (check logs above)",
+          cause2: "API is slow or unreachable",
+          cause3: "Persona has circular dependency",
+          cause4: "Python module missing"
+        });
         reject(new Error(`${persona} timed out after ${timeoutMs}ms. Check debug console for details.`));
       }, timeoutMs + 1e3);
     });
     const result = await Promise.race([queryPromise, timeoutPromise]);
-    console.log(`[queryPersona] ========== QUERY END (SUCCESS) ==========`);
+    telemetry("QUERY", "RESULT", "Query completed successfully", { persona, responseLength: result.length });
+    telemetry("QUERY", "SUCCESS", "Query returned result ready for formatting");
     return result;
   } catch (error) {
-    console.log(`[queryPersona] ========== QUERY END (ERROR) ==========`);
     let errorDetail = error.message;
     if (error.stderr) {
       errorDetail = error.stderr.toString();
     } else if (error.stdout) {
       errorDetail = error.stdout.toString();
     }
-    console.log(`[queryPersona] Final error detail: ${errorDetail}`);
+    telemetry("QUERY", "ERROR", "Query failed with final error detail", { error: errorDetail });
     throw new Error(`Rhizome query failed:
 ${errorDetail}`);
   }
@@ -15545,116 +15540,129 @@ async function checkApiKeyAvailable(workspaceRoot) {
   const fs2 = require("fs");
   const path2 = require("path");
   const cwd = workspaceRoot || vscode2.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  console.log(`[checkApiKeyAvailable] Checking API key in workspace: ${cwd}`);
+  telemetry("APIKEY", "START", "Checking API key availability", { workspace: cwd });
+  telemetry("APIKEY", "STEP", "Checking environment variables for API keys");
   const envKeys = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "RHIZOME_API_KEY"];
   for (const key of envKeys) {
     if (process.env[key]) {
-      console.log(`[checkApiKeyAvailable] Found ${key} in environment`);
+      telemetry("APIKEY", "SUCCESS", `Found API key in environment`, { key });
       return true;
     }
   }
-  console.log(`[checkApiKeyAvailable] No API keys in environment variables`);
+  telemetry("APIKEY", "STEP", "No API keys found in environment variables");
   try {
     const configPath = path2.join(cwd, ".rhizome", "config.json");
-    console.log(`[checkApiKeyAvailable] Checking config at: ${configPath}`);
+    telemetry("APIKEY", "STEP", "Checking rhizome config file", { configPath });
     if (fs2.existsSync(configPath)) {
       const config = JSON.parse(fs2.readFileSync(configPath, "utf-8"));
-      console.log(`[checkApiKeyAvailable] Config exists. Checking for API keys...`);
-      console.log(`[checkApiKeyAvailable] Config structure:`, JSON.stringify(config, null, 2).substring(0, 500));
+      telemetry("APIKEY", "STEP", "Config file exists, checking for API key fields");
       if (config.ai?.openai_key) {
-        console.log(`[checkApiKeyAvailable] Found ai.openai_key in config`);
+        telemetry("APIKEY", "SUCCESS", "Found ai.openai_key in config");
         return true;
       }
       if (config.ai?.key) {
-        console.log(`[checkApiKeyAvailable] Found ai.key in config`);
+        telemetry("APIKEY", "SUCCESS", "Found ai.key in config");
         return true;
       }
       if (config.openai_api_key) {
-        console.log(`[checkApiKeyAvailable] Found openai_api_key in config`);
+        telemetry("APIKEY", "SUCCESS", "Found openai_api_key in config");
         return true;
       }
-      console.log(`[checkApiKeyAvailable] Config found but no API key field detected`);
+      telemetry("APIKEY", "STEP", "Config found but no API key field detected");
     } else {
-      console.log(`[checkApiKeyAvailable] No config file found at ${configPath}`);
+      telemetry("APIKEY", "STEP", "No config file found at expected location");
     }
   } catch (error) {
-    console.log(`[checkApiKeyAvailable] Error reading config:`, error.message);
+    telemetry("APIKEY", "STEP", "Error reading config file", { error: error.message });
   }
   try {
-    console.log(`[checkApiKeyAvailable] Attempting to read rhizome config via CLI...`);
+    telemetry("APIKEY", "STEP", "Attempting to read rhizome config via CLI");
     const configOutput = execSync2("rhizome config get ai", {
       encoding: "utf-8",
       cwd,
       stdio: ["pipe", "pipe", "pipe"],
       timeout: 5e3
     });
-    console.log(`[checkApiKeyAvailable] rhizome config output:`, configOutput.substring(0, 200));
+    telemetry("APIKEY", "STEP", "rhizome config command succeeded", { outputLength: configOutput.length });
     if (configOutput && configOutput.includes("key")) {
-      console.log(`[checkApiKeyAvailable] Found key reference in rhizome config`);
+      telemetry("APIKEY", "SUCCESS", "Found key reference in rhizome config");
       return true;
     }
   } catch (error) {
-    console.log(`[checkApiKeyAvailable] Could not read rhizome config:`, error.message);
+    telemetry("APIKEY", "STEP", "Could not read rhizome config via CLI", { error: error.message });
   }
-  console.log(`[checkApiKeyAvailable] RESULT: No API key found`);
+  telemetry("APIKEY", "RESULT", "No API key found in any location");
   return false;
 }
 async function getAvailablePersonas() {
-  console.log(`[getAvailablePersonas] ========== FETCH PERSONAS START ==========`);
+  telemetry("PERSONAS", "START", "Fetching available personas from rhizome");
   const { execSync: execSync2 } = require("child_process");
   const cwd = vscode2.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  console.log(`[getAvailablePersonas] Workspace: ${cwd}`);
-  console.log(`[getAvailablePersonas] Executing: rhizome persona list`);
+  telemetry("PERSONAS", "STEP", "Workspace context", { cwd });
+  telemetry("PERSONAS", "STEP", "Attempting JSON format first (rhizome persona list --json)");
   try {
-    const output = execSync2("rhizome persona list", {
-      encoding: "utf-8",
-      timeout: 5e3,
-      stdio: "pipe",
-      cwd
-      // Run in workspace context
-    });
-    console.log(`[getAvailablePersonas] Raw output length: ${output.length} chars`);
-    console.log(`[getAvailablePersonas] Raw output:
-${output}`);
-    const personas = /* @__PURE__ */ new Map();
-    const lines = output.split("\n");
-    console.log(`[getAvailablePersonas] Total lines in output: ${lines.length}`);
-    let parsedCount = 0;
-    for (const line of lines) {
-      if (!line.trim())
-        continue;
-      const match = line.match(/^(\S+)\s+\|\s+role:\s+(.+?)\s+\|\s+source:/);
-      if (match) {
-        const name = match[1].trim();
-        const role = match[2].trim();
+    try {
+      const jsonOutput = execSync2("rhizome persona list --json", {
+        encoding: "utf-8",
+        timeout: 5e3,
+        stdio: "pipe",
+        cwd
+        // Run in workspace context
+      });
+      telemetry("PERSONAS", "STEP", "JSON command succeeded, parsing structured output");
+      const personasObj = JSON.parse(jsonOutput);
+      const personas = /* @__PURE__ */ new Map();
+      telemetry("PERSONAS", "STEP", `Parsing ${Object.keys(personasObj).length} personas from JSON`);
+      for (const [name, data] of Object.entries(personasObj)) {
+        const role = data.role || "-";
         personas.set(name, role);
-        console.log(`[getAvailablePersonas] Parsed: ${name} => ${role.substring(0, 50)}`);
-        parsedCount++;
-      } else {
-        console.log(`[getAvailablePersonas] Could not parse line: ${line.substring(0, 100)}`);
+        telemetry("PERSONAS", "STEP", `Parsed persona: ${name}`, { role: role.substring(0, 50) });
       }
+      telemetry("PERSONAS", "SUCCESS", "All personas loaded successfully via JSON path", { count: personas.size, list: Array.from(personas.keys()) });
+      return personas;
+    } catch (jsonError) {
+      telemetry("PERSONAS", "STEP", "JSON path failed, falling back to text format", { reason: jsonError.message });
+      const output = execSync2("rhizome persona list", {
+        encoding: "utf-8",
+        timeout: 5e3,
+        stdio: "pipe",
+        cwd
+        // Run in workspace context
+      });
+      telemetry("PERSONAS", "STEP", `Text command succeeded, output length: ${output.length} chars`);
+      const personas = /* @__PURE__ */ new Map();
+      const lines = output.split("\n");
+      telemetry("PERSONAS", "STEP", `Parsing ${lines.length} lines from text output`);
+      let parsedCount = 0;
+      for (const line of lines) {
+        if (!line.trim())
+          continue;
+        const match = line.match(/^\s*(\S+)\s+\|\s+role:\s+(.+?)\s+\|\s+source:/);
+        if (match) {
+          const name = match[1].trim();
+          const role = match[2].trim();
+          personas.set(name, role);
+          telemetry("PERSONAS", "STEP", `Parsed persona: ${name}`, { role: role.substring(0, 50) });
+          parsedCount++;
+        } else {
+          telemetry("PERSONAS", "STEP", `Could not parse line (skipped)`, { line: line.substring(0, 100) });
+        }
+      }
+      telemetry("PERSONAS", "SUCCESS", "All personas loaded successfully via text fallback", { count: personas.size, parsedLines: parsedCount, list: Array.from(personas.keys()) });
+      return personas;
     }
-    console.log(`[getAvailablePersonas] ========== FETCH PERSONAS END (SUCCESS) ==========`);
-    console.log(`[getAvailablePersonas] Total personas found: ${personas.size}`);
-    console.log(`[getAvailablePersonas] Personas list:`, Array.from(personas.keys()).join(", "));
-    return personas;
   } catch (error) {
     const errorMsg = error.message;
     const stderrMsg = error.stderr?.toString() || "";
-    console.log(`[getAvailablePersonas] ERROR fetching personas:`, errorMsg);
-    if (stderrMsg) {
-      console.log(`[getAvailablePersonas] stderr:`, stderrMsg);
-    }
+    telemetry("PERSONAS", "ERROR", "Failed to fetch personas from rhizome", { error: errorMsg, stderr: stderrMsg });
     if (stderrMsg.includes("No module named")) {
-      console.log(`[getAvailablePersonas] \u274C RHIZOME DEPENDENCY ISSUE DETECTED`);
-      console.log(`[getAvailablePersonas] Rhizome is missing a Python module`);
-      console.log(`[getAvailablePersonas] Try: pip install pyyaml`);
+      telemetry("PERSONAS", "STEP", "Rhizome dependency issue detected: missing Python module");
+      telemetry("PERSONAS", "STEP", 'Recommendation: Run "pip install pyyaml"');
     }
     if (stderrMsg.includes("ModuleNotFoundError")) {
-      console.log(`[getAvailablePersonas] \u274C PYTHON MODULE NOT FOUND`);
-      console.log(`[getAvailablePersonas] This is a rhizome environment issue, not an extension issue`);
+      telemetry("PERSONAS", "STEP", "Python module not found: this is a rhizome environment issue");
     }
-    console.log(`[getAvailablePersonas] Falling back to hardcoded personas`);
+    telemetry("PERSONAS", "STEP", "Using hardcoded fallback personas");
     const fallback = /* @__PURE__ */ new Map([
       ["don-socratic", "Socratic questioning"],
       ["dev-guide", "Mentor: What were you trying to accomplish?"],
@@ -15662,8 +15670,7 @@ ${output}`);
       ["ux-advocate", "Curator: Have we watched someone use this?"],
       ["dev-advocate", "Strategist: What trade-off are we making?"]
     ]);
-    console.log(`[getAvailablePersonas] ========== FETCH PERSONAS END (FALLBACK) ==========`);
-    console.log(`[getAvailablePersonas] Fallback personas: ${Array.from(fallback.keys()).join(", ")}`);
+    telemetry("PERSONAS", "SUCCESS", "Fallback personas loaded", { count: fallback.size, list: Array.from(fallback.keys()) });
     return fallback;
   }
 }
@@ -15907,27 +15914,49 @@ async function initializeRhizomeIfNeeded(workspaceRoot) {
   }
 }
 async function askPersonaAboutSelection(persona, personaDisplayName) {
+  telemetry("QUERY", "START", `Asking ${persona} to analyze code`);
   const selection = getActiveSelection();
-  if (!selection)
+  if (!selection) {
+    telemetry("QUERY", "ERROR", "No selection found");
     return;
+  }
   const { selectedText } = selection;
+  telemetry("QUERY", "STEP", "Selection verified", {
+    length: selectedText.length,
+    persona
+  });
   const workspaceRoot = vscode2.workspace.workspaceFolders?.[0]?.uri.fsPath;
   if (!workspaceRoot) {
+    telemetry("QUERY", "ERROR", "No workspace folder");
     vscode2.window.showErrorMessage("No workspace folder open");
     return;
   }
+  telemetry("QUERY", "STEP", "Initializing rhizome if needed...");
   const initialized = await initializeRhizomeIfNeeded(workspaceRoot);
   if (!initialized) {
+    telemetry("QUERY", "ERROR", "Rhizome initialization failed");
     vscode2.window.showErrorMessage("Could not initialize rhizome. Check workspace permissions.");
     return;
   }
-  await vscode2.window.showInformationMessage(`Asking ${personaDisplayName}...`);
+  telemetry("QUERY", "STEP", "Rhizome initialized");
+  telemetry("QUERY", "STEP", "Creating output channel...");
   const outputChannel = vscode2.window.createOutputChannel("vscode-rhizome");
   outputChannel.show(true);
   try {
+    telemetry("QUERY", "STEP", "Calling queryPersona...");
     const response = await queryPersona(selectedText, persona, 3e4, workspaceRoot);
+    telemetry("QUERY", "SUCCESS", "Got response from persona", {
+      persona,
+      responseLength: response.length
+    });
+    telemetry("QUERY", "STEP", "Formatting response for output...");
     formatPersonaOutput(outputChannel, personaDisplayName, selectedText, response);
+    telemetry("QUERY", "RESULT", "Response displayed in output pane");
   } catch (error) {
+    telemetry("QUERY", "ERROR", "Query failed", {
+      persona,
+      error: error.message
+    });
     outputChannel.appendLine("");
     outputChannel.appendLine("Error calling rhizome CLI:");
     outputChannel.appendLine(error.message);
@@ -16204,28 +16233,49 @@ function activate(context) {
   );
   context.subscriptions.push(completionProvider);
   let askPersonaDisposable = vscode2.commands.registerCommand("vscode-rhizome.askPersona", async () => {
-    console.log("[askPersona] Command invoked");
+    telemetry("WORKFLOW", "START", 'User invoked "Ask a persona" command');
     const selection = getActiveSelection();
     if (!selection) {
-      console.log("[askPersona] No selection found");
+      telemetry("WORKFLOW", "ERROR", "No text selected", { action: "abort" });
+      vscode2.window.showErrorMessage("Please select some code first");
       return;
     }
-    console.log("[askPersona] Got selection, fetching personas");
+    const { selectedText } = selection;
+    telemetry("WORKFLOW", "STEP", "Selection obtained", {
+      length: selectedText.length,
+      preview: selectedText.substring(0, 50) + (selectedText.length > 50 ? "..." : "")
+    });
+    telemetry("WORKFLOW", "STEP", "Fetching available personas...");
     const personas = await getAvailablePersonas();
-    console.log("[askPersona] Available personas:", Array.from(personas.keys()));
+    telemetry("WORKFLOW", "STEP", "Personas loaded", {
+      total: personas.size,
+      names: Array.from(personas.keys()).slice(0, 5).join(", ") + (personas.size > 5 ? ", ..." : "")
+    });
+    if (personas.size === 0) {
+      telemetry("WORKFLOW", "ERROR", "No personas available", { action: "abort" });
+      vscode2.window.showErrorMessage("No personas available. Check rhizome installation.");
+      return;
+    }
     const personaOptions = Array.from(personas.entries()).map(([name, role]) => ({
       label: name,
       description: role
     }));
-    console.log("[askPersona] Showing quick picker");
+    telemetry("WORKFLOW", "STEP", "Showing quick picker");
     const picked = await vscode2.window.showQuickPick(personaOptions, {
       placeHolder: "Choose a persona to question your code",
       matchOnDescription: true
     });
-    console.log("[askPersona] User picked:", picked?.label);
-    if (!picked)
+    if (!picked) {
+      telemetry("WORKFLOW", "STEP", "User cancelled persona selection");
       return;
+    }
+    telemetry("WORKFLOW", "STEP", "Persona selected", {
+      persona: picked.label,
+      role: picked.description
+    });
+    telemetry("WORKFLOW", "STEP", "Calling queryPersona...");
     await askPersonaAboutSelection(picked.label, picked.label);
+    telemetry("WORKFLOW", "SUCCESS", "Ask persona command completed");
   });
   context.subscriptions.push(askPersonaDisposable);
   const voiceControlDisposable = registerVoiceControlCommand(context);
@@ -16274,22 +16324,32 @@ function activate(context) {
   let documentWithPersonaDisposable = vscode2.commands.registerCommand(
     "vscode-rhizome.documentWithPersona",
     async () => {
-      console.log("[documentWithPersona] Command invoked");
+      telemetry("DOCUMENT", "START", 'User invoked "Document with persona" command');
       const selection = getActiveSelection();
       if (!selection) {
-        console.log("[documentWithPersona] No selection found");
+        telemetry("DOCUMENT", "ERROR", "No text selected", { action: "abort" });
+        vscode2.window.showErrorMessage("Please select some code first");
         return;
       }
       const { editor, selectedText } = selection;
       const document = editor.document;
-      console.log("[documentWithPersona] Selected text:", selectedText.substring(0, 50) + "...");
+      telemetry("DOCUMENT", "STEP", "Selection obtained", {
+        length: selectedText.length,
+        file: document.fileName,
+        language: document.languageId
+      });
+      telemetry("DOCUMENT", "STEP", "Fetching available personas...");
       const personasMap = await getAvailablePersonas();
-      console.log("[documentWithPersona] Available personas:", Array.from(personasMap.keys()));
+      telemetry("DOCUMENT", "STEP", "Personas loaded", {
+        total: personasMap.size,
+        names: Array.from(personasMap.keys()).slice(0, 5).join(", ")
+      });
       if (personasMap.size === 0) {
-        console.log("[documentWithPersona] No personas available");
+        telemetry("DOCUMENT", "ERROR", "No personas available", { action: "abort" });
         vscode2.window.showErrorMessage("No personas available. Check rhizome installation.");
         return;
       }
+      telemetry("DOCUMENT", "STEP", "Showing quick picker");
       const personaOptions = Array.from(personasMap.entries()).map(([name, role]) => ({
         label: name,
         description: role || `Ask ${name} to document this`
@@ -16298,26 +16358,34 @@ function activate(context) {
         placeHolder: "Which persona should document this code?"
       });
       if (!picked) {
-        console.log("[documentWithPersona] User cancelled persona selection");
+        telemetry("DOCUMENT", "STEP", "User cancelled persona selection");
         return;
       }
-      console.log("[documentWithPersona] Selected persona:", picked.label);
+      telemetry("DOCUMENT", "STEP", "Persona selected", {
+        persona: picked.label,
+        role: picked.description
+      });
+      telemetry("DOCUMENT", "STEP", "Getting workspace root...");
       const workspaceRoot = vscode2.workspace.workspaceFolders?.[0]?.uri.fsPath;
       if (!workspaceRoot) {
-        console.log("[documentWithPersona] No workspace folder");
+        telemetry("DOCUMENT", "ERROR", "No workspace folder");
         vscode2.window.showErrorMessage("No workspace folder open");
         return;
       }
+      telemetry("DOCUMENT", "STEP", "Initializing rhizome...");
       const initialized = await initializeRhizomeIfNeeded(workspaceRoot);
       if (!initialized) {
-        console.log("[documentWithPersona] Rhizome initialization failed");
+        telemetry("DOCUMENT", "ERROR", "Rhizome initialization failed");
         vscode2.window.showErrorMessage("Could not initialize rhizome.");
         return;
       }
       const prompt = `Please provide clear documentation/comments for this code:
 
 ${selectedText}`;
-      console.log("[documentWithPersona] Querying persona with prompt length:", prompt.length);
+      telemetry("DOCUMENT", "STEP", "Prompt built", {
+        promptLength: prompt.length,
+        selectedLength: selectedText.length
+      });
       await vscode2.window.withProgress(
         {
           location: vscode2.ProgressLocation.Notification,
@@ -16326,20 +16394,31 @@ ${selectedText}`;
         },
         async (progress) => {
           progress.report({ message: "Waiting for response (this may take 10-30 seconds)..." });
-          console.log("[documentWithPersona] Showing progress notification");
+          telemetry("DOCUMENT", "STEP", "Progress notification shown");
           try {
-            console.log("[documentWithPersona] Calling queryPersona now...");
-            console.log("[documentWithPersona] Timeout set to 15 seconds. If persona hangs, check logs for dependency issues.");
+            telemetry("DOCUMENT", "STEP", "Calling queryPersona...");
             const response = await queryPersona(prompt, picked.label, 15e3, workspaceRoot);
-            console.log("[documentWithPersona] Got response from persona:", response.substring(0, 100) + "...");
+            telemetry("DOCUMENT", "SUCCESS", "Got response from persona", {
+              persona: picked.label,
+              responseLength: response.length
+            });
             const language = detectLanguage(document.languageId);
             const commentPrefix = language === "python" ? "#" : "//";
-            console.log("[documentWithPersona] Language:", document.languageId, "Prefix:", commentPrefix);
+            telemetry("DOCUMENT", "STEP", "Language detected and comment prefix set", {
+              language: document.languageId,
+              prefix: commentPrefix
+            });
             const commentLines = response.split("\n").map((line) => `${commentPrefix} ${line}`);
             const comment = commentLines.join("\n");
-            console.log("[documentWithPersona] Formatted comment:", comment.substring(0, 100) + "...");
+            telemetry("DOCUMENT", "STEP", "Comment formatted", {
+              lines: commentLines.length,
+              commentLength: comment.length
+            });
             const insertPos = editor.selection.start;
-            console.log("[documentWithPersona] Insert position:", insertPos);
+            telemetry("DOCUMENT", "STEP", "Insertion position determined", {
+              line: insertPos.line,
+              character: insertPos.character
+            });
             const edit = new vscode2.TextEdit(
               new vscode2.Range(insertPos, insertPos),
               `${comment}
@@ -16347,13 +16426,20 @@ ${selectedText}`;
             );
             const workspaceEdit = new vscode2.WorkspaceEdit();
             workspaceEdit.set(document.uri, [edit]);
-            console.log("[documentWithPersona] Applying edit...");
+            telemetry("DOCUMENT", "STEP", "Text edit created and applying...");
             await vscode2.workspace.applyEdit(workspaceEdit);
-            console.log("[documentWithPersona] Edit applied successfully");
+            telemetry("DOCUMENT", "RESULT", "Comments inserted into file", {
+              persona: picked.label,
+              file: document.fileName
+            });
             progress.report({ message: "Documentation added! \u2713" });
             vscode2.window.showInformationMessage(`${picked.label} documentation added above selection`);
+            telemetry("DOCUMENT", "SUCCESS", "Document command completed successfully");
           } catch (error) {
-            console.log("[documentWithPersona] Error in progress:", error.message);
+            telemetry("DOCUMENT", "ERROR", "Query or insertion failed", {
+              persona: picked.label,
+              error: error.message
+            });
             progress.report({ message: `Error: ${error.message}` });
             vscode2.window.showErrorMessage(
               `Failed to get documentation from ${picked.label}: ${error.message}`
