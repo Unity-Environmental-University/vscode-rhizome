@@ -44,6 +44,11 @@
         "description": "Choose which persona (dev-guide, code-reviewer, ux-advocate, etc.) to question your code"
       },
       {
+        "command": "vscode-rhizome.openVoiceControl",
+        "title": "Open Rhizome Voice Control",
+        "description": "Preview voice input webview that streams audio to rhizome"
+      },
+      {
         "command": "vscode-rhizome.stub",
         "title": "Stub this function"
       },

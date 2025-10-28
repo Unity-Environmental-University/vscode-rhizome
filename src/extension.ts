@@ -1,6 +1,7 @@
 
 import * as vscode from 'vscode';
 import { generateStub, findStubComments, insertStub } from './stubGenerator';
+import { registerVoiceControlCommand } from './voice/voiceControlPanel';
 
 /**
  * @rhizome: how do libraries work here?
@@ -149,13 +150,50 @@ function detectLanguage(languageId: string): 'typescript' | 'javascript' | 'pyth
 	}
 	return null;
 }
-
 /**
  * Helper: Check if rhizome CLI is available
+ *
+ * don-socratic asks:
+ * What if rhizome is on disk but not in the user's PATH?
+ * How should we detect it? Check common paths first? Or rely on PATH?
+ *
+ * APPROACH (from dev-guide advice):
+ * 1. Check common installation paths directly (fs.existsSync)
+ * 2. If found, add that dir to process.env.PATH for subprocess calls
+ * 3. Fall back to execSync('rhizome --version') if not in common paths
+ * 4. This handles the ~/.local/bin case without requiring shell config
+ *
+ * Common paths checked:
+ * - ~/.local/bin/rhizome (npm install -g default on Linux)
+ * - /usr/local/bin/rhizome (manual or Homebrew on macOS)
+ * - /opt/rhizome/bin/rhizome (custom installation)
+ * - Then relies on user's PATH
  */
 function isRhizomeInstalled(): boolean {
+	const fs = require('fs');
+	const path = require('path');
+	const { execSync } = require('child_process');
+
+	// Check common installation paths
+	const commonPaths = [
+		path.join(process.env.HOME || '', '.local', 'bin', 'rhizome'),
+		'/usr/local/bin/rhizome',
+		'/opt/rhizome/bin/rhizome',
+	];
+
+	for (const p of commonPaths) {
+		if (fs.existsSync(p)) {
+			// Found it! Update PATH for subprocess calls
+			const dirPath = path.dirname(p);
+			if (!process.env.PATH?.includes(dirPath)) {
+				process.env.PATH = dirPath + ':' + (process.env.PATH || '');
+			}
+			return true;
+		}
+	}
+
+	// Not in common paths, try PATH-based lookup
 	try {
-		const { execSync } = require('child_process');
 		execSync('rhizome --version', {
 			encoding: 'utf-8',
 			timeout: 2000,
@@ -608,6 +646,12 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(askPersonaDisposable);
 
 	// ======================================
+	// COMMAND: voice control preview webview
+	// ======================================
+	const voiceControlDisposable = registerVoiceControlCommand(context);
+	context.subscriptions.push(voiceControlDisposable);
+
+	// ======================================
 	// COMMAND: stub generation
 	// ======================================
 	// don-socratic asks:
@@ -696,4 +740,3 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() {}
-

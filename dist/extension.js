@@ -15073,6 +15073,35 @@ async function queryPersona(text, persona, timeoutMs = 3e4) {
     throw new Error(`Rhizome query failed: ${error.message}`);
   }
 }
+async function getAvailablePersonas() {
+  try {
+    const { execSync } = require("child_process");
+    const output = execSync("rhizome persona list", {
+      encoding: "utf-8",
+      timeout: 5e3,
+      stdio: "pipe"
+    });
+    const personas = /* @__PURE__ */ new Map();
+    const lines = output.split("\n");
+    for (const line of lines) {
+      const match = line.match(/^(\S+)\s+\|\s+role:\s+(.+?)\s+\|\s+source:/);
+      if (match) {
+        const name = match[1].trim();
+        const role = match[2].trim();
+        personas.set(name, role);
+      }
+    }
+    return personas;
+  } catch {
+    return /* @__PURE__ */ new Map([
+      ["don-socratic", "Socratic questioning"],
+      ["dev-guide", "Mentor: What were you trying to accomplish?"],
+      ["code-reviewer", "Skeptic: What's your evidence?"],
+      ["ux-advocate", "Curator: Have we watched someone use this?"],
+      ["dev-advocate", "Strategist: What trade-off are we making?"]
+    ]);
+  }
+}
 function formatPersonaOutput(channel, personaName, selectedCode, response) {
   channel.appendLine("=".repeat(60));
   channel.appendLine(personaName);
@@ -15122,6 +15151,72 @@ function isRhizomeInstalled() {
   } catch {
     return false;
   }
+}
+async function isUEUMember() {
+  const { execSync } = require("child_process");
+  try {
+    try {
+      execSync("gh auth status", {
+        encoding: "utf-8",
+        timeout: 2e3,
+        stdio: "pipe"
+      });
+    } catch {
+      return false;
+    }
+    try {
+      const org = execSync("git config user.organization", {
+        encoding: "utf-8",
+        timeout: 2e3,
+        stdio: "pipe"
+      }).trim();
+      if (org === "Unity-Environmental-University") {
+        return true;
+      }
+    } catch {
+    }
+    try {
+      const orgs = execSync("gh org list", {
+        encoding: "utf-8",
+        timeout: 5e3
+      }).split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
+      return orgs.includes("Unity-Environmental-University");
+    } catch {
+      return false;
+    }
+  } catch {
+    return false;
+  }
+}
+async function diagnosticRhizomeMissing() {
+  const { execSync } = require("child_process");
+  const diagnostics = [];
+  const commonPaths = [
+    "/usr/local/bin/rhizome",
+    "/usr/bin/rhizome",
+    `${process.env.HOME}/.local/bin/rhizome`,
+    `${process.env.HOME}/.rhizome/bin/rhizome`
+  ];
+  for (const path of commonPaths) {
+    try {
+      execSync(`test -f ${path}`, { stdio: "pipe" });
+      diagnostics.push(`Found rhizome at: ${path}`);
+    } catch {
+    }
+  }
+  diagnostics.push(`Current PATH: ${process.env.PATH}`);
+  try {
+    execSync("which npm", { stdio: "pipe", timeout: 2e3 });
+    diagnostics.push("npm is available");
+  } catch {
+    diagnostics.push("npm NOT found (required for rhizome installation)");
+  }
+  try {
+    execSync("which brew", { stdio: "pipe", timeout: 2e3 });
+    diagnostics.push("brew is available (macOS)");
+  } catch {
+  }
+  return diagnostics;
 }
 async function ensureOpenAIKeyConfigured(workspaceRoot) {
   const configPath = vscode.Uri.joinPath(vscode.Uri.file(workspaceRoot), ".rhizome", "config.json");
@@ -15188,14 +15283,58 @@ async function addToGitignore(workspaceRoot, entry) {
 }
 async function initializeRhizomeIfNeeded(workspaceRoot) {
   if (!isRhizomeInstalled()) {
-    const response = await vscode.window.showErrorMessage(
-      "rhizome CLI not found. Install it to use vscode-rhizome.",
-      "View Installation Guide"
-    );
-    if (response === "View Installation Guide") {
-      vscode.env.openExternal(vscode.Uri.parse("https://github.com/your-rhizome-repo#installation"));
+    const diagnosticsBefore = await diagnosticRhizomeMissing();
+    const isMember = await isUEUMember();
+    if (isMember) {
+      vscode.window.showInformationMessage("Diagnostics before installation:\n" + diagnosticsBefore.join("\n"));
+      const response = await vscode.window.showErrorMessage(
+        "rhizome CLI not found. You are a member of Unity-Environmental-University. Install rhizome now?",
+        "Install rhizome",
+        "View Guide"
+      );
+      if (response === "Install rhizome") {
+        try {
+          vscode.window.showInformationMessage("Installing rhizome...");
+          const { execSync } = require("child_process");
+          execSync("npm install -g @rhizome/cli", {
+            encoding: "utf-8",
+            timeout: 6e4,
+            stdio: "inherit"
+          });
+          vscode.window.showInformationMessage("rhizome installed successfully!");
+          const diagnosticsAfter = await diagnosticRhizomeMissing();
+          vscode.window.showInformationMessage(
+            "Diagnostics after installation:\n" + diagnosticsAfter.join("\n")
+          );
+          if (!isRhizomeInstalled()) {
+            vscode.window.showWarningMessage(
+              "Installation completed but rhizome still not found in PATH. You may need to restart VSCode."
+            );
+            return false;
+          }
+          return await initializeRhizomeIfNeeded(workspaceRoot);
+        } catch (error) {
+          vscode.window.showErrorMessage(`Failed to install rhizome: ${error.message}`);
+          const diagnosticsFailure = await diagnosticRhizomeMissing();
+          vscode.window.showInformationMessage(
+            "Diagnostics after failed installation:\n" + diagnosticsFailure.join("\n")
+          );
+          return false;
+        }
+      } else if (response === "View Guide") {
+        vscode.env.openExternal(vscode.Uri.parse("https://github.com/your-rhizome-repo#installation"));
+      }
+      return false;
+    } else {
+      const response = await vscode.window.showWarningMessage(
+        "rhizome CLI not found. Please install it to use vscode-rhizome.",
+        "View Installation Guide"
+      );
+      if (response === "View Installation Guide") {
+        vscode.env.openExternal(vscode.Uri.parse("https://github.com/your-rhizome-repo#installation"));
+      }
+      return false;
     }
-    return false;
   }
   const rhizomePath = vscode.Uri.joinPath(vscode.Uri.file(workspaceRoot), ".rhizome");
   try {
@@ -15274,6 +15413,24 @@ function activate(context) {
     }
   );
   context.subscriptions.push(inlineQuestionDisposable);
+  let askPersonaDisposable = vscode.commands.registerCommand("vscode-rhizome.askPersona", async () => {
+    const selection = getActiveSelection();
+    if (!selection)
+      return;
+    const personas = await getAvailablePersonas();
+    const personaOptions = Array.from(personas.entries()).map(([name, role]) => ({
+      label: name,
+      description: role
+    }));
+    const picked = await vscode.window.showQuickPick(personaOptions, {
+      placeHolder: "Choose a persona to question your code",
+      matchOnDescription: true
+    });
+    if (!picked)
+      return;
+    await askPersonaAboutSelection(picked.label, picked.label);
+  });
+  context.subscriptions.push(askPersonaDisposable);
   let stubDisposable = vscode.commands.registerCommand("vscode-rhizome.stub", async () => {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
