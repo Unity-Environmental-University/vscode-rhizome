@@ -26,7 +26,7 @@
       "id": 1,
       "title": "Research & Design: Epistle System Architecture",
       "description": "Understand epistles (letter-based persona dialogs) and design integration points for vscode-rhizome. What should the extension's epistle workflow be?",
-      "status": "in_progress"
+      "status": "completed"
     },
     {
       "id": 2,
@@ -56,7 +56,7 @@
       "id": 4,
       "title": "Feature: Epistle Registry Sidebar",
       "description": "Create sidebar view showing all epistles for this project. Filter by persona, date, topic. Click to open epistle file.",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "id": 5,
@@ -83,7 +83,35 @@
       "status": "pending"
     }
   ],
-  "log": [],
+  "log": [
+    {
+      "ts": "2025-10-28T23:45:00Z",
+      "type": "action",
+      "data": {
+        "actor": "claude-code",
+        "action": "document",
+        "object": "epistle-sidebar-completion",
+        "qualifiers": [],
+        "confidence": 0.95,
+        "evidence": {
+          "repo": "vscode-rhizome",
+          "branch": "feature/utilities",
+          "commit": "d611653",
+          "path": null,
+          "lines": null,
+          "note": "Implemented Epistle Registry Sidebar (Step 4): VSCode tree view with multi-mode filtering (by type/persona/date/flight-plan), search capability, and integration with right-click menus. Added 15 tests covering categorization, navigation, and filtering. All tests passing."
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": "Completed Step 4: Epistle Registry Sidebar",
+        "timestamp": "2025-10-28T23:45:00Z"
+      }
+    }
+  ],
   "personas": {
     "active": [
       "rhizome"
