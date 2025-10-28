@@ -9,6 +9,21 @@
 2. Open Debug Console: **Cmd+Shift+U** (or **View > Debug Console**)
 3. All logs start with `[module.function]` format for easy searching
 
+## Quick Start: Fix Missing Dependencies
+
+If you see `No module named 'yaml'` errors:
+
+1. Open Command Palette: **Cmd+Shift+P**
+2. Run: **vscode-rhizome: Install Dependencies**
+3. Choose an option:
+   - `pip install pyyaml` — Just install the missing YAML module (usually what you need)
+   - `pip install --upgrade @rhizome/cli` — Full rhizome reinstall with all dependencies
+   - `pip install pyyaml && rhizome --version` — Install and verify it works
+4. Wait for terminal to complete
+5. Reload VSCode: **Cmd+Shift+P → Reload Window**
+
+That's it! The extension will now find all 50+ personas.
+
 ## Logging Categories
 
 ### `[vscode-rhizome]` - Extension Lifecycle
