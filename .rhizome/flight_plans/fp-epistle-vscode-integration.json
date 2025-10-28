@@ -62,7 +62,7 @@
       "id": 5,
       "title": "Feature: Link Epistles to Flight Plans",
       "description": "When recording an epistle, optionally link it to active flight plan. Show related epistles in flight plan view.",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "id": 6,
@@ -109,6 +109,33 @@
         "intent": null,
         "what": "Completed Step 4: Epistle Registry Sidebar",
         "timestamp": "2025-10-28T23:45:00Z"
+      }
+    },
+    {
+      "ts": "2025-10-28T23:55:00Z",
+      "type": "action",
+      "data": {
+        "actor": "claude-code",
+        "action": "document",
+        "object": "flight-plan-linking-completion",
+        "qualifiers": [],
+        "confidence": 0.95,
+        "evidence": {
+          "repo": "vscode-rhizome",
+          "branch": "feature/utilities",
+          "commit": "8f802ac",
+          "path": null,
+          "lines": null,
+          "note": "Implemented Flight Plan Linking (Step 5): Smart linking dialog that suggests active flight plan as default, browse other flight plans, or skip. New module flightPlanIntegration.ts provides helpers for reading active FP, querying all FPs, and formatting summary. Command 'showFlightPlanEpistles' reveals all epistles linked to active work. Epistles now track their associated flight plan for audit trail."
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": "Completed Step 5: Flight Plan Linking",
+        "timestamp": "2025-10-28T23:55:00Z"
       }
     }
   ],
