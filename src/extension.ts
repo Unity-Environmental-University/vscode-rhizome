@@ -878,12 +878,49 @@ export function activate(context: vscode.ExtensionContext) {
 	let installDepsDisposable = vscode.commands.registerCommand('vscode-rhizome.installDeps', async () => {
 		console.log('[vscode-rhizome.installDeps] Command invoked');
 
+		const { execSync } = require('child_process');
+
+		// First, find which Python rhizome is actually using
+		console.log('[vscode-rhizome.installDeps] Detecting which Python rhizome uses...');
+		let rhizomePythonPath = '';
+		let pythonCmd = 'python3';
+
+		try {
+			// Get the shebang/path from rhizome script
+			const rhizomeScript = execSync('which rhizome', { encoding: 'utf-8' }).trim();
+			console.log('[vscode-rhizome.installDeps] Rhizome script location:', rhizomeScript);
+
+			// Try to find Python version
+			try {
+				const pythonVersion = execSync('python3 --version 2>&1', { encoding: 'utf-8' });
+				console.log('[vscode-rhizome.installDeps] Found python3:', pythonVersion.trim());
+				pythonCmd = 'python3';
+			} catch {
+				console.log('[vscode-rhizome.installDeps] python3 not found, trying python');
+				pythonCmd = 'python';
+			}
+		} catch (error) {
+			console.log('[vscode-rhizome.installDeps] Could not determine rhizome path:', (error as Error).message);
+		}
+
+		console.log('[vscode-rhizome.installDeps] Will use:', pythonCmd);
+
 		// Show options to user
 		const option = await vscode.window.showQuickPick(
 			[
-				{ label: 'pip install pyyaml', description: 'Install missing YAML module (usually needed)' },
-				{ label: 'pip install --upgrade @rhizome/cli', description: 'Reinstall rhizome CLI with all dependencies' },
-				{ label: 'pip install pyyaml && rhizome --version', description: 'Install pyyaml AND verify rhizome works' },
+				{
+					label: `${pythonCmd} -m pip install --upgrade pyyaml`,
+					description: 'Install missing YAML module to the Python rhizome uses (RECOMMENDED)',
+				},
+				{
+					label: `${pythonCmd} -m pip install --upgrade pyyaml && rhizome version`,
+					description: 'Install pyyaml AND immediately verify rhizome works',
+				},
+				{
+					label: `${pythonCmd} -m pip install --upgrade pyyaml ${pythonCmd} -m pip install --upgrade @rhizome/cli`,
+					description: 'Install pyyaml AND fully upgrade rhizome CLI',
+				},
+				{ label: 'pip install pyyaml', description: 'Traditional pip (may install to wrong Python)' },
 			],
 			{ placeHolder: 'Choose which command to run' }
 		);
@@ -899,33 +936,14 @@ export function activate(context: vscode.ExtensionContext) {
 		const terminal = vscode.window.createTerminal('vscode-rhizome: Install Dependencies');
 		terminal.show();
 
-		// Determine the Python command to use
-		let pythonCmd = 'python3';
-		try {
-			const { execSync } = require('child_process');
-			execSync('python3 --version', { stdio: 'pipe' });
-		} catch {
-			console.log('[vscode-rhizome.installDeps] python3 not found, trying python');
-			pythonCmd = 'python';
-		}
-
-		console.log('[vscode-rhizome.installDeps] Using Python command:', pythonCmd);
-		console.log('[vscode-rhizome.installDeps] Running:', option.label);
+		console.log('[vscode-rhizome.installDeps] Executing:', option.label);
 
 		// Send command to terminal
-		terminal.sendText(`${pythonCmd} -m pip install pyyaml`, true);
-
-		if (option.label.includes('upgrade')) {
-			terminal.sendText(`${pythonCmd} -m pip install --upgrade @rhizome/cli`, true);
-		}
-
-		if (option.label.includes('verify')) {
-			terminal.sendText('rhizome version', true);
-		}
+		terminal.sendText(option.label, true);
 
 		// Show info message
 		vscode.window.showInformationMessage(
-			'Installing dependencies in terminal. Close terminal when done, then reload VSCode (Cmd+Shift+P → Reload Window)'
+			'Installing dependencies in terminal. When complete, reload VSCode (Cmd+Shift+P → Reload Window). Look for "✓" or success message.'
 		);
 	});
 
