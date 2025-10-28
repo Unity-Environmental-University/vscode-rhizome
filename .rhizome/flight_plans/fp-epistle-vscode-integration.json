@@ -1,0 +1,128 @@
+{
+  "id": "fp-epistle-vscode-integration",
+  "title": "Integrate Epistle System into vscode-rhizome",
+  "requester": "As a developer using vscode-rhizome, I want to generate epistles directly from the editor—recording multi-persona dialogs about code changes so I can audit design decisions and teach team members.",
+  "workflow": "1. Research epistle system (DONE). 2. Design extension integration points. 3. Add epistle scaffolding commands. 4. Implement epistle creation from selection. 5. Add epistle registry UI. 6. Test end-to-end.",
+  "targets": [
+    "Enable epistles as recording medium for persona dialogs",
+    "Make epistle creation accessible from right-click menu",
+    "Show epistle registry in sidebar or panel",
+    "Link epistles to flight plans",
+    "Support persona advocates for extension files"
+  ],
+  "stories": [],
+  "created_at": "2025-10-28T23:00:00Z",
+  "status": "active",
+  "require_approval": false,
+  "approval": {
+    "state": "approved",
+    "by": null,
+    "at": null,
+    "notes": null
+  },
+  "steps": [
+    {
+      "id": 1,
+      "title": "Research & Design: Epistle System Architecture",
+      "description": "Understand epistles (letter-based persona dialogs) and design integration points for vscode-rhizome. What should the extension's epistle workflow be?",
+      "status": "in_progress"
+    },
+    {
+      "id": 2,
+      "title": "Scaffold: Epistle Plugin Integration Path",
+      "description": "Create vscode-rhizome epistle scaffolding directory & basic structure. Copy epistle plugin templates, set up registry, prepare for CLI integration.",
+      "status": "pending"
+    },
+    {
+      "id": 3,
+      "title": "Feature: 'Record Epistle' Right-Click Command",
+      "description": "Add right-click menu item: 'Record epistle about this code'. Opens dialog to choose personas, topic, context. Generates epistle template.",
+      "status": "pending"
+    },
+    {
+      "id": 4,
+      "title": "Feature: Epistle Registry Sidebar",
+      "description": "Create sidebar view showing all epistles for this project. Filter by persona, date, topic. Click to open epistle file.",
+      "status": "pending"
+    },
+    {
+      "id": 5,
+      "title": "Feature: Link Epistles to Flight Plans",
+      "description": "When recording an epistle, optionally link it to active flight plan. Show related epistles in flight plan view.",
+      "status": "pending"
+    },
+    {
+      "id": 6,
+      "title": "Integration: Persona Advocates for Extension Files",
+      "description": "Allow personas to 'advocate' for extension files (e.g., code-reviewer advocates for extension.ts). Shows file header + generates advocate epistles on refactor.",
+      "status": "pending"
+    },
+    {
+      "id": 7,
+      "title": "Test: End-to-End Epistle Workflow",
+      "description": "Test complete workflow: select code → record epistle → choose personas → edit dialog → save → see in registry. Verify file creation & registry update.",
+      "status": "pending"
+    },
+    {
+      "id": 8,
+      "title": "Document: Epistle Workflow Guide for Users",
+      "description": "Write guide: how to use epistles in extension, when to record, how to search & link. Include teaching moments about epistles.",
+      "status": "pending"
+    }
+  ],
+  "log": [],
+  "personas": {
+    "active": [
+      "rhizome"
+    ],
+    "conducting": "rhizome",
+    "voices": {
+      "una": {
+        "active": true,
+        "mode": "guide",
+        "archive": []
+      },
+      "bro": {
+        "active": true,
+        "mode": "executor",
+        "archive": []
+      },
+      "root": {
+        "active": true,
+        "mode": "reasoner",
+        "archive": []
+      }
+    }
+  },
+  "phase": {
+    "current": "kitchen_table",
+    "entered_at": "2025-10-28T23:00:00Z",
+    "transitions": []
+  },
+  "sprouts": [],
+  "design_decisions": {
+    "epistle_storage": "Keep epistles in .rhizome/plugins/epistles/ (shared with rhizome CLI)",
+    "registry_format": "Same as rhizome: registry.ndjson (line-delimited JSON)",
+    "cli_integration": "Use rhizome epistle commands when available, fallback to extension CLI",
+    "ui_location": "Right-click context menu + sidebar view tree",
+    "persona_selection": "Quick picker with curated personas + 'All Personas' option",
+    "context_linking": "Epistles can reference flight plans, personas, docs, code selections"
+  },
+  "learning_objectives": [
+    "Understand epistle system as multi-persona recording medium",
+    "Learn where epistles fit in vscode-rhizome workflow",
+    "Discover when to record an epistle (design decisions, refactors, architecture questions)",
+    "Practice linking epistles to flight plans and personas",
+    "See epistles as audit trail + teaching tool"
+  ],
+  "success_criteria": [
+    "✓ Can record epistle from code selection via right-click",
+    "✓ Epistle file created with correct format & metadata",
+    "✓ Registry updated automatically",
+    "✓ Can browse epistles in sidebar",
+    "✓ Can filter epistles by persona, date, topic",
+    "✓ Epistles link to flight plans when applicable",
+    "✓ Persona advocates work for extension files",
+    "✓ Documentation explains workflow + teaching moments"
+  ]
+}
