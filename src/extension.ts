@@ -3,6 +3,8 @@ import * as vscode from 'vscode';
 import { generateStub, findStubComments, insertStub } from './stubGenerator';
 import { registerVoiceControlCommand, VoiceTranscriptPayload, VoicePanelHandlerTools } from './voice/voiceControlPanel';
 import { ensureLocalBinOnPath, getCandidateLocations, isRhizomeInstalled } from './utils/rhizomePath';
+import { createEpistleRegistry, EpistleRegistry } from './epistleRegistry';
+import { recordLetterEpistle, recordInlineEpistle, createDynamicPersona } from './epistleCommands';
 
 /**
  * @rhizome: how do libraries work here?
@@ -1465,6 +1467,76 @@ export function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(documentWithPersonaDisposable);
 
+	// ===== Epistle Commands =====
+	// Initialize epistle registry
+	const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
+	const epistleRegistry = createEpistleRegistry(workspaceRoot);
+	const epistlesDir = require('path').join(workspaceRoot, '.rhizome', 'plugins', 'epistles');
+
+	// Command: Record letter epistle
+	let recordLetterEpistleDisposable = vscode.commands.registerCommand(
+		'vscode-rhizome.recordLetterEpistle',
+		async () => {
+			const editor = vscode.window.activeTextEditor;
+			if (!editor) {
+				vscode.window.showErrorMessage('Please open a file and select code before recording an epistle');
+				return;
+			}
+
+			if (editor.selection.isEmpty) {
+				vscode.window.showErrorMessage('Please select some code before recording an epistle');
+				return;
+			}
+
+			await recordLetterEpistle(editor, epistleRegistry, telemetry, epistlesDir);
+		}
+	);
+	context.subscriptions.push(recordLetterEpistleDisposable);
+
+	// Command: Record inline epistle
+	let recordInlineEpistleDisposable = vscode.commands.registerCommand(
+		'vscode-rhizome.recordInlineEpistle',
+		async () => {
+			const editor = vscode.window.activeTextEditor;
+			if (!editor) {
+				vscode.window.showErrorMessage('Please open a file and select code before recording an inline epistle');
+				return;
+			}
+
+			if (editor.selection.isEmpty) {
+				vscode.window.showErrorMessage('Please select some code before recording an inline epistle');
+				return;
+			}
+
+			await recordInlineEpistle(editor, epistleRegistry, telemetry);
+		}
+	);
+	context.subscriptions.push(recordInlineEpistleDisposable);
+
+	// Command: Create dynamic persona from file
+	let createDynamicPersonaDisposable = vscode.commands.registerCommand(
+		'vscode-rhizome.createDynamicPersona',
+		async (file?: vscode.Uri) => {
+			let filepath: string;
+
+			if (file) {
+				// Called from file explorer context menu
+				filepath = file.fsPath;
+			} else {
+				// Called from command palette
+				const editor = vscode.window.activeTextEditor;
+				if (!editor) {
+					vscode.window.showErrorMessage('Please open a file to create a dynamic persona');
+					return;
+				}
+				filepath = editor.document.fileName;
+			}
+
+			await createDynamicPersona(filepath, epistleRegistry, telemetry);
+		}
+	);
+	context.subscriptions.push(createDynamicPersonaDisposable);
+
 	console.log('[vscode-rhizome] ========== ACTIVATION COMPLETE ==========');
 	console.log('[vscode-rhizome] Commands registered:');
 	console.log('[vscode-rhizome]   - vscode-rhizome.healthCheck');
@@ -1472,6 +1544,9 @@ export function activate(context: vscode.ExtensionContext) {
 	console.log('[vscode-rhizome]   - vscode-rhizome.installDeps');
 	console.log('[vscode-rhizome]   - vscode-rhizome.askPersona');
 	console.log('[vscode-rhizome]   - vscode-rhizome.documentWithPersona');
+	console.log('[vscode-rhizome]   - vscode-rhizome.recordLetterEpistle');
+	console.log('[vscode-rhizome]   - vscode-rhizome.recordInlineEpistle');
+	console.log('[vscode-rhizome]   - vscode-rhizome.createDynamicPersona');
 	console.log('[vscode-rhizome]   - @rhizome ask <persona> autocomplete');
 	console.log('[vscode-rhizome] Ready to use! Open Debug Console (Cmd+Shift+U) to see activity logs.');
 	console.log('[vscode-rhizome] If you see "No module named yaml" errors, run: vscode-rhizome.installDeps');
