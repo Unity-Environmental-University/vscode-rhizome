@@ -31,14 +31,17 @@ import { ensureLocalBinOnPath, getCandidateLocations, isRhizomeInstalled } from 
 async function queryPersona(
 	text: string,
 	persona: string,
-	timeoutMs: number = 30000
+	timeoutMs: number = 30000,
+	workspaceRoot?: string
 ): Promise<string> {
 	try {
 		const { execSync } = require('child_process');
+		const cwd = workspaceRoot || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 		const response = execSync(`rhizome query --persona ${persona}`, {
 			input: text,
 			encoding: 'utf-8',
 			timeout: timeoutMs,
+			cwd: cwd, // Ensure rhizome runs in workspace to find .rhizome folder
 		});
 		return response;
 	} catch (error: any) {
@@ -539,25 +542,40 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(initDisposable);
 
 	// ======================================
-	// COMMAND: ask don-socratic about selection
+	// AUTOCOMPLETE: @rhizome ask <persona>
 	// ======================================
-	let donSocraticDisposable = vscode.commands.registerCommand('vscode-rhizome.donSocratic', async () => {
-		await askPersonaAboutSelection('don-socratic', 'don-socratic');
-	});
+	// Register a completion provider for @rhizome ask
+	const completionProvider = vscode.languages.registerCompletionItemProvider(
+		{ scheme: 'file' }, // Apply to all files
+		{
+			async provideCompletionItems(document, position) {
+				// Get the line text up to the cursor
+				const lineText = document.lineAt(position).text.substring(0, position.character);
 
-	context.subscriptions.push(donSocraticDisposable);
+				// Check if we're in a @rhizome ask context
+				if (!lineText.includes('@rhizome ask')) {
+					return [];
+				}
 
-	// ======================================
-	// COMMAND: ask don-socratic inline question
-	// ======================================
-	let inlineQuestionDisposable = vscode.commands.registerCommand(
-		'vscode-rhizome.inlineQuestion',
-		async () => {
-			await askPersonaAboutSelection('don-socratic', 'don-socratic (inline)');
-		}
+				// Get available personas
+				const personas = await getAvailablePersonas();
+				const items: vscode.CompletionItem[] = [];
+
+				for (const [name, role] of personas.entries()) {
+					const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.User);
+					item.detail = role;
+					item.documentation = new vscode.MarkdownString(`**${name}**: ${role}`);
+					item.insertText = name;
+					items.push(item);
+				}
+
+				return items;
+			}
+		},
+		' ' // Trigger on space (after "@rhizome ask ")
 	);
 
-	context.subscriptions.push(inlineQuestionDisposable);
+	context.subscriptions.push(completionProvider);
 
 	// ======================================
 	// COMMAND: ask any persona (dynamic picker)
@@ -695,15 +713,22 @@ export function activate(context: vscode.ExtensionContext) {
 	let documentWithPersonaDisposable = vscode.commands.registerCommand(
 		'vscode-rhizome.documentWithPersona',
 		async () => {
+			console.log('[documentWithPersona] Command invoked');
 			const selection = getActiveSelection();
-			if (!selection) return;
+			if (!selection) {
+				console.log('[documentWithPersona] No selection found');
+				return;
+			}
 
 			const { editor, selectedText } = selection;
 			const document = editor.document;
+			console.log('[documentWithPersona] Selected text:', selectedText.substring(0, 50) + '...');
 
 			// Get available personas
 			const personasMap = await getAvailablePersonas();
+			console.log('[documentWithPersona] Available personas:', Array.from(personasMap.keys()));
 			if (personasMap.size === 0) {
+				console.log('[documentWithPersona] No personas available');
 				vscode.window.showErrorMessage('No personas available. Check rhizome installation.');
 				return;
 			}
@@ -717,35 +742,47 @@ export function activate(context: vscode.ExtensionContext) {
 				placeHolder: 'Which persona should document this code?',
 			});
 
-			if (!picked) return;
+			if (!picked) {
+				console.log('[documentWithPersona] User cancelled persona selection');
+				return;
+			}
+			console.log('[documentWithPersona] Selected persona:', picked.label);
 
 			// Ensure rhizome is initialized
 			const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 			if (!workspaceRoot) {
+				console.log('[documentWithPersona] No workspace folder');
 				vscode.window.showErrorMessage('No workspace folder open');
 				return;
 			}
 
 			const initialized = await initializeRhizomeIfNeeded(workspaceRoot);
 			if (!initialized) {
+				console.log('[documentWithPersona] Rhizome initialization failed');
 				vscode.window.showErrorMessage('Could not initialize rhizome.');
 				return;
 			}
 
 			// Build prompt: ask persona to document the code
 			const prompt = `Please provide clear documentation/comments for this code:\n\n${selectedText}`;
+			console.log('[documentWithPersona] Querying persona with prompt length:', prompt.length);
 
 			try {
 				const response = await queryPersona(prompt, picked.label);
+				console.log('[documentWithPersona] Got response from persona:', response.substring(0, 100) + '...');
 
 				// Detect language and format comment
 				const language = detectLanguage(document.languageId);
 				const commentPrefix = language === 'python' ? '#' : '//';
+				console.log('[documentWithPersona] Language:', document.languageId, 'Prefix:', commentPrefix);
+
 				const commentLines = response.split('\n').map((line) => `${commentPrefix} ${line}`);
 				const comment = commentLines.join('\n');
+				console.log('[documentWithPersona] Formatted comment:', comment.substring(0, 100) + '...');
 
 				// Get insertion position (above selection)
 				const insertPos = editor.selection.start;
+				console.log('[documentWithPersona] Insert position:', insertPos);
 
 				// Insert comment
 				const edit = new vscode.TextEdit(
@@ -754,10 +791,13 @@ export function activate(context: vscode.ExtensionContext) {
 				);
 				const workspaceEdit = new vscode.WorkspaceEdit();
 				workspaceEdit.set(document.uri, [edit]);
+				console.log('[documentWithPersona] Applying edit...');
 				await vscode.workspace.applyEdit(workspaceEdit);
+				console.log('[documentWithPersona] Edit applied successfully');
 
 				vscode.window.showInformationMessage(`${picked.label} documentation added above selection`);
 			} catch (error: any) {
+				console.log('[documentWithPersona] Error:', (error as Error).message);
 				vscode.window.showErrorMessage(
 					`Failed to get documentation from ${picked.label}: ${(error as Error).message}`
 				);

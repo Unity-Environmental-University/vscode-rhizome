@@ -15459,13 +15459,16 @@ function ensureLocalBinOnPath() {
 }
 
 // src/extension.ts
-async function queryPersona(text, persona, timeoutMs = 3e4) {
+async function queryPersona(text, persona, timeoutMs = 3e4, workspaceRoot) {
   try {
     const { execSync: execSync2 } = require("child_process");
+    const cwd = workspaceRoot || vscode2.workspace.workspaceFolders?.[0]?.uri.fsPath;
     const response = execSync2(`rhizome query --persona ${persona}`, {
       input: text,
       encoding: "utf-8",
-      timeout: timeoutMs
+      timeout: timeoutMs,
+      cwd
+      // Ensure rhizome runs in workspace to find .rhizome folder
     });
     return response;
   } catch (error) {
@@ -15784,17 +15787,31 @@ function activate(context) {
     }
   });
   context.subscriptions.push(initDisposable);
-  let donSocraticDisposable = vscode2.commands.registerCommand("vscode-rhizome.donSocratic", async () => {
-    await askPersonaAboutSelection("don-socratic", "don-socratic");
-  });
-  context.subscriptions.push(donSocraticDisposable);
-  let inlineQuestionDisposable = vscode2.commands.registerCommand(
-    "vscode-rhizome.inlineQuestion",
-    async () => {
-      await askPersonaAboutSelection("don-socratic", "don-socratic (inline)");
-    }
+  const completionProvider = vscode2.languages.registerCompletionItemProvider(
+    { scheme: "file" },
+    // Apply to all files
+    {
+      async provideCompletionItems(document, position) {
+        const lineText = document.lineAt(position).text.substring(0, position.character);
+        if (!lineText.includes("@rhizome ask")) {
+          return [];
+        }
+        const personas = await getAvailablePersonas();
+        const items = [];
+        for (const [name, role] of personas.entries()) {
+          const item = new vscode2.CompletionItem(name, vscode2.CompletionItemKind.User);
+          item.detail = role;
+          item.documentation = new vscode2.MarkdownString(`**${name}**: ${role}`);
+          item.insertText = name;
+          items.push(item);
+        }
+        return items;
+      }
+    },
+    " "
+    // Trigger on space (after "@rhizome ask ")
   );
-  context.subscriptions.push(inlineQuestionDisposable);
+  context.subscriptions.push(completionProvider);
   let askPersonaDisposable = vscode2.commands.registerCommand("vscode-rhizome.askPersona", async () => {
     const selection = getActiveSelection();
     if (!selection)
@@ -15859,13 +15876,19 @@ function activate(context) {
   let documentWithPersonaDisposable = vscode2.commands.registerCommand(
     "vscode-rhizome.documentWithPersona",
     async () => {
+      console.log("[documentWithPersona] Command invoked");
       const selection = getActiveSelection();
-      if (!selection)
+      if (!selection) {
+        console.log("[documentWithPersona] No selection found");
         return;
+      }
       const { editor, selectedText } = selection;
       const document = editor.document;
+      console.log("[documentWithPersona] Selected text:", selectedText.substring(0, 50) + "...");
       const personasMap = await getAvailablePersonas();
+      console.log("[documentWithPersona] Available personas:", Array.from(personasMap.keys()));
       if (personasMap.size === 0) {
+        console.log("[documentWithPersona] No personas available");
         vscode2.window.showErrorMessage("No personas available. Check rhizome installation.");
         return;
       }
@@ -15876,28 +15899,38 @@ function activate(context) {
       const picked = await vscode2.window.showQuickPick(personaOptions, {
         placeHolder: "Which persona should document this code?"
       });
-      if (!picked)
+      if (!picked) {
+        console.log("[documentWithPersona] User cancelled persona selection");
         return;
+      }
+      console.log("[documentWithPersona] Selected persona:", picked.label);
       const workspaceRoot = vscode2.workspace.workspaceFolders?.[0]?.uri.fsPath;
       if (!workspaceRoot) {
+        console.log("[documentWithPersona] No workspace folder");
         vscode2.window.showErrorMessage("No workspace folder open");
         return;
       }
       const initialized = await initializeRhizomeIfNeeded(workspaceRoot);
       if (!initialized) {
+        console.log("[documentWithPersona] Rhizome initialization failed");
         vscode2.window.showErrorMessage("Could not initialize rhizome.");
         return;
       }
       const prompt = `Please provide clear documentation/comments for this code:
 
 ${selectedText}`;
+      console.log("[documentWithPersona] Querying persona with prompt length:", prompt.length);
       try {
         const response = await queryPersona(prompt, picked.label);
+        console.log("[documentWithPersona] Got response from persona:", response.substring(0, 100) + "...");
         const language = detectLanguage(document.languageId);
         const commentPrefix = language === "python" ? "#" : "//";
+        console.log("[documentWithPersona] Language:", document.languageId, "Prefix:", commentPrefix);
         const commentLines = response.split("\n").map((line) => `${commentPrefix} ${line}`);
         const comment = commentLines.join("\n");
+        console.log("[documentWithPersona] Formatted comment:", comment.substring(0, 100) + "...");
         const insertPos = editor.selection.start;
+        console.log("[documentWithPersona] Insert position:", insertPos);
         const edit = new vscode2.TextEdit(
           new vscode2.Range(insertPos, insertPos),
           `${comment}
@@ -15905,9 +15938,12 @@ ${selectedText}`;
         );
         const workspaceEdit = new vscode2.WorkspaceEdit();
         workspaceEdit.set(document.uri, [edit]);
+        console.log("[documentWithPersona] Applying edit...");
         await vscode2.workspace.applyEdit(workspaceEdit);
+        console.log("[documentWithPersona] Edit applied successfully");
         vscode2.window.showInformationMessage(`${picked.label} documentation added above selection`);
       } catch (error) {
+        console.log("[documentWithPersona] Error:", error.message);
         vscode2.window.showErrorMessage(
           `Failed to get documentation from ${picked.label}: ${error.message}`
         );

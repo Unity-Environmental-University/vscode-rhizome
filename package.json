@@ -29,16 +29,6 @@
         "description": "Set up rhizome context in workspace"
       },
       {
-        "command": "vscode-rhizome.donSocratic",
-        "title": "Ask don-socratic",
-        "description": "Invoke Socratic questioning on current code or design"
-      },
-      {
-        "command": "vscode-rhizome.inlineQuestion",
-        "title": "Ask don-socratic (inline)",
-        "description": "Question your code inline without leaving editor"
-      },
-      {
         "command": "vscode-rhizome.askPersona",
         "title": "Ask a persona",
         "description": "Choose which persona (dev-guide, code-reviewer, ux-advocate, etc.) to question your code"
@@ -65,23 +55,13 @@
     "menus": {
       "editor/context": [
         {
-          "command": "vscode-rhizome.donSocratic",
+          "command": "vscode-rhizome.askPersona",
           "group": "1_modification@1",
           "when": "editorHasSelection"
         },
         {
-          "command": "vscode-rhizome.inlineQuestion",
-          "group": "1_modification@2",
-          "when": "editorHasSelection"
-        },
-        {
-          "command": "vscode-rhizome.askPersona",
-          "group": "1_modification@3",
-          "when": "editorHasSelection"
-        },
-        {
           "command": "vscode-rhizome.documentWithPersona",
-          "group": "1_modification@4",
+          "group": "1_modification@2",
           "when": "editorHasSelection"
         }
       ]
