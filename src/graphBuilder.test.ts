@@ -8,7 +8,7 @@
 // 2. Error Paths: Parser handles malformed/missing data gracefully
 // 3. Integration: Built graph is queryable and has correct structure
 
-import * as assert from 'assert';
+import assert from 'assert';
 import { GraphBuilder, GraphNode, GraphEdge } from './graphBuilder';
 
 /**
@@ -18,104 +18,104 @@ import { GraphBuilder, GraphNode, GraphEdge } from './graphBuilder';
  * Does your parser maintain correctness as volume increases?
  */
 describe('Happy Path: Parse valid actions', () => {
-    let builder: GraphBuilder;
+	let builder: GraphBuilder;
 
-    beforeEach(() => {
-        builder = new GraphBuilder();
-    });
+	beforeEach(() => {
+		builder = new GraphBuilder();
+	});
 
-    it('should create a node from a single action', () => {
-        const action = {
-            actor: 'vscode-rhizome',
-            action: 'decide',
-            object: 'test-decision',
-            what: 'Test something',
-            confidence: 0.9,
-            key_basis: ['reasoning 1'],
-            key_gaps: ['question 1'],
-            timestamp: '2025-10-27T15:00:00Z',
-            standpoint: { phase: 'kitchen_table' },
-        };
+	it('should create a node from a single action', () => {
+		const action = {
+			actor: 'vscode-rhizome',
+			action: 'decide',
+			object: 'test-decision',
+			what: 'Test something',
+			confidence: 0.9,
+			key_basis: ['reasoning 1'],
+			key_gaps: ['question 1'],
+			timestamp: '2025-10-27T15:00:00Z',
+			standpoint: { phase: 'kitchen_table' },
+		};
 
-        const node = builder.parseAction(action);
+		const node = builder.parseAction(action);
 
-        assert.strictEqual(node.id, 'decide-test-decision');
-        assert.strictEqual(node.type, 'decide');
-        assert.strictEqual(node.what, 'Test something');
-        assert.strictEqual(node.confidence, 0.9);
-        assert.deepStrictEqual(node.gaps, ['question 1']);
-    });
+		assert.strictEqual(node.id, 'decide-test-decision');
+		assert.strictEqual(node.type, 'decide');
+		assert.strictEqual(node.what, 'Test something');
+		assert.strictEqual(node.confidence, 0.9);
+		assert.deepStrictEqual(node.gaps, ['question 1']);
+	});
 
-    it('should handle different action types (propose, scaffold, document, work)', () => {
-        const types = ['propose', 'scaffold', 'document', 'decide', 'work'];
+	it('should handle different action types (propose, scaffold, document, work)', () => {
+		const types = ['propose', 'scaffold', 'document', 'decide', 'work'];
 
-        types.forEach((actionType) => {
-            const action = {
-                actor: 'test-actor',
-                action: actionType,
-                object: `test-${actionType}`,
-                what: `Test ${actionType}`,
-                confidence: 0.8,
-                key_basis: [],
-                key_gaps: [],
-                timestamp: '2025-10-27T15:00:00Z',
-                standpoint: { phase: 'planning' },
-            };
+		types.forEach((actionType: string) => {
+			const action = {
+				actor: 'test-actor',
+				action: actionType,
+				object: `test-${actionType}`,
+				what: `Test ${actionType}`,
+				confidence: 0.8,
+				key_basis: [],
+				key_gaps: [],
+				timestamp: '2025-10-27T15:00:00Z',
+				standpoint: { phase: 'planning' },
+			};
 
-            const node = builder.parseAction(action);
-            assert.strictEqual(node.type, actionType);
-        });
-    });
+			const node = builder.parseAction(action);
+			assert.strictEqual(node.type, actionType);
+		});
+	});
 
-    it('should extract phase from standpoint', () => {
-        const action = {
-            actor: 'test',
-            action: 'decide',
-            object: 'test',
-            what: 'Test',
-            confidence: 0.9,
-            key_basis: [],
-            key_gaps: [],
-            timestamp: '2025-10-27T15:00:00Z',
-            standpoint: { phase: 'implementation' },
-        };
+	it('should extract phase from standpoint', () => {
+		const action = {
+			actor: 'test',
+			action: 'decide',
+			object: 'test',
+			what: 'Test',
+			confidence: 0.9,
+			key_basis: [],
+			key_gaps: [],
+			timestamp: '2025-10-27T15:00:00Z',
+			standpoint: { phase: 'implementation' },
+		};
 
-        const node = builder.parseAction(action);
-        assert.strictEqual(node.phase, 'implementation');
-    });
+		const node = builder.parseAction(action);
+		assert.strictEqual(node.phase, 'implementation');
+	});
 
-    it('should build graph from multiple actions', () => {
-        const actions = [
-            {
-                actor: 'vscode-rhizome',
-                action: 'propose',
-                object: 'feature-1',
-                what: 'Feature 1',
-                confidence: 0.8,
-                key_basis: [],
-                key_gaps: [],
-                timestamp: '2025-10-27T15:00:00Z',
-                standpoint: { phase: 'kitchen_table' },
-            },
-            {
-                actor: 'vscode-rhizome',
-                action: 'scaffold',
-                object: 'feature-1-impl',
-                what: 'Feature 1 Implementation',
-                confidence: 0.85,
-                key_basis: ['depends on feature-1'],
-                key_gaps: [],
-                timestamp: '2025-10-27T15:05:00Z',
-                standpoint: { phase: 'planning' },
-            },
-        ];
+	it('should build graph from multiple actions', () => {
+		const actions = [
+			{
+				actor: 'vscode-rhizome',
+				action: 'propose',
+				object: 'feature-1',
+				what: 'Feature 1',
+				confidence: 0.8,
+				key_basis: [],
+				key_gaps: [],
+				timestamp: '2025-10-27T15:00:00Z',
+				standpoint: { phase: 'kitchen_table' },
+			},
+			{
+				actor: 'vscode-rhizome',
+				action: 'scaffold',
+				object: 'feature-1-impl',
+				what: 'Feature 1 Implementation',
+				confidence: 0.85,
+				key_basis: ['depends on feature-1'],
+				key_gaps: [],
+				timestamp: '2025-10-27T15:05:00Z',
+				standpoint: { phase: 'planning' },
+			},
+		];
 
-        const graph = builder.buildGraph(actions);
+		const graph = builder.buildGraph(actions);
 
-        assert.strictEqual(graph.nodes.length, 2);
-        assert.strictEqual(graph.nodes[0].type, 'propose');
-        assert.strictEqual(graph.nodes[1].type, 'scaffold');
-    });
+		assert.strictEqual(graph.nodes.length, 2);
+		assert.strictEqual(graph.nodes[0].type, 'propose');
+		assert.strictEqual(graph.nodes[1].type, 'scaffold');
+	});
 });
 
 /**
@@ -126,93 +126,93 @@ describe('Happy Path: Parse valid actions', () => {
  * What's worth crashing over vs. what should be a warning?
  */
 describe('Error Paths: Handle malformed/missing data', () => {
-    let builder: GraphBuilder;
+	let builder: GraphBuilder;
 
-    beforeEach(() => {
-        builder = new GraphBuilder();
-    });
+	beforeEach(() => {
+		builder = new GraphBuilder();
+	});
 
-    it('should handle missing confidence field (default to 0.5)', () => {
-        const action = {
-            actor: 'test',
-            action: 'decide',
-            object: 'test',
-            what: 'Test',
-            // confidence: MISSING
-            key_basis: [],
-            key_gaps: [],
-            timestamp: '2025-10-27T15:00:00Z',
-            standpoint: { phase: 'kitchen_table' },
-        };
+	it('should handle missing confidence field (default to 0.5)', () => {
+		const action = {
+			actor: 'test',
+			action: 'decide',
+			object: 'test',
+			what: 'Test',
+			// confidence: MISSING
+			key_basis: [],
+			key_gaps: [],
+			timestamp: '2025-10-27T15:00:00Z',
+			standpoint: { phase: 'kitchen_table' },
+		};
 
-        const node = builder.parseAction(action as any);
-        assert.strictEqual(node.confidence, 0.5); // Default
-    });
+		const node = builder.parseAction(action as any);
+		assert.strictEqual(node.confidence, 0.5); // Default
+	});
 
-    it('should handle missing standpoint (default phase to "unknown")', () => {
-        const action = {
-            actor: 'test',
-            action: 'decide',
-            object: 'test',
-            what: 'Test',
-            confidence: 0.8,
-            key_basis: [],
-            key_gaps: [],
-            timestamp: '2025-10-27T15:00:00Z',
-            standpoint: {}, // Missing phase
-        };
+	it('should handle missing standpoint (default phase to "unknown")', () => {
+		const action = {
+			actor: 'test',
+			action: 'decide',
+			object: 'test',
+			what: 'Test',
+			confidence: 0.8,
+			key_basis: [],
+			key_gaps: [],
+			timestamp: '2025-10-27T15:00:00Z',
+			standpoint: {}, // Missing phase
+		};
 
-        const node = builder.parseAction(action as any);
-        assert.strictEqual(node.phase, 'unknown');
-    });
+		const node = builder.parseAction(action as any);
+		assert.strictEqual(node.phase, 'unknown');
+	});
 
-    it('should handle missing required fields gracefully', () => {
-        const action = {
-            actor: 'test',
-            // action: MISSING
-            object: 'test',
-            what: 'Test',
-            confidence: 0.8,
-            key_basis: [],
-            key_gaps: [],
-            timestamp: '2025-10-27T15:00:00Z',
-            standpoint: { phase: 'kitchen_table' },
-        };
+	it('should handle missing required fields gracefully', () => {
+		const action = {
+			actor: 'test',
+			// action: MISSING
+			object: 'test',
+			what: 'Test',
+			confidence: 0.8,
+			key_basis: [],
+			key_gaps: [],
+			timestamp: '2025-10-27T15:00:00Z',
+			standpoint: { phase: 'kitchen_table' },
+		};
 
-        assert.throws(() => {
-            builder.parseAction(action as any);
-        });
-    });
+		assert.throws(() => {
+			builder.parseAction(action as any);
+		});
+	});
 
-    it('should skip nodes with confidence = null', () => {
-        const actions = [
-            {
-                actor: 'test',
-                action: 'decide',
-                object: 'test1',
-                what: 'Test 1',
-                confidence: 0.9,
-                key_basis: [],
-                key_gaps: [],
-                timestamp: '2025-10-27T15:00:00Z',
-                standpoint: { phase: 'kitchen_table' },
-            },
-            {
-                actor: 'test',
-                action: 'propose',
-                object: 'test2',
-                what: 'Test 2',
-                confidence: null, // Skip this
-                key_basis: [],
-                key_gaps: [],
-                timestamp: '2025-10-27T15:05:00Z',
-                standpoint: { phase: 'kitchen_table' },
-            },
-        ];
+	it('should skip nodes with confidence = null', () => {
+		const actions = [
+			{
+				actor: 'test',
+				action: 'decide',
+				object: 'test1',
+				what: 'Test 1',
+				confidence: 0.9,
+				key_basis: [],
+				key_gaps: [],
+				timestamp: '2025-10-27T15:00:00Z',
+				standpoint: { phase: 'kitchen_table' },
+			},
+			{
+				actor: 'test',
+				action: 'propose',
+				object: 'test2',
+				what: 'Test 2',
+				confidence: null, // Skip this
+				key_basis: [],
+				key_gaps: [],
+				timestamp: '2025-10-27T15:05:00Z',
+				standpoint: { phase: 'kitchen_table' },
+			},
+		];
 
-        const graph = builder.buildGraph(actions as any);
-        assert.strictEqual(graph.nodes.length, 1); // Only the first
-    });
+		const graph = builder.buildGraph(actions as any);
+		assert.strictEqual(graph.nodes.length, 1); // Only the first
+	});
 });
 
 /**
@@ -227,86 +227,86 @@ describe('Error Paths: Handle malformed/missing data', () => {
  * - Node IDs are consistent (same action → same ID)
  */
 describe('Integration: Graph structure and consistency', () => {
-    let builder: GraphBuilder;
+	let builder: GraphBuilder;
 
-    beforeEach(() => {
-        builder = new GraphBuilder();
-    });
+	beforeEach(() => {
+		builder = new GraphBuilder();
+	});
 
-    it('should produce unique node IDs', () => {
-        const actions = Array.from({ length: 10 }, (_, i) => ({
-            actor: 'test',
-            action: 'decide',
-            object: `decision-${i}`,
-            what: `Decision ${i}`,
-            confidence: 0.8,
-            key_basis: [],
-            key_gaps: [],
-            timestamp: '2025-10-27T15:00:00Z',
-            standpoint: { phase: 'kitchen_table' },
-        }));
+	it('should produce unique node IDs', () => {
+		const actions = Array.from({ length: 10 }, (_: unknown, i: number) => ({
+			actor: 'test',
+			action: 'decide',
+			object: `decision-${i}`,
+			what: `Decision ${i}`,
+			confidence: 0.8,
+			key_basis: [],
+			key_gaps: [],
+			timestamp: '2025-10-27T15:00:00Z',
+			standpoint: { phase: 'kitchen_table' },
+		}));
 
-        const graph = builder.buildGraph(actions);
+		const graph = builder.buildGraph(actions as any);
 
-        const ids = graph.nodes.map((n) => n.id);
-        const uniqueIds = new Set(ids);
+		const ids = graph.nodes.map((n: GraphNode) => n.id);
+		const uniqueIds = new Set(ids);
 
-        assert.strictEqual(ids.length, uniqueIds.size, 'Duplicate node IDs detected');
-    });
+		assert.strictEqual(ids.length, uniqueIds.size, 'Duplicate node IDs detected');
+	});
 
-    it('should produce consistent IDs for same action', () => {
-        const action = {
-            actor: 'test',
-            action: 'decide',
-            object: 'test-obj',
-            what: 'Test',
-            confidence: 0.8,
-            key_basis: [],
-            key_gaps: [],
-            timestamp: '2025-10-27T15:00:00Z',
-            standpoint: { phase: 'kitchen_table' },
-        };
+	it('should produce consistent IDs for same action', () => {
+		const action = {
+			actor: 'test',
+			action: 'decide',
+			object: 'test-obj',
+			what: 'Test',
+			confidence: 0.8,
+			key_basis: [],
+			key_gaps: [],
+			timestamp: '2025-10-27T15:00:00Z',
+			standpoint: { phase: 'kitchen_table' },
+		};
 
-        const id1 = builder.parseAction(action).id;
-        const id2 = builder.parseAction(action).id;
+		const id1 = builder.parseAction(action).id;
+		const id2 = builder.parseAction(action).id;
 
-        assert.strictEqual(id1, id2, 'Same action produced different IDs');
-    });
+		assert.strictEqual(id1, id2, 'Same action produced different IDs');
+	});
 
-    it('should ensure all edge references point to existing nodes', () => {
-        const actions = [
-            {
-                actor: 'test',
-                action: 'propose',
-                object: 'feature-1',
-                what: 'Feature 1',
-                confidence: 0.8,
-                key_basis: ['needs review'],
-                key_gaps: ['unclear scope'],
-                timestamp: '2025-10-27T15:00:00Z',
-                standpoint: { phase: 'kitchen_table' },
-            },
-            {
-                actor: 'test',
-                action: 'scaffold',
-                object: 'feature-1-impl',
-                what: 'Feature 1 Implementation',
-                confidence: 0.85,
-                key_basis: ['implements feature-1'],
-                key_gaps: [],
-                timestamp: '2025-10-27T15:05:00Z',
-                standpoint: { phase: 'planning' },
-            },
-        ];
+	it('should ensure all edge references point to existing nodes', () => {
+		const actions = [
+			{
+				actor: 'test',
+				action: 'propose',
+				object: 'feature-1',
+				what: 'Feature 1',
+				confidence: 0.8,
+				key_basis: ['needs review'],
+				key_gaps: ['unclear scope'],
+				timestamp: '2025-10-27T15:00:00Z',
+				standpoint: { phase: 'kitchen_table' },
+			},
+			{
+				actor: 'test',
+				action: 'scaffold',
+				object: 'feature-1-impl',
+				what: 'Feature 1 Implementation',
+				confidence: 0.85,
+				key_basis: ['implements feature-1'],
+				key_gaps: [],
+				timestamp: '2025-10-27T15:05:00Z',
+				standpoint: { phase: 'planning' },
+			},
+		];
 
-        const graph = builder.buildGraph(actions);
+		const graph = builder.buildGraph(actions);
 
-        const nodeIds = new Set(graph.nodes.map((n) => n.id));
-        graph.edges.forEach((edge) => {
-            assert(nodeIds.has(edge.from), `Edge references non-existent node: ${edge.from}`);
-            assert(nodeIds.has(edge.to), `Edge references non-existent node: ${edge.to}`);
-        });
-    });
+		const nodeIds = new Set(graph.nodes.map((n: GraphNode) => n.id));
+		graph.edges.forEach((edge: GraphEdge) => {
+			assert.ok(nodeIds.has(edge.from), `Edge references non-existent node: ${edge.from}`);
+			assert.ok(nodeIds.has(edge.to), `Edge references non-existent node: ${edge.to}`);
+		});
+	});
 });
 
 /**
@@ -320,9 +320,9 @@ describe('Integration: Graph structure and consistency', () => {
  * requires understanding your performance requirements.
  */
 describe.skip('Scale test: Performance with 500+ actions', () => {
-    it('should parse 500 actions in < 2s', () => {
-        // TODO: When you care about performance, enable this.
-        // For now, this is a placeholder that says:
-        // "Yes, we thought about scale. No, we haven't optimized yet."
-    });
+	it('should parse 500 actions in < 2s', () => {
+		// TODO: When you care about performance, enable this.
+		// For now, this is a placeholder that says:
+		// "Yes, we thought about scale. No, we haven't optimized yet."
+	});
 });
