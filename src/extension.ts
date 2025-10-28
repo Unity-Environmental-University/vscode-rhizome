@@ -217,43 +217,69 @@ async function getAvailablePersonas(): Promise<Map<string, string>> {
 	console.log(`[getAvailablePersonas] Executing: rhizome persona list`);
 
 	try {
-		const output = execSync('rhizome persona list', {
-			encoding: 'utf-8',
-			timeout: 5000,
-			stdio: 'pipe',
-			cwd: cwd, // Run in workspace context
-		});
+		// Try JSON format first (requires rhizome with --json support)
+		try {
+			const jsonOutput = execSync('rhizome persona list --json', {
+				encoding: 'utf-8',
+				timeout: 5000,
+				stdio: 'pipe',
+				cwd: cwd, // Run in workspace context
+			});
 
-		console.log(`[getAvailablePersonas] Raw output length: ${output.length} chars`);
-		console.log(`[getAvailablePersonas] Raw output:\n${output}`);
+			console.log(`[getAvailablePersonas] Got JSON output`);
+			const personasObj = JSON.parse(jsonOutput);
+			const personas = new Map<string, string>();
 
-		const personas = new Map<string, string>();
-
-		// Parse rhizome persona list output
-		// Format: "persona_name | role: description | source: ..."
-		const lines = output.split('\n');
-		console.log(`[getAvailablePersonas] Total lines in output: ${lines.length}`);
-
-		let parsedCount = 0;
-		for (const line of lines) {
-			if (!line.trim()) continue;
-			const match = line.match(/^\s*(\S+)\s+\|\s+role:\s+(.+?)\s+\|\s+source:/);
-			if (match) {
-				const name = match[1].trim();
-				const role = match[2].trim();
+			for (const [name, data] of Object.entries(personasObj)) {
+				const role = (data as any).role || '-';
 				personas.set(name, role);
 				console.log(`[getAvailablePersonas] Parsed: ${name} => ${role.substring(0, 50)}`);
-				parsedCount++;
-			} else {
-				console.log(`[getAvailablePersonas] Could not parse line: ${line.substring(0, 100)}`);
 			}
+
+			console.log(`[getAvailablePersonas] ========== FETCH PERSONAS END (SUCCESS) ==========`);
+			console.log(`[getAvailablePersonas] Total personas found: ${personas.size}`);
+			console.log(`[getAvailablePersonas] Personas list:`, Array.from(personas.keys()).join(', '));
+
+			return personas;
+		} catch (jsonError: any) {
+			// Fall back to text parsing for older rhizome versions
+			console.log(`[getAvailablePersonas] JSON parsing failed, trying text format:`, (jsonError as Error).message);
+
+			const output = execSync('rhizome persona list', {
+				encoding: 'utf-8',
+				timeout: 5000,
+				stdio: 'pipe',
+				cwd: cwd, // Run in workspace context
+			});
+
+			console.log(`[getAvailablePersonas] Raw output length: ${output.length} chars`);
+
+			const personas = new Map<string, string>();
+
+			// Parse rhizome persona list output (text fallback)
+			// Format: "persona_name | role: description | source: ..."
+			const lines = output.split('\n');
+
+			for (const line of lines) {
+				if (!line.trim()) continue;
+				// Handle leading whitespace: "  persona_name | role: description | source: ..."
+				const match = line.match(/^\s*(\S+)\s+\|\s+role:\s+(.+?)\s+\|\s+source:/);
+				if (match) {
+					const name = match[1].trim();
+					const role = match[2].trim();
+					personas.set(name, role);
+					console.log(`[getAvailablePersonas] Parsed: ${name} => ${role.substring(0, 50)}`);
+				} else {
+					console.log(`[getAvailablePersonas] Could not parse line: ${line.substring(0, 100)}`);
+				}
+			}
+
+			console.log(`[getAvailablePersonas] ========== FETCH PERSONAS END (TEXT FALLBACK) ==========`);
+			console.log(`[getAvailablePersonas] Total personas found: ${personas.size}`);
+			console.log(`[getAvailablePersonas] Personas list:`, Array.from(personas.keys()).join(', '));
+
+			return personas;
 		}
-
-		console.log(`[getAvailablePersonas] ========== FETCH PERSONAS END (SUCCESS) ==========`);
-		console.log(`[getAvailablePersonas] Total personas found: ${personas.size}`);
-		console.log(`[getAvailablePersonas] Personas list:`, Array.from(personas.keys()).join(', '));
-
-		return personas;
 	} catch (error: any) {
 		const errorMsg = (error as Error).message;
 		const stderrMsg = error.stderr?.toString() || '';
