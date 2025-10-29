@@ -131,20 +131,23 @@ export const redPenReviewCommand = async () => {
 
 				const prompt = `You are a rigorous, critical code reviewer. Review this code and provide specific, actionable feedback.
 
-For EACH issue or observation:
-1. Reference the EXACT line number(s) where it occurs
-2. Describe the specific problem
-3. Ask a clarifying question or suggest improvement
+For EACH issue or observation, format as a code comment (${commentPrefix} syntax):
 
-Format: "Line X: [specific issue]. [Question or suggestion]"
-Or for multiple lines: "Lines X-Y: [specific issue]. [Question or suggestion]"
+Format: "${commentPrefix} Line X: [specific issue]. [Question or suggestion]"
+Or for multiple lines: "${commentPrefix} Lines X-Y: [specific issue]. [Question or suggestion]"
 
-Examples:
-- Line 5: Missing null check. What if user is undefined?
-- Lines 12-15: Loop could use Set for O(1) lookup instead of array.indexOf(). Have you considered this?
-- Line 20: Good error handling here.
+Examples (in ${commentPrefix} comment format):
+${commentPrefix} Line 5: Missing null check. What if user is undefined?
+${commentPrefix} Lines 12-15: Loop could use Set for O(1) lookup instead of array.indexOf(). Have you considered this?
+${commentPrefix} Line 20: Good error handling here.
 
-Be specific, reference actual code patterns, ask hard questions:\n\n${selectedText}`;
+Important:
+- Start each comment with '${commentPrefix}'
+- Reference EXACT line numbers
+- Be specific and reference actual code patterns
+- Ask hard questions
+
+Review this code:\n\n${selectedText}`;
 				const response = await askPersonaWithPrompt('don-socratic', 'don-socratic', prompt);
 
 				// Parse response into structured insertions
@@ -232,13 +235,16 @@ export const redPenReviewFileCommand = async (fileUri?: vscode.Uri) => {
 
 				const prompt = `You are a rigorous, critical code reviewer analyzing an entire file. Provide specific, actionable feedback.
 
-For EACH issue, observation, or strength:
-1. Reference the EXACT line number(s) where it occurs
-2. Describe the specific problem or observation
-3. Ask a clarifying question or suggest improvement
+For EACH issue, observation, or strength, format as a code comment (${commentPrefix} syntax):
 
-Format: "Line X: [specific issue]. [Question or suggestion]"
-Or for multiple lines: "Lines X-Y: [specific issue]. [Question or suggestion]"
+Format: "${commentPrefix} Line X: [specific issue]. [Question or suggestion]"
+Or for multiple lines: "${commentPrefix} Lines X-Y: [specific issue]. [Question or suggestion]"
+
+Important:
+- Start each comment with '${commentPrefix}'
+- Reference EXACT line numbers from the code
+- Be specific and reference actual code patterns
+- Ask hard questions
 
 Review the ENTIRE file for:
 - Structure and organization issues
@@ -248,7 +254,7 @@ Review the ENTIRE file for:
 - Performance concerns
 - Security vulnerabilities
 
-Be specific, reference actual code, ask hard questions:\n\n${fileText}`;
+Analyze this file:\n\n${fileText}`;
 				const response = await askPersonaWithPrompt('don-socratic', 'don-socratic', prompt);
 
 				// Parse response into structured insertions
