@@ -454,21 +454,13 @@ ${response.split("\n").map((line) => `${commentPrefix} ${line}`).join("\n")}`
 function formatInsertionPreview(insertions, fileLines) {
   return insertions.map((ins, idx) => {
     const lineNum = ins.lineNumber + 1;
-    const contextStart = Math.max(0, ins.lineNumber - 3);
-    const contextEnd = Math.min(fileLines.length, ins.lineNumber + 4);
-    const surroundingLines = fileLines.slice(contextStart, contextEnd).map((line, i) => {
-      const actualLineNum = contextStart + i + 1;
-      const isTarget = actualLineNum === lineNum;
-      const prefix = isTarget ? ">>> " : "    ";
-      return `${prefix}${actualLineNum}: ${line}`;
-    }).join("\n");
-    return `[${idx + 1}] Comment for Line ${lineNum}:
+    const codeLine = fileLines[ins.lineNumber] || "";
+    return `[${idx + 1}] Line ${lineNum}:
 ${ins.comment}
 
-Context:
-${surroundingLines}
+${codeLine}
 `;
-  }).join("\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n");
+  }).join("\n---\n\n");
 }
 
 // src/commands/personaCommands.ts
@@ -554,22 +546,17 @@ var redPenReviewCommand = async () => {
       },
       async (progress) => {
         progress.report({ message: "Analyzing code..." });
-        const prompt = `You are the don-socratic. Your role is not to give answers, but to ask questions that make the developer examine their assumptions.
+        const prompt = `You are the don-socratic. Read this. What questions does it raise?
 
-Read this code carefully. What questions does it raise? What assumptions might be hidden? What would happen at the edges?
+For each place that invites questioning, write a comment (in ${commentPrefix} syntax):
 
-For each line or section that invites questioning, write a comment (in ${commentPrefix} syntax). Start with what you observe, then ask the harder question. Make the developer think, not tell them what to do.
+Format: "${commentPrefix} Line X: [observation]. [question]?"
 
-Format: "${commentPrefix} Line X: [What you observe]. [What's the question beneath this?]"
+Examples:
+${commentPrefix} Line 5: User could be undefined. What happens then?
+${commentPrefix} Lines 12-15: Checking membership in an array. Have you measured the cost?
 
-Examples (in ${commentPrefix} comment format):
-${commentPrefix} Line 5: User could be undefined here. What happens then?
-${commentPrefix} Lines 12-15: You're checking membership in an array. Have you measured the cost?
-${commentPrefix} Line 20: This handles the error. But what was it, exactly?
-
-Remember: Question, don't instruct. Observe, then ask why.
-
-Here is the code:
+Here:
 
 ${selectedText}`;
         const response = await askPersonaWithPrompt("don-socratic", "don-socratic", prompt);
@@ -634,16 +621,12 @@ var redPenReviewFileCommand = async (fileUri) => {
     const language = detectLanguage(doc.languageId);
     const commentPrefix = language === "python" ? "#" : "//";
     let textToReview = fileText;
-    let selectionStart = 0;
-    let selectionEnd = fileText.split("\n").length;
     let selectionStartLine = 0;
     let selectionEndLine = fileText.split("\n").length;
     if (activeEditor && !activeEditor.selection.isEmpty) {
       textToReview = activeEditor.document.getText(activeEditor.selection);
       selectionStartLine = activeEditor.selection.start.line;
       selectionEndLine = activeEditor.selection.end.line;
-      const selectionWithLineNumbers = textToReview.split("\n").map((line, idx) => `${selectionStartLine + idx + 1}: ${line}`).join("\n");
-      textToReview = selectionWithLineNumbers;
     }
     await vscode5.window.withProgress(
       {
@@ -654,28 +637,17 @@ var redPenReviewFileCommand = async (fileUri) => {
       async (progress) => {
         const scopeMessage = activeEditor && !activeEditor.selection.isEmpty ? "Analyzing selection..." : "Analyzing entire file...";
         progress.report({ message: scopeMessage });
-        const prompt = `You are the don-socratic, examining this ${activeEditor && !activeEditor.selection.isEmpty ? "code section" : "file"}. Not to judge it, but to question it.
+        const prompt = `You are the don-socratic. Read this. What questions does it raise?
 
-What does the structure tell you? Where are the seams? What would break? What assumptions are baked in?
+For each place that invites questioning, write a comment (in ${commentPrefix} syntax):
 
-Look at:
-- How the pieces fit together. Do they? Why arranged this way?
-- Error cases. What happens when things go wrong? Did the author think about it?
-- The names and patterns. What story do they tell?
-- The edges and boundaries. What lives there?
+Format: "${commentPrefix} Line X: [observation]. [question]?"
 
-For each section that raises a question\u2014write a comment (in ${commentPrefix} syntax). Start with what you see. Then ask the question that matters.
+Examples:
+${commentPrefix} Line 12: Function imports from three places. Why those three?
+${commentPrefix} Lines 45-50: Happy path handled. What about the sad one?
 
-Format: "${commentPrefix} Line X: [What you observe]. [What's the real question here?]"
-
-Examples (in ${commentPrefix} comment format):
-${commentPrefix} Line 12: This function imports from three places. Why those three? What would break if one changed?
-${commentPrefix} Lines 45-50: You handle the happy path. What about the sad one?
-${commentPrefix} Line 88: This pattern appears three times. Three times means something. What does it mean?
-
-Question the code. Question the choices. Make the developer see what they built, and ask themselves why.
-
-Here is the ${activeEditor && !activeEditor.selection.isEmpty ? "section" : "file"}:
+Here:
 
 ${textToReview}`;
         const response = await askPersonaWithPrompt("don-socratic", "don-socratic", prompt);
