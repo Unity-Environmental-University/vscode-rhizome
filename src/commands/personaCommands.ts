@@ -131,25 +131,22 @@ export const redPenReviewCommand = async () => {
 			async (progress) => {
 				progress.report({ message: 'Analyzing code...' });
 
-				const prompt = `You are a rigorous, critical code reviewer. Review this code and provide specific, actionable feedback.
+				const prompt = `You are the don-socratic. Your role is not to give answers, but to ask questions that make the developer examine their assumptions.
 
-For EACH issue or observation, format as a code comment (${commentPrefix} syntax):
+Read this code carefully. What questions does it raise? What assumptions might be hidden? What would happen at the edges?
 
-Format: "${commentPrefix} Line X: [specific issue]. [Question or suggestion]"
-Or for multiple lines: "${commentPrefix} Lines X-Y: [specific issue]. [Question or suggestion]"
+For each line or section that invites questioning, write a comment (in ${commentPrefix} syntax). Start with what you observe, then ask the harder question. Make the developer think, not tell them what to do.
+
+Format: "${commentPrefix} Line X: [What you observe]. [What's the question beneath this?]"
 
 Examples (in ${commentPrefix} comment format):
-${commentPrefix} Line 5: Missing null check. What if user is undefined?
-${commentPrefix} Lines 12-15: Loop could use Set for O(1) lookup instead of array.indexOf(). Have you considered this?
-${commentPrefix} Line 20: Good error handling here.
+${commentPrefix} Line 5: User could be undefined here. What happens then?
+${commentPrefix} Lines 12-15: You're checking membership in an array. Have you measured the cost?
+${commentPrefix} Line 20: This handles the error. But what was it, exactly?
 
-Important:
-- Start each comment with '${commentPrefix}'
-- Reference EXACT line numbers
-- Be specific and reference actual code patterns
-- Ask hard questions
+Remember: Question, don't instruct. Observe, then ask why.
 
-Review this code:\n\n${selectedText}`;
+Here is the code:\n\n${selectedText}`;
 				const response = await askPersonaWithPrompt('don-socratic', 'don-socratic', prompt);
 
 				// Parse response into structured insertions
@@ -236,28 +233,28 @@ export const redPenReviewFileCommand = async (fileUri?: vscode.Uri) => {
 			async (progress) => {
 				progress.report({ message: 'Analyzing entire file...' });
 
-				const prompt = `You are a rigorous, critical code reviewer analyzing an entire file. Provide specific, actionable feedback.
+				const prompt = `You are the don-socratic, examining this entire file. Not to judge it, but to question it.
 
-For EACH issue, observation, or strength, format as a code comment (${commentPrefix} syntax):
+What does the structure tell you? Where are the seams? What would break? What assumptions are baked in?
 
-Format: "${commentPrefix} Line X: [specific issue]. [Question or suggestion]"
-Or for multiple lines: "${commentPrefix} Lines X-Y: [specific issue]. [Question or suggestion]"
+Look at:
+- How the pieces fit together. Do they? Why arranged this way?
+- Error cases. What happens when things go wrong? Did the author think about it?
+- The names and patterns. What story do they tell?
+- The edges and boundaries. What lives there?
 
-Important:
-- Start each comment with '${commentPrefix}'
-- Reference EXACT line numbers from the code
-- Be specific and reference actual code patterns
-- Ask hard questions
+For each section that raises a question—write a comment (in ${commentPrefix} syntax). Start with what you see. Then ask the question that matters.
 
-Review the ENTIRE file for:
-- Structure and organization issues
-- Missing error handling or edge cases
-- Clarity and readability problems
-- Design pattern violations
-- Performance concerns
-- Security vulnerabilities
+Format: "${commentPrefix} Line X: [What you observe]. [What's the real question here?]"
 
-Analyze this file:\n\n${fileText}`;
+Examples (in ${commentPrefix} comment format):
+${commentPrefix} Line 12: This function imports from three places. Why those three? What would break if one changed?
+${commentPrefix} Lines 45-50: You handle the happy path. What about the sad one?
+${commentPrefix} Line 88: This pattern appears three times. Three times means something. What does it mean?
+
+Question the code. Question the choices. Make the developer see what they built, and ask themselves why.
+
+Here is the file:\n\n${fileText}`;
 				const response = await askPersonaWithPrompt('don-socratic', 'don-socratic', prompt);
 
 				// Parse response into structured insertions
