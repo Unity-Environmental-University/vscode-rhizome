@@ -24,105 +24,16 @@
   "contributes": {
     "commands": [
       {
-        "command": "vscode-rhizome.healthCheck",
-        "title": "vscode-rhizome: Health Check",
-        "description": "Check if rhizome is properly installed and configured"
-      },
-      {
-        "command": "vscode-rhizome.init",
-        "title": "Initialize Rhizome",
-        "description": "Set up rhizome context in workspace"
-      },
-      {
-        "command": "vscode-rhizome.diagnoseEnvironment",
-        "title": "vscode-rhizome: Diagnose Environment",
-        "description": "Check rhizome Python environment and installed modules"
-      },
-      {
-        "command": "vscode-rhizome.installDeps",
-        "title": "vscode-rhizome: Install Dependencies",
-        "description": "Install missing Python dependencies for rhizome (pyyaml, etc.)"
-      },
-      {
         "command": "vscode-rhizome.askPersona",
         "title": "Ask a persona",
-        "description": "Choose which persona (dev-guide, code-reviewer, ux-advocate, etc.) to question your code"
-      },
-      {
-        "command": "vscode-rhizome.openVoiceControl",
-        "title": "Open Rhizome Voice Control",
-        "description": "Preview voice input webview that streams audio to rhizome"
-      },
-      {
-        "command": "vscode-rhizome.stub",
-        "title": "Stub this function"
-      },
-      {
-        "command": "vscode-rhizome.stubInfer",
-        "title": "Stub this function (with LLM inference)"
+        "description": "Ask any persona to respond to selected code"
       },
       {
         "command": "vscode-rhizome.redPenReview",
         "title": "Red Pen Review (don-socratic)",
         "description": "Get a critical red-pen review from don-socratic persona"
-      },
-      {
-        "command": "vscode-rhizome.recordLetterEpistle",
-        "title": "Record epistle about this code",
-        "description": "Create a multi-persona dialog about this code selection"
-      },
-      {
-        "command": "vscode-rhizome.recordInlineEpistle",
-        "title": "Create inline epistle",
-        "description": "Insert epistle comment block in code"
-      },
-      {
-        "command": "vscode-rhizome.createDynamicPersona",
-        "title": "Create dynamic persona from this file",
-        "description": "Analyze file and create a persona representing its perspective"
-      },
-      {
-        "command": "vscode-rhizome.recordFileAdvocateEpistle",
-        "title": "Ask persona to advocate for this file",
-        "description": "Create epistle with persona's perspective on file structure and role"
-      },
-      {
-        "command": "vscode-rhizome.addFileAdvocateComment",
-        "title": "Add file advocate comment",
-        "description": "Insert comment header with persona's perspective on file"
-      },
-      {
-        "command": "vscode-rhizome.openEpistle",
-        "title": "Open epistle",
-        "description": "Open epistle from sidebar"
-      },
-      {
-        "command": "vscode-rhizome.refreshEpistleSidebar",
-        "title": "Refresh Epistle Registry",
-        "description": "Reload epistle registry from disk"
-      },
-      {
-        "command": "vscode-rhizome.changeEpistleFilter",
-        "title": "Change Epistle View Filter",
-        "description": "Switch between type/persona/date/flight-plan views"
-      },
-      {
-        "command": "vscode-rhizome.showFlightPlanEpistles",
-        "title": "Show Epistles for This Flight Plan",
-        "description": "View all design discussions linked to the active flight plan"
       }
     ],
-    "views": {
-      "explorer": [
-        {
-          "id": "epistle-registry-sidebar",
-          "name": "Epistle Registry",
-          "icon": "$(mail)",
-          "contextualTitle": "Epistles",
-          "visibility": "visible"
-        }
-      ]
-    },
     "menus": {
       "editor/context": [
         {
@@ -134,45 +45,6 @@
           "command": "vscode-rhizome.redPenReview",
           "group": "1_modification@2",
           "when": "editorHasSelection"
-        },
-        {
-          "command": "vscode-rhizome.recordLetterEpistle",
-          "group": "2_epistle@1",
-          "when": "editorHasSelection"
-        },
-        {
-          "command": "vscode-rhizome.recordInlineEpistle",
-          "group": "2_epistle@2",
-          "when": "editorHasSelection"
-        },
-        {
-          "command": "vscode-rhizome.addFileAdvocateComment",
-          "group": "2_epistle@3",
-          "when": "!editorHasSelection"
-        }
-      ],
-      "explorer/context": [
-        {
-          "command": "vscode-rhizome.createDynamicPersona",
-          "group": "1_modification@1",
-          "when": "resourceExtname != ''"
-        },
-        {
-          "command": "vscode-rhizome.recordFileAdvocateEpistle",
-          "group": "1_modification@2",
-          "when": "resourceExtname != ''"
-        }
-      ],
-      "view/item/context": [
-        {
-          "command": "vscode-rhizome.refreshEpistleSidebar",
-          "group": "inline",
-          "when": "view == epistle-registry-sidebar"
-        },
-        {
-          "command": "vscode-rhizome.changeEpistleFilter",
-          "group": "inline",
-          "when": "view == epistle-registry-sidebar"
         }
       ]
     }
