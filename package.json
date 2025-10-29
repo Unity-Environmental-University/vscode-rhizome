@@ -62,9 +62,9 @@
         "title": "Stub this function (with LLM inference)"
       },
       {
-        "command": "vscode-rhizome.documentWithPersona",
-        "title": "Ask a persona to document this",
-        "description": "Have a persona provide documentation/comments on selected code"
+        "command": "vscode-rhizome.redPenReview",
+        "title": "Red Pen Review (don-socratic)",
+        "description": "Get a critical red-pen review from don-socratic persona"
       },
       {
         "command": "vscode-rhizome.recordLetterEpistle",
@@ -131,7 +131,7 @@
           "when": "editorHasSelection"
         },
         {
-          "command": "vscode-rhizome.documentWithPersona",
+          "command": "vscode-rhizome.redPenReview",
           "group": "1_modification@2",
           "when": "editorHasSelection"
         },

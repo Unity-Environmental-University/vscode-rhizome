@@ -1,35 +1,33 @@
 /**
- * personaCommands.ts
+ * personaCommands.ts - Minimal inline persona interactions
  *
- * @rhizome: What's in a command handler?
- * 1. Gather input (selection, user input)
- * 2. Call service (persona query, etc)
- * 3. Present output (show result, handle errors)
- *
- * Handlers are thin. They don't own business logic.
- * They orchestrate: UI -> Service -> UI.
+ * Two commands:
+ * 1. inlineComment - Right-click to add inline persona response
+ * 2. redPenReview - Right-click for don-socratic review (adds comments)
  */
 
 import * as vscode from 'vscode';
+import { askPersonaWithPrompt } from '../services/personaService';
 import { getAvailablePersonas } from '../services/rhizomeService';
-import { askPersonaWithPrompt, inferQuestionFromSelection, extractAgenticCommands, promptAgenticActions, disposeAgenticTerminal } from '../services/personaService';
-import { formatPersonaOutput } from '../ui/outputFormatter';
 import { detectLanguage } from '../utils/helpers';
 
 /**
- * Command: Ask any persona (dynamic picker)
+ * Command: Add inline comment from persona
+ *
+ * Right-click menu: Get a persona's response to selected code, inserted as comment
  */
 export const askPersonaCommand = async () => {
 	const editor = vscode.window.activeTextEditor;
-	const selectionRange = editor?.selection;
-	const selectedText = editor && selectionRange && !selectionRange.isEmpty
-		? editor.document.getText(selectionRange).trim()
-		: '';
+	if (!editor || editor.selection.isEmpty) {
+		vscode.window.showErrorMessage('Please select code');
+		return;
+	}
 
+	const selectedText = editor.document.getText(editor.selection).trim();
 	const personas = await getAvailablePersonas();
 
 	if (personas.size === 0) {
-		vscode.window.showErrorMessage('No personas available. Check rhizome installation.');
+		vscode.window.showErrorMessage('No personas available');
 		return;
 	}
 
@@ -39,146 +37,113 @@ export const askPersonaCommand = async () => {
 	}));
 
 	const picked = await vscode.window.showQuickPick(personaOptions, {
-		placeHolder: 'Choose a persona to question your code',
-		matchOnDescription: true,
+		placeHolder: 'Choose a persona',
 	});
 
 	if (!picked) {
 		return;
 	}
 
-	let question: string | undefined;
-	if (selectedText) {
-		const inferred = inferQuestionFromSelection(selectedText, editor?.document.languageId);
-		const confirmed = await vscode.window.showInputBox({
-			title: 'Question for persona',
-			prompt: 'Review or adjust the question before asking.',
-			value: inferred,
-			valueSelection: [0, inferred.length],
-			ignoreFocusOut: true,
-		});
-		if (confirmed === undefined) {
-			return;
-		}
-		question = confirmed.trim();
-		if (!question) {
-			vscode.window.showErrorMessage('Question cannot be empty.');
-			return;
-		}
-	} else {
-		const entered = await vscode.window.showInputBox({
-			title: 'Ask a persona',
-			prompt: 'What would you like to ask?',
-			placeHolder: 'e.g., What should I focus on next?',
-			ignoreFocusOut: true,
-		});
-		if (!entered) {
-			return;
-		}
-		question = entered.trim();
-		if (!question) {
-			vscode.window.showErrorMessage('Question cannot be empty.');
-			return;
-		}
-	}
-
-	const prompt = selectedText ? `${question}\n\n${selectedText}` : question;
-
-	try {
-		const outputChannel = vscode.window.createOutputChannel('vscode-rhizome');
-		outputChannel.show(true);
-
-		const response = await askPersonaWithPrompt(picked.label, picked.label, prompt, {
-			question,
-			selectedText,
-		});
-
-		formatPersonaOutput(outputChannel, picked.label, question, selectedText, response);
-
-		const suggestedCommands = extractAgenticCommands(response);
-		if (suggestedCommands.length > 0) {
-			await promptAgenticActions(suggestedCommands);
-		}
-	} catch (error: any) {
-		vscode.window.showErrorMessage(`Failed to query persona: ${(error as Error).message}`);
-	}
-};
-
-/**
- * Command: Document with persona (right-click menu)
- */
-export const documentWithPersonaCommand = async () => {
-	const editor = vscode.window.activeTextEditor;
-	if (!editor) {
-		vscode.window.showErrorMessage('Please open a file and select code before documenting');
-		return;
-	}
-
-	if (editor.selection.isEmpty) {
-		vscode.window.showErrorMessage('Please select some code to document');
-		return;
-	}
-
-	const selectedText = editor.document.getText(editor.selection);
-	const document = editor.document;
-
-	const personasMap = await getAvailablePersonas();
-
-	if (personasMap.size === 0) {
-		vscode.window.showErrorMessage('No personas available. Check rhizome installation.');
-		return;
-	}
-
-	const personaOptions = Array.from(personasMap.entries()).map(([name, role]) => ({
-		label: name,
-		description: role || `Ask ${name} to document this`,
-	}));
-
-	const picked = await vscode.window.showQuickPick(personaOptions, {
-		placeHolder: 'Which persona should document this code?',
+	const question = await vscode.window.showInputBox({
+		title: `Ask ${picked.label}`,
+		prompt: 'What would you like to ask?',
+		ignoreFocusOut: true,
 	});
 
-	if (!picked) {
+	if (!question) {
 		return;
 	}
-
-	const prompt = `Please provide clear documentation/comments for this code:\n\n${selectedText}`;
 
 	try {
 		await vscode.window.withProgress(
 			{
 				location: vscode.ProgressLocation.Notification,
-				title: `Asking ${picked.label} to document your code...`,
+				title: `${picked.label} is thinking...`,
 				cancellable: false,
 			},
 			async (progress) => {
-				progress.report({ message: 'Waiting for response (this may take 10-30 seconds)...' });
-
+				const prompt = `${question}\n\n${selectedText}`;
 				const response = await askPersonaWithPrompt(picked.label, picked.label, prompt);
 
-				const language = detectLanguage(document.languageId);
+				const language = detectLanguage(editor.document.languageId);
 				const commentPrefix = language === 'python' ? '#' : '//';
-
-				const commentLines = response.split('\n').map((line) => `${commentPrefix} ${line}`);
+				const commentLines = response.split('\n').map(line => `${commentPrefix} ${line}`);
 				const comment = commentLines.join('\n');
 
+				// Insert above selection
 				const insertPos = editor.selection.start;
 				const edit = new vscode.TextEdit(
 					new vscode.Range(insertPos, insertPos),
 					`${comment}\n`
 				);
 				const workspaceEdit = new vscode.WorkspaceEdit();
-				workspaceEdit.set(document.uri, [edit]);
+				workspaceEdit.set(editor.document.uri, [edit]);
 				await vscode.workspace.applyEdit(workspaceEdit);
 
-				progress.report({ message: 'Documentation added! ✓' });
-				vscode.window.showInformationMessage(`${picked.label} documentation added above selection`);
+				progress.report({ message: 'Response inserted! ✓' });
 			}
 		);
 	} catch (error: any) {
-		vscode.window.showErrorMessage(
-			`Failed to get documentation from ${picked.label}: ${(error as Error).message}`
+		vscode.window.showErrorMessage(`Failed: ${(error as Error).message}`);
+	}
+};
+
+/**
+ * Command: DEPRECATED - Animate (removed)
+ *
+ * Replaced by redPenReview. Keep for backwards compatibility but skip.
+ */
+export const documentWithPersonaCommand = async () => {
+	vscode.window.showWarningMessage(
+		'Animate command is deprecated. Use "Red Pen Review" instead.'
+	);
+};
+
+/**
+ * Command: Red Pen Review
+ *
+ * Right-click: Don-socratic persona reviews selected code, adds critique as comments
+ */
+export const redPenReviewCommand = async () => {
+	const editor = vscode.window.activeTextEditor;
+	if (!editor || editor.selection.isEmpty) {
+		vscode.window.showErrorMessage('Please select code to review');
+		return;
+	}
+
+	const selectedText = editor.document.getText(editor.selection);
+
+	try {
+		await vscode.window.withProgress(
+			{
+				location: vscode.ProgressLocation.Notification,
+				title: 'Red pen review (don-socratic)...',
+				cancellable: false,
+			},
+			async (progress) => {
+				const prompt = `As a rigorous code reviewer, provide a critical red-pen review of this code. Ask hard questions about clarity, edge cases, and assumptions:\n\n${selectedText}`;
+				const response = await askPersonaWithPrompt('don-socratic', 'don-socratic', prompt);
+
+				const language = detectLanguage(editor.document.languageId);
+				const commentPrefix = language === 'python' ? '#' : '//';
+				const commentLines = response.split('\n').map(line => `${commentPrefix} 🔴 ${line}`);
+				const comment = commentLines.join('\n');
+
+				// Insert review above selection
+				const insertPos = editor.selection.start;
+				const edit = new vscode.TextEdit(
+					new vscode.Range(insertPos, insertPos),
+					`${comment}\n`
+				);
+				const workspaceEdit = new vscode.WorkspaceEdit();
+				workspaceEdit.set(editor.document.uri, [edit]);
+				await vscode.workspace.applyEdit(workspaceEdit);
+
+				progress.report({ message: 'Review added! ✓' });
+			}
 		);
+	} catch (error: any) {
+		vscode.window.showErrorMessage(`Failed: ${(error as Error).message}`);
 	}
 };
 
@@ -186,5 +151,5 @@ export const documentWithPersonaCommand = async () => {
  * Dispose resources when extension deactivates
  */
 export function disposeCommands(): void {
-	disposeAgenticTerminal();
+	// Placeholder for cleanup if needed
 }

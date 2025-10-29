@@ -22,7 +22,7 @@ import { createEpistleRegistry, EpistleRegistry } from './epistleRegistry';
 import { recordLetterEpistle, recordInlineEpistle, createDynamicPersona, recordFileAdvocateEpistle, addFileAdvocateComment } from './epistleCommands';
 import { registerEpistleSidebar, EpistleSidebarProvider } from './epistleSidebarProvider';
 import { activateMcpBridge } from './mcpBridge';
-import { askPersonaCommand, documentWithPersonaCommand, disposeCommands } from './commands/personaCommands';
+import { askPersonaCommand, documentWithPersonaCommand, redPenReviewCommand, disposeCommands } from './commands/personaCommands';
 import { getAvailablePersonas } from './services/rhizomeService';
 import { initializeRhizomeIfNeeded } from './services/initService';
 import { performHealthCheck, detectLanguage } from './utils/helpers';
@@ -369,10 +369,10 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 
 	// ======================================
-	// COMMAND: Document with persona
+	// COMMAND: Red Pen Review
 	// ======================================
 	context.subscriptions.push(
-		vscode.commands.registerCommand('vscode-rhizome.documentWithPersona', documentWithPersonaCommand)
+		vscode.commands.registerCommand('vscode-rhizome.redPenReview', redPenReviewCommand)
 	);
 
 	// ===== Epistle Commands =====
