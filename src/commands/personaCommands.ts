@@ -62,6 +62,8 @@ export const askPersonaCommand = async () => {
 				cancellable: false,
 			},
 			async (progress) => {
+				progress.report({ message: 'Waiting for response...' });
+
 				const prompt = `${question}\n\n${selectedText}`;
 				const response = await askPersonaWithPrompt(picked.label, picked.label, prompt);
 
@@ -70,17 +72,20 @@ export const askPersonaCommand = async () => {
 				const commentLines = response.split('\n').map(line => `${commentPrefix} ${line}`);
 				const comment = commentLines.join('\n');
 
-				// Insert above selection
-				const insertPos = editor.selection.start;
+				// Insert at end of file to accumulate responses
+				const lineCount = editor.document.lineCount;
+				const lastLine = editor.document.lineAt(lineCount - 1);
+				const insertPos = new vscode.Position(lineCount, 0);
+
 				const edit = new vscode.TextEdit(
 					new vscode.Range(insertPos, insertPos),
-					`${comment}\n`
+					`\n${commentPrefix}\n${commentPrefix} === ${picked.label} says:\n${comment}\n`
 				);
 				const workspaceEdit = new vscode.WorkspaceEdit();
 				workspaceEdit.set(editor.document.uri, [edit]);
 				await vscode.workspace.applyEdit(workspaceEdit);
 
-				progress.report({ message: 'Response inserted! ✓' });
+				progress.report({ message: 'Response added! ✓' });
 			}
 		);
 	} catch (error: any) {
@@ -121,6 +126,8 @@ export const redPenReviewCommand = async () => {
 				cancellable: false,
 			},
 			async (progress) => {
+				progress.report({ message: 'Analyzing code...' });
+
 				const prompt = `As a rigorous code reviewer, provide a critical red-pen review of this code. Ask hard questions about clarity, edge cases, and assumptions:\n\n${selectedText}`;
 				const response = await askPersonaWithPrompt('don-socratic', 'don-socratic', prompt);
 
@@ -129,11 +136,13 @@ export const redPenReviewCommand = async () => {
 				const commentLines = response.split('\n').map(line => `${commentPrefix} 🔴 ${line}`);
 				const comment = commentLines.join('\n');
 
-				// Insert review above selection
-				const insertPos = editor.selection.start;
+				// Insert at end of file to accumulate reviews
+				const lineCount = editor.document.lineCount;
+				const insertPos = new vscode.Position(lineCount, 0);
+
 				const edit = new vscode.TextEdit(
 					new vscode.Range(insertPos, insertPos),
-					`${comment}\n`
+					`\n${commentPrefix}\n${commentPrefix} === 🔴 RED PEN REVIEW:\n${comment}\n`
 				);
 				const workspaceEdit = new vscode.WorkspaceEdit();
 				workspaceEdit.set(editor.document.uri, [edit]);
