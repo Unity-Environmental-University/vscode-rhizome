@@ -129,7 +129,22 @@ export const redPenReviewCommand = async () => {
 			async (progress) => {
 				progress.report({ message: 'Analyzing code...' });
 
-				const prompt = `As a rigorous code reviewer, provide a critical red-pen review of this code. For each concern, reference the line number(s). Format like: "Line 5: issue here" or "Lines 12-15: issue here". Ask hard questions about clarity, edge cases, and assumptions:\n\n${selectedText}`;
+				const prompt = `You are a rigorous, critical code reviewer. Review this code and provide specific, actionable feedback.
+
+For EACH issue or observation:
+1. Reference the EXACT line number(s) where it occurs
+2. Describe the specific problem
+3. Ask a clarifying question or suggest improvement
+
+Format: "Line X: [specific issue]. [Question or suggestion]"
+Or for multiple lines: "Lines X-Y: [specific issue]. [Question or suggestion]"
+
+Examples:
+- Line 5: Missing null check. What if user is undefined?
+- Lines 12-15: Loop could use Set for O(1) lookup instead of array.indexOf(). Have you considered this?
+- Line 20: Good error handling here.
+
+Be specific, reference actual code patterns, ask hard questions:\n\n${selectedText}`;
 				const response = await askPersonaWithPrompt('don-socratic', 'don-socratic', prompt);
 
 				// Parse response into structured insertions
@@ -158,8 +173,9 @@ export const redPenReviewCommand = async () => {
 					return;
 				}
 
-				// Insert all approved comments
-				const edits = insertions.map(ins => {
+				// Insert all approved comments (in reverse order to avoid line number drift)
+				const sortedInsertions = [...insertions].sort((a, b) => b.lineNumber - a.lineNumber);
+				const edits = sortedInsertions.map(ins => {
 					const insertPos = new vscode.Position(ins.lineNumber, 0);
 					return new vscode.TextEdit(
 						new vscode.Range(insertPos, insertPos),
@@ -214,7 +230,25 @@ export const redPenReviewFileCommand = async (fileUri?: vscode.Uri) => {
 			async (progress) => {
 				progress.report({ message: 'Analyzing entire file...' });
 
-				const prompt = `As a rigorous code reviewer, provide a critical red-pen review of this entire file. For each concern, reference the line number(s). Format like: "Line 5: issue here" or "Lines 12-15: issue here". Ask hard questions about structure, clarity, edge cases, and assumptions:\n\n${fileText}`;
+				const prompt = `You are a rigorous, critical code reviewer analyzing an entire file. Provide specific, actionable feedback.
+
+For EACH issue, observation, or strength:
+1. Reference the EXACT line number(s) where it occurs
+2. Describe the specific problem or observation
+3. Ask a clarifying question or suggest improvement
+
+Format: "Line X: [specific issue]. [Question or suggestion]"
+Or for multiple lines: "Lines X-Y: [specific issue]. [Question or suggestion]"
+
+Review the ENTIRE file for:
+- Structure and organization issues
+- Missing error handling or edge cases
+- Clarity and readability problems
+- Design pattern violations
+- Performance concerns
+- Security vulnerabilities
+
+Be specific, reference actual code, ask hard questions:\n\n${fileText}`;
 				const response = await askPersonaWithPrompt('don-socratic', 'don-socratic', prompt);
 
 				// Parse response into structured insertions
@@ -246,8 +280,9 @@ export const redPenReviewFileCommand = async (fileUri?: vscode.Uri) => {
 				// Show file and insert comments
 				const editor = await vscode.window.showTextDocument(doc);
 
-				// Insert all approved comments
-				const edits = insertions.map(ins => {
+				// Insert all approved comments (in reverse order to avoid line number drift)
+				const sortedInsertions = [...insertions].sort((a, b) => b.lineNumber - a.lineNumber);
+				const edits = sortedInsertions.map(ins => {
 					const insertPos = new vscode.Position(ins.lineNumber, 0);
 					return new vscode.TextEdit(
 						new vscode.Range(insertPos, insertPos),
