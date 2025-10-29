@@ -725,78 +725,75 @@ The extension teaches by example. Your job is to maintain that example with care
 
 ## Session Summary (Oct 29, 2025)
 
-### Completed: Comment Syntax Formatting
+### The Question: How Should the Don Speak?
 
-**What Was Done:**
-- Updated `redPenReviewCommand()` prompt with `${commentPrefix}` examples (lines 132-150)
-- Updated `redPenReviewFileCommand()` prompt with `${commentPrefix}` examples (lines 236-257)
-- Both prompts now explicitly request persona format comments using correct syntax
-- Built and tested: all 113 tests passing, no regressions
+The red pen review prompts were telling the don-socratic to be "a rigorous, critical code reviewer" giving "specific, actionable feedback." But that's not the don's voice. That's contradiction. The don doesn't give answers. The don asks questions.
 
-**Why It Matters:**
-Personas now see concrete examples of the correct comment syntax (// for TypeScript, # for Python) directly in the prompt, ensuring feedback is formatted correctly for each file type.
+What changed: Let the don be the don.
 
-**The Implementation:**
+### What Was Rewritten
+
+Both prompts—selection review and file review—were reworded to embody the don's actual voice:
+
+**Selection-based review** (src/commands/personaCommands.ts, lines 134-149):
+- Before: "provide specific, actionable feedback"
+- After: "Your role is not to give answers, but to ask questions"
+- Before: "Ask hard questions" (as a requirement)
+- After: "Question, don't instruct. Observe, then ask why." (as an invitation)
+
+**File-level review** (src/commands/personaCommands.ts, lines 236-257):
+- Before: "critical code reviewer" giving "actionable feedback"
+- After: "You are the don-socratic, examining this entire file. Not to judge it, but to question it."
+- Before: Checklist of what to review
+- After: Questions about structure, assumptions, edges, error cases
+
+**The examples changed too:**
 ```
-1. detectLanguage(languageId) → "typescript" or "python"
-2. commentPrefix = (language === 'python' ? '#' : '//')
-3. Prompt interpolates ${commentPrefix} → persona sees "// Line 5: ..." or "# Line 5: ..."
-4. Persona formats response with correct syntax
-5. parseCommentInsertion() applies prefix to parsed comments
-6. Insertion: "${commentPrefix} 🔴 [feedback]"
+Before: "Missing null check. What if user is undefined?"
+After:  "User could be undefined here. What happens then?"
+
+Before: "Loop could use Set for O(1) lookup. Have you considered this?"
+After:  "You're checking membership in an array. Have you measured the cost?"
 ```
 
-**How to Test:**
+Notice: Observation first. Then the real question underneath.
+
+### Why This Matters
+
+The prompt is the contract between tool and persona. If you tell the don to be directive, you get directives dressed up as questions. If you invite the don to question, you get real questioning—discomfort, reflection, the moment where assumptions crack.
+
+### Technical Notes
+
+- Comment syntax formatting (`${commentPrefix}`) still works exactly as before
+- Language detection still correct (// for TypeScript, # for Python)
+- Reverse-order insertion still prevents line number drift
+- All 113 tests passing, no regressions
+
+### How to Experience This
+
 1. F5 to open extension in debug mode
-2. Test selection-based review: select code in test.ts (TypeScript), right-click → "Red Pen Review"
-   - Verify comments use `//` syntax
-3. Test selection-based review: select code in test.py (Python), right-click → "Red Pen Review"
-   - Verify comments use `#` syntax
-4. Test file-level review: right-click file in Explorer → "Red Pen Review (entire file)"
-   - Verify syntax matches file type
-   - Verify line numbers are accurate and don't drift
+2. Select some code in test.ts or test.py
+3. Right-click → "Red Pen Review (don-socratic)"
+4. Watch what questions come back
 
-**Design Notes:**
-- Prompt examples include actual `${commentPrefix}` value, not placeholder
-- Three commands use consistent logic: askPersona, redPenReview, redPenReviewFile
-- Reverse-order insertion prevents line number drift when applying multiple comments
-- Comment prefix flows through entire pipeline: detectLanguage → prompt → parsing → insertion
+Does it feel different? Does it invite reflection instead of correction?
 
-**Commits:**
-- `533def4`: "refactor: Improve persona review prompts with comment syntax examples"
-- `6b463f9`: "docs: Add session documentation for comment syntax improvements"
+### Commits
 
-### Testing Commands
+- `98150dd`: "refactor: Let the don speak in the prompts, not against it"
+  - Rewrote both review prompts to embody don's voice
+  - Changed from instruction to invitation
+  - Changed examples from directive to questioning
 
-Run manual tests on test-workspace files:
-- `test-workspace/test.ts` — TypeScript examples
-- `test-workspace/test.py` — Python examples
+### What to Think About
 
-Press F5 to debug extension with test workspace automatically loaded.
-
-### Build Status
-
-```bash
-npm run esbuild      # ✅ 25.2kb (2ms)
-npm run typecheck    # ✅ No errors
-npm test             # ✅ 113 passing
-```
-
-### Code Files Modified
-
-- `src/commands/personaCommands.ts` — Updated prompts with comment syntax examples
-- `dist/extension.js` — Rebuilt
-- `dist/extension.js.map` — Rebuilt
-
-### Next Steps
-
-1. **Manual Testing** — Run tests per instructions above
-2. **User Validation** — Verify actual persona responses use correct syntax
-3. **Edge Cases** — Test with large files, many comments, various languages
-4. **Documentation** — Update user guide if behavior changes needed
+- How much of good teaching is *not telling*?
+- What happens when a tool's voice contradicts its purpose?
+- Can examples be questions instead of answers?
+- Does the prompt matter if the persona already knows who it is?
 
 ---
 
-*Last Updated: 2025-10-29 16:00 UTC*
+*Last Updated: 2025-10-29 16:15 UTC*
 *Maintained by: Hallie + Claude Code, guided by rhizome flight plans*
-*Current Work: Comment syntax formatting (READY FOR MANUAL TESTING)*
+*Current Work: Let the don speak (EMBODIED IN PROMPTS)*
