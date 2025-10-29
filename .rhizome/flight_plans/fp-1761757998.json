@@ -91,6 +91,61 @@
         "what": "Modularization: extracted services and commands",
         "timestamp": "2025-10-29T17:54:02Z"
       }
+    },
+    {
+      "ts": "2025-10-29T18:05:01Z",
+      "type": "action",
+      "data": {
+        "actor": "unknown",
+        "action": "decide",
+        "object": ".rhizome-cleanup-cli-separation",
+        "qualifiers": [],
+        "confidence": 0.95,
+        "evidence": {
+          "repo": "vscode-rhizome",
+          "branch": "feature/utilities",
+          "commit": "fd40b0acc52383048f0a8e183799bd20fbe62262",
+          "path": null,
+          "lines": null,
+          "note": "Separated CLI scaffolding from vscode-rhizome project knowledge. Archived 95+ CLI files, epistles, intermediate design docs. Preserved rhizome CLI-required files. Root docs: 89→19 active files."
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": ".rhizome cleanup: separate CLI from project, consolidate into CLAUDE.md",
+        "standpoint": {
+          "persona": "rhizome",
+          "phase": "kitchen_table"
+        },
+        "standpoint_label": "rhizome-(kitchen_table)",
+        "timestamp": "2025-10-29T18:05:01Z"
+      }
+    },
+    {
+      "ts": "2025-10-29T18:05:15Z",
+      "type": "action",
+      "data": {
+        "actor": "system",
+        "action": "link_commit",
+        "object": "",
+        "qualifiers": [
+          "post-commit"
+        ],
+        "confidence": 1.0,
+        "evidence": {
+          "repo": "vscode-rhizome",
+          "branch": "feature/utilities",
+          "commit": "21035fd4bfaac7d52d71a850fad137d9f488a86d",
+          "path": null,
+          "lines": null,
+          "note": "Cleanup: separated CLI scaffolding from project knowledge, archived 95+ files, preserved rhizome CLI compatibility"
+        },
+        "agent": null,
+        "timestamp": "2025-10-29T18:05:15Z"
+      }
     }
   ],
   "personas": {
