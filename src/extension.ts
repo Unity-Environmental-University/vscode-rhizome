@@ -9,7 +9,7 @@
  */
 
 import * as vscode from 'vscode';
-import { askPersonaCommand, redPenReviewCommand, disposeCommands } from './commands/personaCommands';
+import { askPersonaCommand, redPenReviewCommand, redPenReviewFileCommand, disposeCommands } from './commands/personaCommands';
 import { ensureLocalBinOnPath } from './utils/rhizomePath';
 import { getAvailablePersonas } from './services/rhizomeService';
 
@@ -49,6 +49,13 @@ export function activate(context: vscode.ExtensionContext) {
 	// ======================================
 	context.subscriptions.push(
 		vscode.commands.registerCommand('vscode-rhizome.redPenReview', redPenReviewCommand)
+	);
+
+	// ======================================
+	// COMMAND: Red Pen Review File (entire file)
+	// ======================================
+	context.subscriptions.push(
+		vscode.commands.registerCommand('vscode-rhizome.redPenReviewFile', redPenReviewFileCommand)
 	);
 
 	console.log('[vscode-rhizome] ACTIVATION COMPLETE');

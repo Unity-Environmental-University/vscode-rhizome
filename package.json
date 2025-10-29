@@ -32,6 +32,11 @@
         "command": "vscode-rhizome.redPenReview",
         "title": "Red Pen Review (don-socratic)",
         "description": "Get a critical red-pen review from don-socratic persona"
+      },
+      {
+        "command": "vscode-rhizome.redPenReviewFile",
+        "title": "Red Pen Review (entire file)",
+        "description": "Get a critical red-pen review of entire file from don-socratic persona"
       }
     ],
     "menus": {
@@ -45,6 +50,13 @@
           "command": "vscode-rhizome.redPenReview",
           "group": "1_modification@2",
           "when": "editorHasSelection"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "vscode-rhizome.redPenReviewFile",
+          "group": "1_modification@1",
+          "when": "resourceExtname != ''"
         }
       ]
     }

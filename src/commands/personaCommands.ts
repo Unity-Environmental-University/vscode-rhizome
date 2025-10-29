@@ -157,6 +157,68 @@ export const redPenReviewCommand = async () => {
 };
 
 /**
+ * Command: Red Pen Review entire file
+ *
+ * Right-click on file in explorer: Review whole file, append to file
+ */
+export const redPenReviewFileCommand = async (fileUri?: vscode.Uri) => {
+	let targetUri = fileUri;
+
+	// If not called from explorer context, use active editor
+	if (!targetUri) {
+		const editor = vscode.window.activeTextEditor;
+		if (!editor) {
+			vscode.window.showErrorMessage('No file open');
+			return;
+		}
+		targetUri = editor.document.uri;
+	}
+
+	try {
+		const fileContent = await vscode.workspace.fs.readFile(targetUri);
+		const fileText = new TextDecoder().decode(fileContent);
+
+		await vscode.window.withProgress(
+			{
+				location: vscode.ProgressLocation.Notification,
+				title: 'Red pen review (entire file)...',
+				cancellable: false,
+			},
+			async (progress) => {
+				progress.report({ message: 'Analyzing entire file...' });
+
+				const prompt = `As a rigorous code reviewer, provide a critical red-pen review of this entire file. Ask hard questions about structure, clarity, edge cases, and assumptions:\n\n${fileText}`;
+				const response = await askPersonaWithPrompt('don-socratic', 'don-socratic', prompt);
+
+				// Open file and append review at end
+				const doc = await vscode.workspace.openTextDocument(targetUri);
+				const editor = await vscode.window.showTextDocument(doc);
+
+				const language = detectLanguage(doc.languageId);
+				const commentPrefix = language === 'python' ? '#' : '//';
+				const commentLines = response.split('\n').map(line => `${commentPrefix} 🔴 ${line}`);
+				const comment = commentLines.join('\n');
+
+				const lineCount = doc.lineCount;
+				const insertPos = new vscode.Position(lineCount, 0);
+
+				const edit = new vscode.TextEdit(
+					new vscode.Range(insertPos, insertPos),
+					`\n${commentPrefix}\n${commentPrefix} === 🔴 FILE-LEVEL RED PEN REVIEW:\n${comment}\n`
+				);
+				const workspaceEdit = new vscode.WorkspaceEdit();
+				workspaceEdit.set(targetUri, [edit]);
+				await vscode.workspace.applyEdit(workspaceEdit);
+
+				progress.report({ message: 'File review added! ✓' });
+			}
+		);
+	} catch (error: any) {
+		vscode.window.showErrorMessage(`Failed: ${(error as Error).message}`);
+	}
+};
+
+/**
  * Dispose resources when extension deactivates
  */
 export function disposeCommands(): void {
