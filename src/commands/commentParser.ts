@@ -70,12 +70,26 @@ export function parseCommentInsertion(
 
 /**
  * Format insertions as a preview for user approval
+ * Shows the comment with surrounding code context (3 lines before and after)
  */
 export function formatInsertionPreview(insertions: CommentInsertion[], fileLines: string[]): string {
 	return insertions
 		.map((ins, idx) => {
 			const lineNum = ins.lineNumber + 1;
-			return `[${idx + 1}] Line ${lineNum}:\n${ins.comment}\n${ins.context ? `    Context: ${ins.context}\n` : ''}\n`;
+			// Show surrounding context: 3 lines before and after
+			const contextStart = Math.max(0, ins.lineNumber - 3);
+			const contextEnd = Math.min(fileLines.length, ins.lineNumber + 4);
+			const surroundingLines = fileLines
+				.slice(contextStart, contextEnd)
+				.map((line, i) => {
+					const actualLineNum = contextStart + i + 1;
+					const isTarget = actualLineNum === lineNum;
+					const prefix = isTarget ? '>>> ' : '    ';
+					return `${prefix}${actualLineNum}: ${line}`;
+				})
+				.join('\n');
+
+			return `[${idx + 1}] Comment for Line ${lineNum}:\n${ins.comment}\n\nContext:\n${surroundingLines}\n`;
 		})
-		.join('\n');
+		.join('\n─────────────────────────────────────\n\n');
 }

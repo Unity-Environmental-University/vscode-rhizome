@@ -454,12 +454,21 @@ ${response.split("\n").map((line) => `${commentPrefix} ${line}`).join("\n")}`
 function formatInsertionPreview(insertions, fileLines) {
   return insertions.map((ins, idx) => {
     const lineNum = ins.lineNumber + 1;
-    return `[${idx + 1}] Line ${lineNum}:
+    const contextStart = Math.max(0, ins.lineNumber - 3);
+    const contextEnd = Math.min(fileLines.length, ins.lineNumber + 4);
+    const surroundingLines = fileLines.slice(contextStart, contextEnd).map((line, i) => {
+      const actualLineNum = contextStart + i + 1;
+      const isTarget = actualLineNum === lineNum;
+      const prefix = isTarget ? ">>> " : "    ";
+      return `${prefix}${actualLineNum}: ${line}`;
+    }).join("\n");
+    return `[${idx + 1}] Comment for Line ${lineNum}:
 ${ins.comment}
-${ins.context ? `    Context: ${ins.context}
-` : ""}
+
+Context:
+${surroundingLines}
 `;
-  }).join("\n");
+  }).join("\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n");
 }
 
 // src/commands/personaCommands.ts
@@ -627,10 +636,14 @@ var redPenReviewFileCommand = async (fileUri) => {
     let textToReview = fileText;
     let selectionStart = 0;
     let selectionEnd = fileText.split("\n").length;
+    let selectionStartLine = 0;
+    let selectionEndLine = fileText.split("\n").length;
     if (activeEditor && !activeEditor.selection.isEmpty) {
       textToReview = activeEditor.document.getText(activeEditor.selection);
-      selectionStart = activeEditor.selection.start.line;
-      selectionEnd = activeEditor.selection.end.line;
+      selectionStartLine = activeEditor.selection.start.line;
+      selectionEndLine = activeEditor.selection.end.line;
+      const selectionWithLineNumbers = textToReview.split("\n").map((line, idx) => `${selectionStartLine + idx + 1}: ${line}`).join("\n");
+      textToReview = selectionWithLineNumbers;
     }
     await vscode5.window.withProgress(
       {
@@ -670,7 +683,7 @@ ${textToReview}`;
         let insertions = parseCommentInsertion(response, fileLines, commentPrefix);
         if (activeEditor && !activeEditor.selection.isEmpty) {
           insertions = insertions.filter(
-            (ins) => ins.lineNumber >= selectionStart && ins.lineNumber <= selectionEnd
+            (ins) => ins.lineNumber >= selectionStartLine && ins.lineNumber <= selectionEndLine
           );
         }
         const preview = formatInsertionPreview(insertions, fileLines);

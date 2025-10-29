@@ -235,11 +235,19 @@ export const redPenReviewFileCommand = async (fileUri?: vscode.Uri) => {
 		let textToReview = fileText;
 		let selectionStart = 0;
 		let selectionEnd = fileText.split('\n').length;
+		let selectionStartLine = 0;
+		let selectionEndLine = fileText.split('\n').length;
 
 		if (activeEditor && !activeEditor.selection.isEmpty) {
 			textToReview = activeEditor.document.getText(activeEditor.selection);
-			selectionStart = activeEditor.selection.start.line;
-			selectionEnd = activeEditor.selection.end.line;
+			selectionStartLine = activeEditor.selection.start.line;
+			selectionEndLine = activeEditor.selection.end.line;
+			// For the persona: add line number context so it knows which lines are which
+			const selectionWithLineNumbers = textToReview
+				.split('\n')
+				.map((line, idx) => `${selectionStartLine + idx + 1}: ${line}`)
+				.join('\n');
+			textToReview = selectionWithLineNumbers;
 		}
 
 		await vscode.window.withProgress(
@@ -285,7 +293,7 @@ Here is the ${activeEditor && !activeEditor.selection.isEmpty ? 'section' : 'fil
 				// If reviewing a selection, filter insertions to only that range
 				if (activeEditor && !activeEditor.selection.isEmpty) {
 					insertions = insertions.filter(
-						ins => ins.lineNumber >= selectionStart && ins.lineNumber <= selectionEnd
+						ins => ins.lineNumber >= selectionStartLine && ins.lineNumber <= selectionEndLine
 					);
 				}
 
