@@ -605,13 +605,18 @@ ${selectedText}`;
 };
 var redPenReviewFileCommand = async (fileUri) => {
   let targetUri = fileUri;
+  let activeEditor;
   if (!targetUri) {
-    const editor = vscode5.window.activeTextEditor;
-    if (!editor) {
+    activeEditor = vscode5.window.activeTextEditor;
+    if (!activeEditor) {
       vscode5.window.showErrorMessage("No file open");
       return;
     }
-    targetUri = editor.document.uri;
+    targetUri = activeEditor.document.uri;
+  } else {
+    activeEditor = vscode5.window.visibleTextEditors.find(
+      (editor) => editor.document.uri.fsPath === targetUri.fsPath
+    );
   }
   try {
     const fileContent = await vscode5.workspace.fs.readFile(targetUri);
@@ -619,15 +624,24 @@ var redPenReviewFileCommand = async (fileUri) => {
     const doc = await vscode5.workspace.openTextDocument(targetUri);
     const language = detectLanguage(doc.languageId);
     const commentPrefix = language === "python" ? "#" : "//";
+    let textToReview = fileText;
+    let selectionStart = 0;
+    let selectionEnd = fileText.split("\n").length;
+    if (activeEditor && !activeEditor.selection.isEmpty) {
+      textToReview = activeEditor.document.getText(activeEditor.selection);
+      selectionStart = activeEditor.selection.start.line;
+      selectionEnd = activeEditor.selection.end.line;
+    }
     await vscode5.window.withProgress(
       {
         location: vscode5.ProgressLocation.Notification,
-        title: "Red pen review (entire file)...",
+        title: "Red pen review...",
         cancellable: false
       },
       async (progress) => {
-        progress.report({ message: "Analyzing entire file..." });
-        const prompt = `You are the don-socratic, examining this entire file. Not to judge it, but to question it.
+        const scopeMessage = activeEditor && !activeEditor.selection.isEmpty ? "Analyzing selection..." : "Analyzing entire file...";
+        progress.report({ message: scopeMessage });
+        const prompt = `You are the don-socratic, examining this ${activeEditor && !activeEditor.selection.isEmpty ? "code section" : "file"}. Not to judge it, but to question it.
 
 What does the structure tell you? Where are the seams? What would break? What assumptions are baked in?
 
@@ -648,12 +662,17 @@ ${commentPrefix} Line 88: This pattern appears three times. Three times means so
 
 Question the code. Question the choices. Make the developer see what they built, and ask themselves why.
 
-Here is the file:
+Here is the ${activeEditor && !activeEditor.selection.isEmpty ? "section" : "file"}:
 
-${fileText}`;
+${textToReview}`;
         const response = await askPersonaWithPrompt("don-socratic", "don-socratic", prompt);
         const fileLines = fileText.split("\n");
-        const insertions = parseCommentInsertion(response, fileLines, commentPrefix);
+        let insertions = parseCommentInsertion(response, fileLines, commentPrefix);
+        if (activeEditor && !activeEditor.selection.isEmpty) {
+          insertions = insertions.filter(
+            (ins) => ins.lineNumber >= selectionStart && ins.lineNumber <= selectionEnd
+          );
+        }
         const preview = formatInsertionPreview(insertions, fileLines);
         const approved = await vscode5.window.showInformationMessage(
           `Found ${insertions.length} suggested comments. Insert them?`,

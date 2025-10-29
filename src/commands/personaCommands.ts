@@ -204,15 +204,22 @@ Here is the code:\n\n${selectedText}`;
  */
 export const redPenReviewFileCommand = async (fileUri?: vscode.Uri) => {
 	let targetUri = fileUri;
+	let activeEditor: vscode.TextEditor | undefined;
 
-	// If not called from explorer context, use active editor
+	// If called from editor, remember the current editor and its selection
+	// If called from explorer, just get the file
 	if (!targetUri) {
-		const editor = vscode.window.activeTextEditor;
-		if (!editor) {
+		activeEditor = vscode.window.activeTextEditor;
+		if (!activeEditor) {
 			vscode.window.showErrorMessage('No file open');
 			return;
 		}
-		targetUri = editor.document.uri;
+		targetUri = activeEditor.document.uri;
+	} else {
+		// Called from explorer context, try to find open editor for this file
+		activeEditor = vscode.window.visibleTextEditors.find(
+			editor => editor.document.uri.fsPath === targetUri!.fsPath
+		);
 	}
 
 	try {
@@ -224,16 +231,30 @@ export const redPenReviewFileCommand = async (fileUri?: vscode.Uri) => {
 		const language = detectLanguage(doc.languageId);
 		const commentPrefix = language === 'python' ? '#' : '//';
 
+		// Determine scope: if there's an active selection, focus on that; otherwise review whole file
+		let textToReview = fileText;
+		let selectionStart = 0;
+		let selectionEnd = fileText.split('\n').length;
+
+		if (activeEditor && !activeEditor.selection.isEmpty) {
+			textToReview = activeEditor.document.getText(activeEditor.selection);
+			selectionStart = activeEditor.selection.start.line;
+			selectionEnd = activeEditor.selection.end.line;
+		}
+
 		await vscode.window.withProgress(
 			{
 				location: vscode.ProgressLocation.Notification,
-				title: 'Red pen review (entire file)...',
+				title: 'Red pen review...',
 				cancellable: false,
 			},
 			async (progress) => {
-				progress.report({ message: 'Analyzing entire file...' });
+				const scopeMessage = activeEditor && !activeEditor.selection.isEmpty
+					? 'Analyzing selection...'
+					: 'Analyzing entire file...';
+				progress.report({ message: scopeMessage });
 
-				const prompt = `You are the don-socratic, examining this entire file. Not to judge it, but to question it.
+				const prompt = `You are the don-socratic, examining this ${activeEditor && !activeEditor.selection.isEmpty ? 'code section' : 'file'}. Not to judge it, but to question it.
 
 What does the structure tell you? Where are the seams? What would break? What assumptions are baked in?
 
@@ -254,12 +275,19 @@ ${commentPrefix} Line 88: This pattern appears three times. Three times means so
 
 Question the code. Question the choices. Make the developer see what they built, and ask themselves why.
 
-Here is the file:\n\n${fileText}`;
+Here is the ${activeEditor && !activeEditor.selection.isEmpty ? 'section' : 'file'}:\n\n${textToReview}`;
 				const response = await askPersonaWithPrompt('don-socratic', 'don-socratic', prompt);
 
 				// Parse response into structured insertions
 				const fileLines = fileText.split('\n');
-				const insertions = parseCommentInsertion(response, fileLines, commentPrefix);
+				let insertions = parseCommentInsertion(response, fileLines, commentPrefix);
+
+				// If reviewing a selection, filter insertions to only that range
+				if (activeEditor && !activeEditor.selection.isEmpty) {
+					insertions = insertions.filter(
+						ins => ins.lineNumber >= selectionStart && ins.lineNumber <= selectionEnd
+					);
+				}
 
 				// Show preview
 				const preview = formatInsertionPreview(insertions, fileLines);
