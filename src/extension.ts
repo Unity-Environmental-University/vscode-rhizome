@@ -1,3 +1,18 @@
+/**
+ * extension.ts — vscode-rhizome entry point
+ *
+ * @rhizome: What belongs in the entry point?
+ * ONLY:
+ * 1. activate() - register commands with services
+ * 2. deactivate() - cleanup
+ *
+ * All business logic lives in services/ or commands/.
+ * This file should be instantly readable.
+ *
+ * See services/ for persona queries, initialization, etc.
+ * See commands/ for command handlers.
+ * See ui/ for output formatting.
+ */
 
 import * as vscode from 'vscode';
 import { generateStub, findStubComments, insertStub } from './stubGenerator';
@@ -6,42 +21,22 @@ import { ensureLocalBinOnPath, getCandidateLocations, isRhizomeInstalled } from 
 import { createEpistleRegistry, EpistleRegistry } from './epistleRegistry';
 import { recordLetterEpistle, recordInlineEpistle, createDynamicPersona, recordFileAdvocateEpistle, addFileAdvocateComment } from './epistleCommands';
 import { registerEpistleSidebar, EpistleSidebarProvider } from './epistleSidebarProvider';
+import { activateMcpBridge } from './mcpBridge';
+import { askPersonaCommand, documentWithPersonaCommand, disposeCommands } from './commands/personaCommands';
+import { getAvailablePersonas } from './services/rhizomeService';
+import { initializeRhizomeIfNeeded } from './services/initService';
+import { performHealthCheck, detectLanguage } from './utils/helpers';
+import { formatPersonaOutput, formatHealthCheck } from './ui/outputFormatter';
 
 /**
- * @rhizome: how do libraries work here?
- *
- * In VSCode extensions, local TypeScript files are bundled with the extension.
- * We import from ./stubGenerator (same directory, same bundle).
- * esbuild will tree-shake unused code and bundle everything into dist/extension.js.
- *
- * Path aliases (@rhizome/lib) come later if we extract to separate package.
- * For now: relative imports within src/ work fine.
- */
-
-/**
- * Telemetry: Log structured events for debugging user workflows
- *
- * Format: [COMPONENT] PHASE: MESSAGE
- * Phases: START, STEP, SUCCESS, ERROR, RESULT
- *
- * Examples:
- * [WORKFLOW] START: User asked persona
- * [WORKFLOW] STEP: Selection obtained (245 chars)
- * [WORKFLOW] STEP: Personas loaded (47 total)
- * [WORKFLOW] STEP: Persona picked (dev-guide)
- * [WORKFLOW] STEP: Query started
- * [WORKFLOW] SUCCESS: Got response (1235 chars)
- * [WORKFLOW] RESULT: Comments inserted (file modified)
+ * Telemetry: structured logging for debugging
  */
 function telemetry(component: string, phase: string, message: string, data?: Record<string, any>) {
-	const timestamp = new Date().toISOString().split('T')[1];
-	const dataStr = data ? ` | ${JSON.stringify(data)}` : '';
 	const isDebug = process.env.RHIZOME_DEBUG === 'true';
 	const isError = phase === 'ERROR';
-
-	// Format: [HH:MM:SS.mmm] [COMPONENT] PHASE: MESSAGE | data
 	const prefix = isError ? '❌' : '✓';
-	const logLine = `${isDebug ? `[${timestamp}] ` : ''}[${component}] ${phase}: ${message}${dataStr}`;
+	const dataStr = data ? ` | ${JSON.stringify(data)}` : '';
+	const logLine = `[${component}] ${phase}: ${message}${dataStr}`;
 
 	if (isError) {
 		console.error(`${prefix} ${logLine}`);
@@ -51,822 +46,25 @@ function telemetry(component: string, phase: string, message: string, data?: Rec
 }
 
 /**
- * Helper: Query a persona via rhizome CLI
- *
- * don-socratic asks:
- * When you call out to an external service (rhizome CLI), what should
- * you encapsulate? What belongs in a helper, and what stays in the command handler?
- *
- * ANSWER:
- * The rhizome call itself is pure I/O. It takes text, sends it to rhizome,
- * gets back text. That's a perfect candidate for extraction.
- * The command handler stays focused: get selection, call helper, show result.
- * The helper stays focused: I/O with rhizome, error handling, nothing else.
- */
-async function queryPersona(
-	text: string,
-	persona: string,
-	timeoutMs: number = 30000,
-	workspaceRoot?: string
-): Promise<string> {
-	const { execSync } = require('child_process');
-	const cwd = workspaceRoot || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-
-	telemetry('QUERY', 'START', `Query to persona: ${persona}`);
-	telemetry('QUERY', 'STEP', 'Init phase: checking configuration', { persona, timeoutMs, workspace: cwd, inputLength: text.length });
-
-	// Check for API key BEFORE attempting query
-	telemetry('QUERY', 'STEP', 'Checking API key availability...');
-	const hasApiKey = await checkApiKeyAvailable(cwd);
-	if (!hasApiKey) {
-		telemetry('QUERY', 'STEP', 'WARNING: No API key found. Query may fail or hang if persona requires API.');
-	} else {
-		telemetry('QUERY', 'STEP', 'API key confirmed available');
-	}
-
-	try {
-		telemetry('QUERY', 'STEP', 'Execute phase: running rhizome query', { persona, cwd });
-
-		// Wrap execSync in a promise with explicit timeout to handle hanging better
-		const queryPromise = new Promise<string>((resolve, reject) => {
-			try {
-				telemetry('QUERY', 'STEP', `Executing: rhizome query --persona ${persona}`);
-				const response = execSync(`rhizome query --persona ${persona}`, {
-					input: text,
-					encoding: 'utf-8',
-					timeout: timeoutMs,
-					cwd: cwd, // Ensure rhizome runs in workspace to find .rhizome folder
-					stdio: ['pipe', 'pipe', 'pipe'], // Capture both stdout and stderr
-					maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large responses
-				});
-				telemetry('QUERY', 'STEP', 'Execute phase completed successfully', { responseLength: response.length });
-				telemetry('QUERY', 'STEP', 'Format phase: preparing response', { responseLength: response.length, preview: response.substring(0, 200) });
-				resolve(response);
-			} catch (error: any) {
-				const errorMsg = (error as Error).message;
-				const stderrMsg = error.stderr?.toString() || '';
-				const stdoutMsg = error.stdout?.toString() || '';
-
-				telemetry('QUERY', 'ERROR', 'Execute phase failed', { error: errorMsg, stderr: stderrMsg });
-
-				// Detect rhizome dependency issues
-				if (stderrMsg.includes('No module named') || stderrMsg.includes('ModuleNotFoundError')) {
-					telemetry('QUERY', 'STEP', 'Rhizome dependency issue detected: missing Python module');
-					telemetry('QUERY', 'STEP', 'Recommendation: Run "pip install pyyaml" or reinstall rhizome');
-				}
-
-				reject(error);
-			}
-		});
-
-		// Set a JS-level timeout as backup (execSync timeout might not work reliably)
-		const timeoutPromise = new Promise<string>((_, reject) => {
-			setTimeout(() => {
-				telemetry('QUERY', 'ERROR', `Timeout: Query to ${persona} exceeded ${timeoutMs}ms`);
-				telemetry('QUERY', 'STEP', 'Possible timeout causes:', {
-					cause1: 'Missing API key (check logs above)',
-					cause2: 'API is slow or unreachable',
-					cause3: 'Persona has circular dependency',
-					cause4: 'Python module missing'
-				});
-				reject(new Error(`${persona} timed out after ${timeoutMs}ms. Check debug console for details.`));
-			}, timeoutMs + 1000); // Give execSync a chance to timeout first
-		});
-
-		const result = await Promise.race([queryPromise, timeoutPromise]);
-		telemetry('QUERY', 'RESULT', 'Query completed successfully', { persona, responseLength: result.length });
-		telemetry('QUERY', 'SUCCESS', 'Query returned result ready for formatting');
-		return result;
-	} catch (error: any) {
-		// Extract actual error details from the exception
-		let errorDetail = (error as Error).message;
-		if (error.stderr) {
-			errorDetail = error.stderr.toString();
-		} else if (error.stdout) {
-			errorDetail = error.stdout.toString();
-		}
-		telemetry('QUERY', 'ERROR', 'Query failed with final error detail', { error: errorDetail });
-		throw new Error(`Rhizome query failed:\n${errorDetail}`);
-	}
-}
-
-/**
- * Helper: Check if API key is configured
- *
- * Checks environment variables and rhizome config for API key.
- * Returns true if any API key is found (OpenAI, Anthropic, etc.)
- */
-async function checkApiKeyAvailable(workspaceRoot?: string): Promise<boolean> {
-	const { execSync } = require('child_process');
-	const fs = require('fs');
-	const path = require('path');
-
-	const cwd = workspaceRoot || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-	telemetry('APIKEY', 'START', 'Checking API key availability', { workspace: cwd });
-
-	// Check 1: Environment variables
-	telemetry('APIKEY', 'STEP', 'Checking environment variables for API keys');
-	const envKeys = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'RHIZOME_API_KEY'];
-	for (const key of envKeys) {
-		if (process.env[key]) {
-			telemetry('APIKEY', 'SUCCESS', `Found API key in environment`, { key });
-			return true;
-		}
-	}
-	telemetry('APIKEY', 'STEP', 'No API keys found in environment variables');
-
-	// Check 2: Rhizome config file
-	try {
-		const configPath = path.join(cwd, '.rhizome', 'config.json');
-		telemetry('APIKEY', 'STEP', 'Checking rhizome config file', { configPath });
-
-		if (fs.existsSync(configPath)) {
-			const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-			telemetry('APIKEY', 'STEP', 'Config file exists, checking for API key fields');
-
-			// Check various possible keys
-			if (config.ai?.openai_key) {
-				telemetry('APIKEY', 'SUCCESS', 'Found ai.openai_key in config');
-				return true;
-			}
-			if (config.ai?.key) {
-				telemetry('APIKEY', 'SUCCESS', 'Found ai.key in config');
-				return true;
-			}
-			if (config.openai_api_key) {
-				telemetry('APIKEY', 'SUCCESS', 'Found openai_api_key in config');
-				return true;
-			}
-			telemetry('APIKEY', 'STEP', 'Config found but no API key field detected');
-		} else {
-			telemetry('APIKEY', 'STEP', 'No config file found at expected location');
-		}
-	} catch (error) {
-		telemetry('APIKEY', 'STEP', 'Error reading config file', { error: (error as Error).message });
-	}
-
-	// Check 3: Try rhizome config command
-	try {
-		telemetry('APIKEY', 'STEP', 'Attempting to read rhizome config via CLI');
-		const configOutput = execSync('rhizome config get ai', {
-			encoding: 'utf-8',
-			cwd: cwd,
-			stdio: ['pipe', 'pipe', 'pipe'],
-			timeout: 5000,
-		});
-		telemetry('APIKEY', 'STEP', 'rhizome config command succeeded', { outputLength: configOutput.length });
-		if (configOutput && configOutput.includes('key')) {
-			telemetry('APIKEY', 'SUCCESS', 'Found key reference in rhizome config');
-			return true;
-		}
-	} catch (error) {
-		telemetry('APIKEY', 'STEP', 'Could not read rhizome config via CLI', { error: (error as Error).message });
-	}
-
-	telemetry('APIKEY', 'RESULT', 'No API key found in any location');
-	return false;
-}
-
-/**
- * Helper: Get list of available personas from rhizome
- *
- * Queries rhizome for available personas (both system and custom).
- * Returns a map of persona name to description for quick picker.
- */
-async function getAvailablePersonas(): Promise<Map<string, string>> {
-	telemetry('PERSONAS', 'START', 'Fetching available personas from rhizome');
-	const { execSync } = require('child_process');
-	const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-
-	telemetry('PERSONAS', 'STEP', 'Workspace context', { cwd });
-	telemetry('PERSONAS', 'STEP', 'Attempting JSON format first (rhizome persona list --json)');
-
-	try {
-		// Try JSON format first (requires rhizome with --json support)
-		try {
-			const jsonOutput = execSync('rhizome persona list --json', {
-				encoding: 'utf-8',
-				timeout: 5000,
-				stdio: 'pipe',
-				cwd: cwd, // Run in workspace context
-			});
-
-			telemetry('PERSONAS', 'STEP', 'JSON command succeeded, parsing structured output');
-			const personasObj = JSON.parse(jsonOutput);
-			const personas = new Map<string, string>();
-
-			telemetry('PERSONAS', 'STEP', `Parsing ${Object.keys(personasObj).length} personas from JSON`);
-			for (const [name, data] of Object.entries(personasObj)) {
-				const role = (data as any).role || '-';
-				personas.set(name, role);
-				telemetry('PERSONAS', 'STEP', `Parsed persona: ${name}`, { role: role.substring(0, 50) });
-			}
-
-			telemetry('PERSONAS', 'SUCCESS', 'All personas loaded successfully via JSON path', { count: personas.size, list: Array.from(personas.keys()) });
-
-			return personas;
-		} catch (jsonError: any) {
-			// Fall back to text parsing for older rhizome versions
-			telemetry('PERSONAS', 'STEP', 'JSON path failed, falling back to text format', { reason: (jsonError as Error).message });
-
-			const output = execSync('rhizome persona list', {
-				encoding: 'utf-8',
-				timeout: 5000,
-				stdio: 'pipe',
-				cwd: cwd, // Run in workspace context
-			});
-
-			telemetry('PERSONAS', 'STEP', `Text command succeeded, output length: ${output.length} chars`);
-
-			const personas = new Map<string, string>();
-
-			// Parse rhizome persona list output (text fallback)
-			// Format: "persona_name | role: description | source: ..."
-			const lines = output.split('\n');
-
-			telemetry('PERSONAS', 'STEP', `Parsing ${lines.length} lines from text output`);
-			let parsedCount = 0;
-			for (const line of lines) {
-				if (!line.trim()) continue;
-				// Handle leading whitespace: "  persona_name | role: description | source: ..."
-				const match = line.match(/^\s*(\S+)\s+\|\s+role:\s+(.+?)\s+\|\s+source:/);
-				if (match) {
-					const name = match[1].trim();
-					const role = match[2].trim();
-					personas.set(name, role);
-					telemetry('PERSONAS', 'STEP', `Parsed persona: ${name}`, { role: role.substring(0, 50) });
-					parsedCount++;
-				} else {
-					telemetry('PERSONAS', 'STEP', `Could not parse line (skipped)`, { line: line.substring(0, 100) });
-				}
-			}
-
-			telemetry('PERSONAS', 'SUCCESS', 'All personas loaded successfully via text fallback', { count: personas.size, parsedLines: parsedCount, list: Array.from(personas.keys()) });
-
-			return personas;
-		}
-	} catch (error: any) {
-		const errorMsg = (error as Error).message;
-		const stderrMsg = error.stderr?.toString() || '';
-		telemetry('PERSONAS', 'ERROR', 'Failed to fetch personas from rhizome', { error: errorMsg, stderr: stderrMsg });
-
-		// Check for common rhizome dependency issues
-		if (stderrMsg.includes('No module named')) {
-			telemetry('PERSONAS', 'STEP', 'Rhizome dependency issue detected: missing Python module');
-			telemetry('PERSONAS', 'STEP', 'Recommendation: Run "pip install pyyaml"');
-		}
-		if (stderrMsg.includes('ModuleNotFoundError')) {
-			telemetry('PERSONAS', 'STEP', 'Python module not found: this is a rhizome environment issue');
-		}
-
-		telemetry('PERSONAS', 'STEP', 'Using hardcoded fallback personas');
-
-		// If rhizome persona list fails, return curated set of main personas
-		const fallback = new Map([
-			['don-socratic', 'Socratic questioning'],
-			['dev-guide', 'Mentor: What were you trying to accomplish?'],
-			['code-reviewer', 'Skeptic: What\'s your evidence?'],
-			['ux-advocate', 'Curator: Have we watched someone use this?'],
-			['dev-advocate', 'Strategist: What trade-off are we making?'],
-		]);
-
-		telemetry('PERSONAS', 'SUCCESS', 'Fallback personas loaded', { count: fallback.size, list: Array.from(fallback.keys()) });
-
-		return fallback;
-	}
-}
-
-/**
- * Helper: Format output channel for persona responses
- *
- * don-socratic asks:
- * Those eight appendLine() calls... what pattern do you see?
- * Are they structural (header, content, footer)? Could you name that pattern?
- * What would happen if you extracted it?
- */
-function formatPersonaOutput(channel: vscode.OutputChannel, personaName: string, selectedCode: string, response: string) {
-	channel.appendLine('='.repeat(60));
-	channel.appendLine(personaName);
-	channel.appendLine('='.repeat(60));
-	channel.appendLine('Selected code:');
-	channel.appendLine('');
-	channel.appendLine(selectedCode);
-	channel.appendLine('');
-	channel.appendLine('--- Waiting for persona response ---');
-	channel.appendLine('');
-	channel.appendLine('');
-	channel.appendLine(`Response from ${personaName}:`);
-	channel.appendLine('');
-	channel.appendLine(response);
-}
-
-/**
- * Helper: Get active selection, validate it exists
- *
- * don-socratic asks:
- * Both don-socratic and inline-question handlers need the same thing: editor + selection.
- * What if you extracted that validation into a helper?
- * What would you call it?
- */
-function getActiveSelection(): { editor: vscode.TextEditor; selectedText: string } | null {
-	const editor = vscode.window.activeTextEditor;
-	if (!editor) {
-		vscode.window.showErrorMessage('No active editor');
-		return null;
-	}
-
-	const selectedText = editor.document.getText(editor.selection);
-	if (!selectedText) {
-		vscode.window.showErrorMessage('Please select code to question');
-		return null;
-	}
-
-	return { editor, selectedText };
-}
-
-/**
- * Helper: Detect language from VSCode languageId
- *
- * Both stub generation and inline questioning need this.
- * Extract it once, use it everywhere.
- */
-function detectLanguage(languageId: string): 'typescript' | 'javascript' | 'python' | null {
-	if (languageId === 'typescript' || languageId === 'javascript') {
-		return 'typescript';
-	}
-	if (languageId === 'python') {
-		return 'python';
-	}
-	return null;
-}
-/**
- * Helper: Check if user is member of Unity-Environmental-University
- *
- * don-socratic asks:
- * How do you know who a user is? What signals indicate org membership?
- * GitHub auth + git config are stronger signals than assumptions.
- *
- * Checks:
- * 1. `gh auth status` to confirm logged in
- * 2. `git config user.organization` for explicit org setting
- * 3. Falls back to checking GitHub orgs if gh CLI available
- */
-async function isUEUMember(): Promise<boolean> {
-	const { execSync } = require('child_process');
-
-	try {
-		// First, check if user is authenticated with GitHub CLI
-		try {
-			execSync('gh auth status', {
-				encoding: 'utf-8',
-				timeout: 2000,
-				stdio: 'pipe',
-			});
-		} catch {
-			// Not authenticated with gh, can't verify org membership
-			return false;
-		}
-
-		// Check git config for explicit org setting
-		try {
-			const org = execSync('git config user.organization', {
-				encoding: 'utf-8',
-				timeout: 2000,
-				stdio: 'pipe',
-			})
-				.trim();
-			if (org === 'Unity-Environmental-University') {
-				return true;
-			}
-		} catch {
-			// Config value not set, continue to check GitHub orgs
-		}
-
-		// Check GitHub orgs via gh CLI
-		try {
-			const orgs = execSync('gh org list', {
-				encoding: 'utf-8',
-				timeout: 5000,
-			})
-				.split('\n')
-				.map((line: string) => line.trim())
-				.filter((line: string) => line.length > 0);
-
-			return orgs.includes('Unity-Environmental-University');
-		} catch {
-			// gh org list failed or not available
-			return false;
-		}
-	} catch {
-		return false;
-	}
-}
-
-/**
- * Helper: Run diagnostics when rhizome not found
- *
- * don-socratic asks:
- * When a tool is missing, what should you check?
- * - Is it in PATH?
- * - Did the installation fail silently?
- * - Is it on the disk but not in PATH?
- *
- * Gather evidence before offering help.
- */
-async function diagnosticRhizomeMissing(): Promise<string[]> {
-	const { execSync } = require('child_process');
-	const fs = require('fs');
-	const diagnostics: string[] = [];
-
-	// Check installation paths that we probe proactively (see getCandidateLocations)
-	for (const candidate of getCandidateLocations()) {
-		if (fs.existsSync(candidate)) {
-			diagnostics.push(`Found rhizome at: ${candidate}`);
-		} else {
-			diagnostics.push(`Checked path (missing): ${candidate}`);
-		}
-	}
-
-	// Check PATH environment variable
-	diagnostics.push(`Current PATH: ${process.env.PATH}`);
-
-	// Check if installation tools are available
-	try {
-		execSync('which npm', { stdio: 'pipe', timeout: 2000 });
-		diagnostics.push('npm is available');
-	} catch {
-		diagnostics.push('npm NOT found (required for rhizome installation)');
-	}
-
-	try {
-		execSync('which brew', { stdio: 'pipe', timeout: 2000 });
-		diagnostics.push('brew is available (macOS)');
-	} catch {
-		// brew not required on all systems
-	}
-
-	return diagnostics;
-}
-
-/**
- * Helper: Offer to collect and store OpenAI key
- *
- * don-socratic asks:
- * Where should secrets live? In code? In env? In config files?
- * How do you keep them secure while making them accessible?
- * What happens the first time a tool needs a secret?
- */
-async function ensureOpenAIKeyConfigured(workspaceRoot: string): Promise<boolean> {
-	const configPath = vscode.Uri.joinPath(vscode.Uri.file(workspaceRoot), '.rhizome', 'config.json');
-
-	try {
-		// Check if key is already configured (env var or config file)
-		if (process.env.OPENAI_API_KEY) {
-			return true;
-		}
-
-		const configExists = await vscode.workspace.fs.stat(configPath);
-		if (configExists) {
-			const configContent = await vscode.workspace.fs.readFile(configPath);
-			const config = JSON.parse(new TextDecoder().decode(configContent));
-			if (config.ai?.openai_key) {
-				// Load key from config into env for this session
-				process.env.OPENAI_API_KEY = config.ai.openai_key;
-				return true;
-			}
-		}
-	} catch {
-		// Config file doesn't exist or can't be read, that's fine
-	}
-
-	// No key found, ask user
-	const key = await vscode.window.showInputBox({
-		prompt: 'Enter your OpenAI API key (stored locally in .rhizome/config.json)',
-		password: true,
-		ignoreFocusOut: true,
-	});
-
-	if (!key) {
-		vscode.window.showWarningMessage('OpenAI API key is required for don-socratic');
-		return false;
-	}
-
-	// Save key to local config
-	try {
-		const rhizomePath = vscode.Uri.joinPath(vscode.Uri.file(workspaceRoot), '.rhizome');
-		const configPath = vscode.Uri.joinPath(rhizomePath, 'config.json');
-
-		let config: any = {};
-		try {
-			const existing = await vscode.workspace.fs.readFile(configPath);
-			config = JSON.parse(new TextDecoder().decode(existing));
-		} catch {
-			// File doesn't exist, start fresh
-		}
-
-		// Ensure nested structure exists
-		if (!config.ai) config.ai = {};
-		config.ai.openai_key = key;
-
-		// Write config
-		const configContent = new TextEncoder().encode(JSON.stringify(config, null, 2));
-		await vscode.workspace.fs.writeFile(configPath, configContent);
-
-		// Set env var for this session
-		process.env.OPENAI_API_KEY = key;
-
-		// Add .rhizome/config.json to .gitignore
-		await addToGitignore(workspaceRoot, '.rhizome/config.json');
-
-		vscode.window.showInformationMessage('OpenAI API key configured and stored securely');
-		return true;
-	} catch (error: any) {
-		vscode.window.showErrorMessage(`Failed to save API key: ${(error as Error).message}`);
-		return false;
-	}
-}
-
-/**
- * Helper: Add entry to .gitignore if not already there
- */
-async function addToGitignore(workspaceRoot: string, entry: string): Promise<void> {
-	const gitignorePath = vscode.Uri.joinPath(vscode.Uri.file(workspaceRoot), '.gitignore');
-
-	let content = '';
-	try {
-		const existing = await vscode.workspace.fs.readFile(gitignorePath);
-		content = new TextDecoder().decode(existing);
-	} catch {
-		// .gitignore doesn't exist, we'll create it
-	}
-
-	if (!content.includes(entry)) {
-		content += (content.endsWith('\n') ? '' : '\n') + entry + '\n';
-		const encoded = new TextEncoder().encode(content);
-		await vscode.workspace.fs.writeFile(gitignorePath, encoded);
-	}
-}
-
-/**
- * Helper: Initialize rhizome context in workspace root
- *
- * don-socratic asks:
- * What does it mean for a tool to be "initialized"?
- * What state needs to exist before it can work?
- * How should the tool handle missing initialization?
- *
- * If .rhizome doesn't exist in workspace root, run `rhizome init`
- * to set up the local context directory.
- */
-async function initializeRhizomeIfNeeded(workspaceRoot: string): Promise<boolean> {
-	// Check if rhizome is installed
-	if (!isRhizomeInstalled()) {
-		// Run initial diagnostics to understand why
-		const diagnosticsBefore = await diagnosticRhizomeMissing();
-		const isMember = await isUEUMember();
-
-		if (isMember) {
-			// User is UEU member, offer to install with diagnostics
-			vscode.window.showInformationMessage('Diagnostics before installation:\n' + diagnosticsBefore.join('\n'));
-
-			const response = await vscode.window.showErrorMessage(
-				'rhizome CLI not found. You are a member of Unity-Environmental-University. Install rhizome now?',
-				'Install rhizome',
-				'View Guide'
-			);
-
-			if (response === 'Install rhizome') {
-				try {
-					vscode.window.showInformationMessage('Installing rhizome...');
-					const { execSync } = require('child_process');
-
-					// Try npm install globally
-					execSync('npm install -g @rhizome/cli', {
-						encoding: 'utf-8',
-						timeout: 60000,
-						stdio: 'inherit',
-					});
-
-					vscode.window.showInformationMessage('rhizome installed successfully!');
-
-					// Run diagnostics after installation
-					const diagnosticsAfter = await diagnosticRhizomeMissing();
-					vscode.window.showInformationMessage(
-						'Diagnostics after installation:\n' + diagnosticsAfter.join('\n')
-					);
-
-					// Verify installation
-					if (!isRhizomeInstalled()) {
-						vscode.window.showWarningMessage(
-							'Installation completed but rhizome still not found in PATH. You may need to restart VSCode.'
-						);
-						return false;
-					}
-
-					// Continue with workspace initialization
-					return await initializeRhizomeIfNeeded(workspaceRoot);
-				} catch (error: any) {
-					vscode.window.showErrorMessage(`Failed to install rhizome: ${(error as Error).message}`);
-					const diagnosticsFailure = await diagnosticRhizomeMissing();
-					vscode.window.showInformationMessage(
-						'Diagnostics after failed installation:\n' + diagnosticsFailure.join('\n')
-					);
-					return false;
-				}
-			} else if (response === 'View Guide') {
-				vscode.env.openExternal(vscode.Uri.parse('https://github.com/your-rhizome-repo#installation'));
-			}
-			return false;
-		} else {
-			// Not a UEU member, direct them to install themselves
-			const response = await vscode.window.showWarningMessage(
-				'rhizome CLI not found. Please install it to use vscode-rhizome.',
-				'View Installation Guide'
-			);
-			if (response === 'View Installation Guide') {
-				vscode.env.openExternal(vscode.Uri.parse('https://github.com/your-rhizome-repo#installation'));
-			}
-			return false;
-		}
-	}
-
-	const rhizomePath = vscode.Uri.joinPath(vscode.Uri.file(workspaceRoot), '.rhizome');
-	try {
-		await vscode.workspace.fs.stat(rhizomePath);
-		// .rhizome exists, check for key config
-		const keyConfigured = await ensureOpenAIKeyConfigured(workspaceRoot);
-		return keyConfigured;
-	} catch {
-		// .rhizome doesn't exist, try to initialize
-		// NOTE: --force flag auto-resolves conflicts from epistles plugin context sync
-		try {
-			vscode.window.showInformationMessage('Initializing rhizome in workspace...');
-			const { execSync } = require('child_process');
-			execSync('rhizome init --force', {
-				cwd: workspaceRoot,
-				encoding: 'utf-8',
-				timeout: 10000,
-			});
-			vscode.window.showInformationMessage('Rhizome initialized in workspace');
-
-			// Now ask for key
-			const keyConfigured = await ensureOpenAIKeyConfigured(workspaceRoot);
-			return keyConfigured;
-		} catch (error: any) {
-			vscode.window.showErrorMessage(`Failed to initialize rhizome: ${(error as Error).message}`);
-			return false;
-		}
-	}
-}
-
-/**
- * Helper: Handle don-socratic response workflow
- *
- * Given selected code + persona, query rhizome and display in output channel.
- * Extracted so both "ask don-socratic" and "ask inline question" can use it.
- */
-async function askPersonaAboutSelection(persona: string, personaDisplayName: string) {
-	telemetry('QUERY', 'START', `Asking ${persona} to analyze code`);
-
-	const selection = getActiveSelection();
-	if (!selection) {
-		telemetry('QUERY', 'ERROR', 'No selection found');
-		return;
-	}
-
-	const { selectedText } = selection;
-	telemetry('QUERY', 'STEP', 'Selection verified', {
-		length: selectedText.length,
-		persona: persona,
-	});
-
-	// Ensure rhizome is initialized before querying
-	const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-	if (!workspaceRoot) {
-		telemetry('QUERY', 'ERROR', 'No workspace folder');
-		vscode.window.showErrorMessage('No workspace folder open');
-		return;
-	}
-
-	telemetry('QUERY', 'STEP', 'Initializing rhizome if needed...');
-	const initialized = await initializeRhizomeIfNeeded(workspaceRoot);
-	if (!initialized) {
-		telemetry('QUERY', 'ERROR', 'Rhizome initialization failed');
-		vscode.window.showErrorMessage('Could not initialize rhizome. Check workspace permissions.');
-		return;
-	}
-	telemetry('QUERY', 'STEP', 'Rhizome initialized');
-
-	telemetry('QUERY', 'STEP', 'Creating output channel...');
-	const outputChannel = vscode.window.createOutputChannel('vscode-rhizome');
-	outputChannel.show(true);
-
-	try {
-		telemetry('QUERY', 'STEP', 'Calling queryPersona...');
-		const response = await queryPersona(selectedText, persona, 30000, workspaceRoot);
-		telemetry('QUERY', 'SUCCESS', 'Got response from persona', {
-			persona: persona,
-			responseLength: response.length,
-		});
-
-		telemetry('QUERY', 'STEP', 'Formatting response for output...');
-		formatPersonaOutput(outputChannel, personaDisplayName, selectedText, response);
-		telemetry('QUERY', 'RESULT', 'Response displayed in output pane');
-	} catch (error: any) {
-		telemetry('QUERY', 'ERROR', 'Query failed', {
-			persona: persona,
-			error: (error as Error).message,
-		});
-		outputChannel.appendLine('');
-		outputChannel.appendLine('Error calling rhizome CLI:');
-		outputChannel.appendLine((error as Error).message);
-		outputChannel.appendLine('');
-		outputChannel.appendLine('Make sure rhizome is installed and in your PATH.');
-	}
-}
-
-/**
- * Helper: Health check for rhizome integration
- *
- * Verifies:
- * 1. rhizome CLI is installed and in PATH
- * 2. Workspace has .rhizome directory
- * 3. At least one persona is available
- * 4. A simple query works
- */
-async function performHealthCheck(workspaceRoot: string): Promise<{ healthy: boolean; details: string[] }> {
-	const details: string[] = [];
-	const { execSync } = require('child_process');
-	const fs = require('fs');
-
-	try {
-		// Check 1: rhizome installed
-		try {
-			const version = execSync('rhizome --version', {
-				encoding: 'utf-8',
-				timeout: 5000,
-				stdio: 'pipe',
-			}).trim();
-			details.push(`✓ rhizome installed: ${version}`);
-		} catch {
-			details.push(`✗ rhizome not found in PATH`);
-			return { healthy: false, details };
-		}
-
-		// Check 2: workspace has .rhizome
-		const rhizomeDir = `${workspaceRoot}/.rhizome`;
-		if (fs.existsSync(rhizomeDir)) {
-			details.push(`✓ .rhizome directory exists at ${rhizomeDir}`);
-		} else {
-			details.push(`⚠ .rhizome directory not found. Run: vscode-rhizome.init`);
-		}
-
-		// Check 3: personas available
-		try {
-			const personaOutput = execSync('rhizome persona list', {
-				encoding: 'utf-8',
-				timeout: 5000,
-				stdio: 'pipe',
-				cwd: workspaceRoot,
-			});
-			const personaCount = personaOutput.split('\n').filter((line: string) => line.includes('|')).length;
-			details.push(`✓ ${personaCount} personas available`);
-		} catch {
-			details.push(`✗ Could not list personas`);
-			return { healthy: false, details };
-		}
-
-		// Check 4: test a simple query
-		try {
-			execSync('rhizome query --persona don-socratic', {
-				input: 'hello',
-				encoding: 'utf-8',
-				timeout: 10000,
-				stdio: ['pipe', 'pipe', 'pipe'],
-				cwd: workspaceRoot,
-			});
-			details.push(`✓ test query succeeded`);
-		} catch (error: any) {
-			const errorMsg = error.stderr?.toString() || error.message;
-			details.push(`✗ test query failed: ${errorMsg.split('\n')[0]}`);
-			return { healthy: false, details };
-		}
-
-		return { healthy: true, details };
-	} catch (error: any) {
-		details.push(`✗ Health check error: ${(error as Error).message}`);
-		return { healthy: false, details };
-	}
-}
-
-/**
  * Activate extension on startup
  */
 export function activate(context: vscode.ExtensionContext) {
 	console.log('[vscode-rhizome] ========== ACTIVATION START ==========');
-	console.log('[vscode-rhizome] Activation starting');
 	ensureLocalBinOnPath();
-	console.log('[vscode-rhizome] Local bin path ensured');
+
+	const initialWorkspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+	if (initialWorkspaceRoot) {
+		activateMcpBridge(context, initialWorkspaceRoot).catch((error) => {
+			console.error('[vscode-rhizome] Failed to start MCP bridge:', (error as Error).message);
+		});
+	}
+
+	// Cleanup agentic terminal on deactivation
+	context.subscriptions.push(
+		new vscode.Disposable(() => {
+			disposeCommands();
+		})
+	);
 
 	// Log available personas on startup
 	(async () => {
@@ -887,644 +85,337 @@ export function activate(context: vscode.ExtensionContext) {
 	// ======================================
 	// COMMAND: health check for rhizome
 	// ======================================
-	let healthCheckDisposable = vscode.commands.registerCommand('vscode-rhizome.healthCheck', async () => {
-		const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-		if (!workspaceRoot) {
-			vscode.window.showErrorMessage('No workspace folder open');
-			return;
-		}
-
-		const outputChannel = vscode.window.createOutputChannel('vscode-rhizome: Health Check');
-		outputChannel.show(true);
-
-		outputChannel.appendLine('='.repeat(60));
-		outputChannel.appendLine('vscode-rhizome Health Check');
-		outputChannel.appendLine('='.repeat(60));
-		outputChannel.appendLine('');
-
-		const check = await performHealthCheck(workspaceRoot);
-		for (const detail of check.details) {
-			outputChannel.appendLine(detail);
-		}
-
-		outputChannel.appendLine('');
-		if (check.healthy) {
-			outputChannel.appendLine('✓ All checks passed. Extension is ready to use.');
-		} else {
-			outputChannel.appendLine('✗ Some checks failed. See above for details.');
-		}
-	});
-
-	context.subscriptions.push(healthCheckDisposable);
-
-	// ======================================
-	// COMMAND: initialize rhizome in workspace
-	// ======================================
-	let initDisposable = vscode.commands.registerCommand('vscode-rhizome.init', async () => {
-		console.log('[vscode-rhizome.init] Command invoked');
-		const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-		if (!workspaceRoot) {
-			console.log('[vscode-rhizome.init] No workspace folder');
-			vscode.window.showErrorMessage('No workspace folder open');
-			return;
-		}
-
-		console.log('[vscode-rhizome.init] Initializing at:', workspaceRoot);
-		const initialized = await initializeRhizomeIfNeeded(workspaceRoot);
-		if (initialized) {
-			console.log('[vscode-rhizome.init] Initialization successful');
-			vscode.window.showInformationMessage('Rhizome is ready in this workspace');
-		} else {
-			console.log('[vscode-rhizome.init] Initialization failed');
-		}
-	});
-
-	context.subscriptions.push(initDisposable);
-
-	// ======================================
-	// COMMAND: Diagnose rhizome environment
-	// ======================================
-	let diagnosisDisposable = vscode.commands.registerCommand('vscode-rhizome.diagnoseEnvironment', async () => {
-		console.log('[diagnoseEnvironment] Starting rhizome environment diagnosis');
-
-		const { execSync } = require('child_process');
-		const outputChannel = vscode.window.createOutputChannel('vscode-rhizome: Environment Diagnosis');
-		outputChannel.show(true);
-
-		outputChannel.appendLine('='.repeat(70));
-		outputChannel.appendLine('RHIZOME ENVIRONMENT DIAGNOSIS');
-		outputChannel.appendLine('='.repeat(70));
-		outputChannel.appendLine('');
-
-		try {
-			// 1. Find rhizome installation
-			outputChannel.appendLine('1. RHIZOME INSTALLATION');
-			const rhizomeWhich = execSync('which rhizome', { encoding: 'utf-8' }).trim();
-			outputChannel.appendLine(`   Location: ${rhizomeWhich}`);
-
-			// 2. Find Python being used
-			outputChannel.appendLine('');
-			outputChannel.appendLine('2. PYTHON ENVIRONMENT');
-			const pythonPath = execSync('which python3', { encoding: 'utf-8' }).trim();
-			const pythonVersion = execSync('python3 --version', { encoding: 'utf-8' }).trim();
-			outputChannel.appendLine(`   Python: ${pythonPath}`);
-			outputChannel.appendLine(`   Version: ${pythonVersion}`);
-
-			// 3. Check for pyyaml
-			outputChannel.appendLine('');
-			outputChannel.appendLine('3. REQUIRED PYTHON MODULES');
-			try {
-				execSync('python3 -c "import yaml; print(yaml.__version__)"', { stdio: 'pipe', encoding: 'utf-8' });
-				outputChannel.appendLine('   ✓ pyyaml: INSTALLED');
-			} catch {
-				outputChannel.appendLine('   ✗ pyyaml: MISSING');
-			}
-
-			// 4. Check sys.path
-			outputChannel.appendLine('');
-			outputChannel.appendLine('4. PYTHON MODULE SEARCH PATHS (sys.path)');
-			const sysPath = execSync('python3 -c "import sys; print(\'\\n\'.join(sys.path))"', { encoding: 'utf-8' });
-			sysPath.split('\n').filter((p: string) => p.trim()).forEach((p: string) => {
-				outputChannel.appendLine(`   - ${p}`);
-			});
-
-			// 5. Show pip info
-			outputChannel.appendLine('');
-			outputChannel.appendLine('5. PIP INFORMATION');
-			const pipVersion = execSync('python3 -m pip --version', { encoding: 'utf-8' }).trim();
-			outputChannel.appendLine(`   ${pipVersion}`);
-
-			// 6. List installed packages
-			outputChannel.appendLine('');
-			outputChannel.appendLine('6. INSTALLED PACKAGES (yaml-related)');
-			try {
-				const pipList = execSync('python3 -m pip list | grep -i yaml', { encoding: 'utf-8', stdio: 'pipe' });
-				if (pipList.trim()) {
-					outputChannel.appendLine(`   ${pipList}`);
-				} else {
-					outputChannel.appendLine('   (none found)');
-				}
-			} catch {
-				outputChannel.appendLine('   (none found)');
-			}
-
-			// 7. Recommendations
-			outputChannel.appendLine('');
-			outputChannel.appendLine('='.repeat(70));
-			outputChannel.appendLine('RECOMMENDATIONS');
-			outputChannel.appendLine('='.repeat(70));
-			outputChannel.appendLine('');
-			outputChannel.appendLine('This is a RHIZOME INSTALLATION ISSUE, not an extension bug.');
-			outputChannel.appendLine('');
-			outputChannel.appendLine('The problem: Rhizome requires Python module "pyyaml" but it\'s not');
-			outputChannel.appendLine('installed in the Python environment rhizome uses.');
-			outputChannel.appendLine('');
-			outputChannel.appendLine('The real fix should be in rhizome itself:');
-			outputChannel.appendLine('- Rhizome should have a requirements.txt');
-			outputChannel.appendLine('- Rhizome should manage its own venv or dependencies');
-			outputChannel.appendLine('- Or be packaged as a standalone binary');
-			outputChannel.appendLine('');
-			outputChannel.appendLine('For now, try:');
-			outputChannel.appendLine('  python3 -m pip install pyyaml');
-			outputChannel.appendLine('');
-			outputChannel.appendLine('Then reload VSCode.');
-
-		} catch (error) {
-			outputChannel.appendLine(`ERROR: ${(error as Error).message}`);
-		}
-
-		vscode.window.showInformationMessage('Diagnosis complete. See output panel for details.');
-	});
-
-	context.subscriptions.push(diagnosisDisposable);
-
-	// ======================================
-	// COMMAND: Install rhizome dependencies
-	// ======================================
-	let installDepsDisposable = vscode.commands.registerCommand('vscode-rhizome.installDeps', async () => {
-		console.log('[vscode-rhizome.installDeps] Command invoked');
-
-		const { execSync } = require('child_process');
-
-		// Show the actual problem and solution
-		const option = await vscode.window.showQuickPick(
-			[
-				{
-					label: 'python3 -m pip install pyyaml',
-					description: '📦 Install pyyaml to the system Python (MOST COMMON FIX)',
-				},
-				{
-					label: 'python3 -m pip install pyyaml && rhizome version',
-					description: '✓ Install pyyaml AND verify rhizome works',
-				},
-				{
-					label: 'cd /Users/hallie/Documents/repos/tools/rhizome && pip install -e .',
-					description: '🔧 Install rhizome in development mode (installs all deps)',
-				},
-				{
-					label: 'Show me the full terminal command to copy',
-					description: '💻 I\'ll copy and run it myself',
-				},
-			],
-			{
-				placeHolder: 'Rhizome is missing pyyaml. Choose how to fix:',
-				title: 'Rhizome Dependency Issue - No module named "yaml"'
-			}
-		);
-
-		if (!option) {
-			console.log('[vscode-rhizome.installDeps] User cancelled');
-			return;
-		}
-
-		console.log('[vscode-rhizome.installDeps] User selected:', option.label);
-
-		// If user wants to see the command, show it
-		if (option.label.includes('Show me')) {
-			vscode.window.showInformationMessage(
-				'Copy and paste this into your terminal:\n\npython3 -m pip install pyyaml\n\nThen reload VSCode (Cmd+Shift+P → Reload Window)'
-			);
-			return;
-		}
-
-		// Show terminal and execute command
-		const terminal = vscode.window.createTerminal('rhizome: Install Dependencies');
-		terminal.show();
-
-		console.log('[vscode-rhizome.installDeps] Executing:', option.label);
-
-		// Send command to terminal
-		terminal.sendText(option.label, true);
-
-		// Show info message
-		vscode.window.showInformationMessage(
-			'Running in terminal. When you see "Successfully installed", close the terminal and reload VSCode (Cmd+Shift+P → Reload Window).'
-		);
-	});
-
-	context.subscriptions.push(installDepsDisposable);
-
-	// ======================================
-	// AUTOCOMPLETE: @rhizome ask <persona>
-	// ======================================
-	// Register a completion provider for @rhizome ask
-	const completionProvider = vscode.languages.registerCompletionItemProvider(
-		{ scheme: 'file' }, // Apply to all files
-		{
-			async provideCompletionItems(document, position) {
-				console.log('[autocomplete] Triggered at line', position.line);
-				// Get the line text up to the cursor
-				const lineText = document.lineAt(position).text.substring(0, position.character);
-				console.log('[autocomplete] Line text:', lineText);
-
-				// Check if we're in a @rhizome ask context
-				if (!lineText.includes('@rhizome ask')) {
-					console.log('[autocomplete] Not in @rhizome ask context');
-					return [];
-				}
-
-				console.log('[autocomplete] Found @rhizome ask context');
-				// Get available personas
-				const personas = await getAvailablePersonas();
-				console.log('[autocomplete] Personas available:', Array.from(personas.keys()));
-				const items: vscode.CompletionItem[] = [];
-
-				for (const [name, role] of personas.entries()) {
-					const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.User);
-					item.detail = role;
-					item.documentation = new vscode.MarkdownString(`**${name}**: ${role}`);
-					item.insertText = name;
-					items.push(item);
-				}
-
-				console.log('[autocomplete] Returning', items.length, 'completion items');
-				return items;
-			}
-		},
-		' ' // Trigger on space (after "@rhizome ask ")
-	);
-
-	context.subscriptions.push(completionProvider);
-
-	// ======================================
-	// COMMAND: ask any persona (dynamic picker)
-	// ======================================
-	let askPersonaDisposable = vscode.commands.registerCommand('vscode-rhizome.askPersona', async () => {
-		telemetry('WORKFLOW', 'START', 'User invoked "Ask a persona" command');
-
-		// Step 1: Get selection
-		const selection = getActiveSelection();
-		if (!selection) {
-			telemetry('WORKFLOW', 'ERROR', 'No text selected', { action: 'abort' });
-			vscode.window.showErrorMessage('Please select some code first');
-			return;
-		}
-		const { selectedText } = selection;
-		telemetry('WORKFLOW', 'STEP', 'Selection obtained', {
-			length: selectedText.length,
-			preview: selectedText.substring(0, 50) + (selectedText.length > 50 ? '...' : ''),
-		});
-
-		// Step 2: Fetch personas
-		telemetry('WORKFLOW', 'STEP', 'Fetching available personas...');
-		const personas = await getAvailablePersonas();
-		telemetry('WORKFLOW', 'STEP', 'Personas loaded', {
-			total: personas.size,
-			names: Array.from(personas.keys()).slice(0, 5).join(', ') + (personas.size > 5 ? ', ...' : ''),
-		});
-
-		if (personas.size === 0) {
-			telemetry('WORKFLOW', 'ERROR', 'No personas available', { action: 'abort' });
-			vscode.window.showErrorMessage('No personas available. Check rhizome installation.');
-			return;
-		}
-
-		const personaOptions = Array.from(personas.entries()).map(([name, role]) => ({
-			label: name,
-			description: role,
-		}));
-
-		// Step 3: Show picker
-		telemetry('WORKFLOW', 'STEP', 'Showing quick picker');
-		const picked = await vscode.window.showQuickPick(personaOptions, {
-			placeHolder: 'Choose a persona to question your code',
-			matchOnDescription: true,
-		});
-
-		if (!picked) {
-			telemetry('WORKFLOW', 'STEP', 'User cancelled persona selection');
-			return;
-		}
-
-		telemetry('WORKFLOW', 'STEP', 'Persona selected', {
-			persona: picked.label,
-			role: picked.description,
-		});
-
-		// Step 4: Query persona
-		telemetry('WORKFLOW', 'STEP', 'Calling queryPersona...');
-		await askPersonaAboutSelection(picked.label, picked.label);
-		telemetry('WORKFLOW', 'SUCCESS', 'Ask persona command completed');
-	});
-
-	context.subscriptions.push(askPersonaDisposable);
-
-	// ======================================
-	// COMMAND: voice control preview webview
-	// ======================================
-	const voiceControlDisposable = registerVoiceControlCommand(context);
-	context.subscriptions.push(voiceControlDisposable);
-
-	// ======================================
-	// COMMAND: stub generation
-	// ======================================
-	// don-socratic asks:
-	// When someone invokes the stub command, what needs to happen?
-	// 1. Find the @rhizome stub comment?
-	// 2. Parse the function signature?
-	// 3. Generate the stub?
-	// 4. Insert it into the file?
-	//
-	// In what order? And how do you know each step succeeded?
-	//
-	// ANSWER (step-by-step workflow):
-	// 1. Get active editor (vscode.window.activeTextEditor)
-	// 2. Get the document text (editor.document.getText())
-	// 3. Find all @rhizome stub comments (findStubComments from stubGenerator)
-	// 4. If multiple, ask user which one (InputBox)
-	// 5. For selected stub:
-	//    a. Extract function signature
-	//    b. Detect language from file extension
-	//    c. Call generateStub(functionName, params, returnType, language)
-	//    d. Call insertStub(code, line, generatedStub, language)
-	// 6. Apply edit to document (TextEdit)
-	// 7. Show success/error message
-	//
-	// Error handling: Show user what went wrong at each step
-	//
-	let stubDisposable = vscode.commands.registerCommand('vscode-rhizome.stub', async () => {
-		const editor = vscode.window.activeTextEditor;
-		if (!editor) {
-			vscode.window.showErrorMessage('No active editor');
-			return;
-		}
-
-		const document = editor.document;
-		const code = document.getText();
-
-		// Detect language from file extension
-		const language = detectLanguage(document.languageId);
-
-		if (!language) {
-			vscode.window.showErrorMessage(
-				`Unsupported language: ${document.languageId}. Use TypeScript, JavaScript, or Python.`
-			);
-			return;
-		}
-
-		// Find @rhizome stub comments in the file
-		const stubs = findStubComments(code, language);
-
-		if (stubs.length === 0) {
-			vscode.window.showWarningMessage('No @rhizome stub comments found in this file');
-			return;
-		}
-
-		// If multiple stubs, ask user which one
-		let targetStub = stubs[0];
-		if (stubs.length > 1) {
-			const picked = await vscode.window.showQuickPick(
-				stubs.map((s) => `Line ${s.line}: ${s.functionName}`),
-				{ placeHolder: 'Which function to stub?' }
-			);
-			if (!picked) return;
-			const index = stubs.map((s) => `Line ${s.line}: ${s.functionName}`).indexOf(picked);
-			targetStub = stubs[index];
-		}
-
-		// Generate stub code
-		const stub = generateStub(targetStub.functionName, targetStub.params, targetStub.returnType, language);
-
-		// Insert stub into file
-		const modifiedCode = insertStub(code, targetStub.line, stub, language);
-
-		// Apply edit to document
-		const fullRange = new vscode.Range(document.positionAt(0), document.positionAt(code.length));
-		const edit = new vscode.TextEdit(fullRange, modifiedCode);
-
-		// Create workspace edit and apply
-		const workspaceEdit = new vscode.WorkspaceEdit();
-		workspaceEdit.set(document.uri, [edit]);
-		await vscode.workspace.applyEdit(workspaceEdit);
-
-		vscode.window.showInformationMessage(`Stub created for ${targetStub.functionName}`);
-	});
-
-	context.subscriptions.push(stubDisposable);
-
-	/**
-	 * Command: documentWithPersona
-	 *
-	 * don-socratic asks:
-	 * When we ask a persona to document code, what should the output look like?
-	 * Should it be a block comment before the selection? After? Inline?
-	 * Who decides the placement—the persona or the user?
-	 *
-	 * ANSWER:
-	 * We insert persona's response as a comment block ABOVE the selection.
-	 * This follows the pattern of JSDoc/docstring conventions.
-	 * The persona suggests documentation; the user integrates it.
-	 */
-	let documentWithPersonaDisposable = vscode.commands.registerCommand(
-		'vscode-rhizome.documentWithPersona',
-		async () => {
-			telemetry('DOCUMENT', 'START', 'User invoked "Document with persona" command');
-
-			// Step 1: Get selection
-			const selection = getActiveSelection();
-			if (!selection) {
-				telemetry('DOCUMENT', 'ERROR', 'No text selected', { action: 'abort' });
-				vscode.window.showErrorMessage('Please select some code first');
-				return;
-			}
-
-			const { editor, selectedText } = selection;
-			const document = editor.document;
-			telemetry('DOCUMENT', 'STEP', 'Selection obtained', {
-				length: selectedText.length,
-				file: document.fileName,
-				language: document.languageId,
-			});
-
-			// Step 2: Fetch personas
-			telemetry('DOCUMENT', 'STEP', 'Fetching available personas...');
-			const personasMap = await getAvailablePersonas();
-			telemetry('DOCUMENT', 'STEP', 'Personas loaded', {
-				total: personasMap.size,
-				names: Array.from(personasMap.keys()).slice(0, 5).join(', '),
-			});
-
-			if (personasMap.size === 0) {
-				telemetry('DOCUMENT', 'ERROR', 'No personas available', { action: 'abort' });
-				vscode.window.showErrorMessage('No personas available. Check rhizome installation.');
-				return;
-			}
-
-			// Step 3: Show picker
-			telemetry('DOCUMENT', 'STEP', 'Showing quick picker');
-			const personaOptions = Array.from(personasMap.entries()).map(([name, role]) => ({
-				label: name,
-				description: role || `Ask ${name} to document this`,
-			}));
-			const picked = await vscode.window.showQuickPick(personaOptions, {
-				placeHolder: 'Which persona should document this code?',
-			});
-
-			if (!picked) {
-				telemetry('DOCUMENT', 'STEP', 'User cancelled persona selection');
-				return;
-			}
-			telemetry('DOCUMENT', 'STEP', 'Persona selected', {
-				persona: picked.label,
-				role: picked.description,
-			});
-
-			// Step 4: Initialize rhizome
-			telemetry('DOCUMENT', 'STEP', 'Getting workspace root...');
+	context.subscriptions.push(
+		vscode.commands.registerCommand('vscode-rhizome.healthCheck', async () => {
 			const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 			if (!workspaceRoot) {
-				telemetry('DOCUMENT', 'ERROR', 'No workspace folder');
 				vscode.window.showErrorMessage('No workspace folder open');
 				return;
 			}
 
-			telemetry('DOCUMENT', 'STEP', 'Initializing rhizome...');
-			const initialized = await initializeRhizomeIfNeeded(workspaceRoot);
-			if (!initialized) {
-				telemetry('DOCUMENT', 'ERROR', 'Rhizome initialization failed');
-				vscode.window.showErrorMessage('Could not initialize rhizome.');
+			const outputChannel = vscode.window.createOutputChannel('vscode-rhizome: Health Check');
+			outputChannel.show(true);
+
+			const check = await performHealthCheck(workspaceRoot);
+			formatHealthCheck(outputChannel, check.details, check.healthy);
+		})
+	);
+
+	// ======================================
+	// COMMAND: initialize rhizome in workspace
+	// ======================================
+	context.subscriptions.push(
+		vscode.commands.registerCommand('vscode-rhizome.init', async () => {
+			console.log('[vscode-rhizome.init] Command invoked');
+			const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+			if (!workspaceRoot) {
+				console.log('[vscode-rhizome.init] No workspace folder');
+				vscode.window.showErrorMessage('No workspace folder open');
 				return;
 			}
 
-			// Step 5: Build prompt
-			const prompt = `Please provide clear documentation/comments for this code:\n\n${selectedText}`;
-			telemetry('DOCUMENT', 'STEP', 'Prompt built', {
-				promptLength: prompt.length,
-				selectedLength: selectedText.length,
-			});
-
-			// Step 6: Query and format
-			await vscode.window.withProgress(
-				{
-					location: vscode.ProgressLocation.Notification,
-					title: `Asking ${picked.label} to document your code...`,
-					cancellable: false,
-				},
-				async (progress) => {
-					progress.report({ message: 'Waiting for response (this may take 10-30 seconds)...' });
-					telemetry('DOCUMENT', 'STEP', 'Progress notification shown');
-
-					try {
-						telemetry('DOCUMENT', 'STEP', 'Calling queryPersona...');
-						const response = await queryPersona(prompt, picked.label, 15000, workspaceRoot);
-						telemetry('DOCUMENT', 'SUCCESS', 'Got response from persona', {
-							persona: picked.label,
-							responseLength: response.length,
-						});
-
-						// Detect language and format comment
-						const language = detectLanguage(document.languageId);
-						const commentPrefix = language === 'python' ? '#' : '//';
-						telemetry('DOCUMENT', 'STEP', 'Language detected and comment prefix set', {
-							language: document.languageId,
-							prefix: commentPrefix,
-						});
-
-						const commentLines = response.split('\n').map((line) => `${commentPrefix} ${line}`);
-						const comment = commentLines.join('\n');
-						telemetry('DOCUMENT', 'STEP', 'Comment formatted', {
-							lines: commentLines.length,
-							commentLength: comment.length,
-						});
-
-						// Get insertion position (above selection)
-						const insertPos = editor.selection.start;
-						telemetry('DOCUMENT', 'STEP', 'Insertion position determined', {
-							line: insertPos.line,
-							character: insertPos.character,
-						});
-
-						// Insert comment
-						const edit = new vscode.TextEdit(
-							new vscode.Range(insertPos, insertPos),
-							`${comment}\n`
-						);
-						const workspaceEdit = new vscode.WorkspaceEdit();
-						workspaceEdit.set(document.uri, [edit]);
-						telemetry('DOCUMENT', 'STEP', 'Text edit created and applying...');
-						await vscode.workspace.applyEdit(workspaceEdit);
-						telemetry('DOCUMENT', 'RESULT', 'Comments inserted into file', {
-							persona: picked.label,
-							file: document.fileName,
-						});
-
-						progress.report({ message: 'Documentation added! ✓' });
-						vscode.window.showInformationMessage(`${picked.label} documentation added above selection`);
-						telemetry('DOCUMENT', 'SUCCESS', 'Document command completed successfully');
-					} catch (error: any) {
-						telemetry('DOCUMENT', 'ERROR', 'Query or insertion failed', {
-							persona: picked.label,
-							error: (error as Error).message,
-						});
-						progress.report({ message: `Error: ${(error as Error).message}` });
-						vscode.window.showErrorMessage(
-							`Failed to get documentation from ${picked.label}: ${(error as Error).message}`
-						);
-					}
-				}
-			);
-		}
+			console.log('[vscode-rhizome.init] Initializing at:', workspaceRoot);
+			const initialized = await initializeRhizomeIfNeeded(workspaceRoot);
+			if (initialized) {
+				console.log('[vscode-rhizome.init] Initialization successful');
+				vscode.window.showInformationMessage('Rhizome is ready in this workspace');
+			} else {
+				console.log('[vscode-rhizome.init] Initialization failed');
+			}
+		})
 	);
 
-	context.subscriptions.push(documentWithPersonaDisposable);
+	// ======================================
+	// COMMAND: Diagnose rhizome environment
+	// ======================================
+	context.subscriptions.push(
+		vscode.commands.registerCommand('vscode-rhizome.diagnoseEnvironment', async () => {
+			console.log('[diagnoseEnvironment] Starting rhizome environment diagnosis');
+
+			const { execSync } = require('child_process');
+			const outputChannel = vscode.window.createOutputChannel('vscode-rhizome: Environment Diagnosis');
+			outputChannel.show(true);
+
+			outputChannel.appendLine('='.repeat(70));
+			outputChannel.appendLine('RHIZOME ENVIRONMENT DIAGNOSIS');
+			outputChannel.appendLine('='.repeat(70));
+			outputChannel.appendLine('');
+
+			try {
+				// 1. Find rhizome installation
+				outputChannel.appendLine('1. RHIZOME INSTALLATION');
+				const rhizomeWhich = execSync('which rhizome', { encoding: 'utf-8' }).trim();
+				outputChannel.appendLine(`   Location: ${rhizomeWhich}`);
+
+				// 2. Find Python being used
+				outputChannel.appendLine('');
+				outputChannel.appendLine('2. PYTHON ENVIRONMENT');
+				const pythonPath = execSync('which python3', { encoding: 'utf-8' }).trim();
+				const pythonVersion = execSync('python3 --version', { encoding: 'utf-8' }).trim();
+				outputChannel.appendLine(`   Python: ${pythonPath}`);
+				outputChannel.appendLine(`   Version: ${pythonVersion}`);
+
+				// 3. Check for pyyaml
+				outputChannel.appendLine('');
+				outputChannel.appendLine('3. REQUIRED PYTHON MODULES');
+				try {
+					execSync('python3 -c "import yaml; print(yaml.__version__)"', { stdio: 'pipe', encoding: 'utf-8' });
+					outputChannel.appendLine('   ✓ pyyaml: INSTALLED');
+				} catch {
+					outputChannel.appendLine('   ✗ pyyaml: MISSING');
+				}
+
+				// 4. Check sys.path
+				outputChannel.appendLine('');
+				outputChannel.appendLine('4. PYTHON MODULE SEARCH PATHS (sys.path)');
+				const sysPath = execSync('python3 -c "import sys; print(\'\\n\'.join(sys.path))"', { encoding: 'utf-8' });
+				sysPath.split('\n').filter((p: string) => p.trim()).forEach((p: string) => {
+					outputChannel.appendLine(`   - ${p}`);
+				});
+
+				// 5. Show pip info
+				outputChannel.appendLine('');
+				outputChannel.appendLine('5. PIP INFORMATION');
+				const pipVersion = execSync('python3 -m pip --version', { encoding: 'utf-8' }).trim();
+				outputChannel.appendLine(`   ${pipVersion}`);
+
+				// 6. List installed packages
+				outputChannel.appendLine('');
+				outputChannel.appendLine('6. INSTALLED PACKAGES (yaml-related)');
+				try {
+					const pipList = execSync('python3 -m pip list | grep -i yaml', { encoding: 'utf-8', stdio: 'pipe' });
+					if (pipList.trim()) {
+						outputChannel.appendLine(`   ${pipList}`);
+					} else {
+						outputChannel.appendLine('   (none found)');
+					}
+				} catch {
+					outputChannel.appendLine('   (none found)');
+				}
+
+				// 7. Recommendations
+				outputChannel.appendLine('');
+				outputChannel.appendLine('='.repeat(70));
+				outputChannel.appendLine('RECOMMENDATIONS');
+				outputChannel.appendLine('='.repeat(70));
+				outputChannel.appendLine('');
+				outputChannel.appendLine('This is a RHIZOME INSTALLATION ISSUE, not an extension bug.');
+				outputChannel.appendLine('For now, try:');
+				outputChannel.appendLine('  python3 -m pip install pyyaml');
+				outputChannel.appendLine('');
+				outputChannel.appendLine('Then reload VSCode.');
+
+			} catch (error) {
+				outputChannel.appendLine(`ERROR: ${(error as Error).message}`);
+			}
+
+			vscode.window.showInformationMessage('Diagnosis complete. See output panel for details.');
+		})
+	);
+
+	// ======================================
+	// COMMAND: Install rhizome dependencies
+	// ======================================
+	context.subscriptions.push(
+		vscode.commands.registerCommand('vscode-rhizome.installDeps', async () => {
+			console.log('[vscode-rhizome.installDeps] Command invoked');
+
+			const { execSync } = require('child_process');
+
+			const option = await vscode.window.showQuickPick(
+				[
+					{
+						label: 'python3 -m pip install pyyaml',
+						description: '📦 Install pyyaml to the system Python (MOST COMMON FIX)',
+					},
+					{
+						label: 'python3 -m pip install pyyaml && rhizome version',
+						description: '✓ Install pyyaml AND verify rhizome works',
+					},
+					{
+						label: 'cd /Users/hallie/Documents/repos/tools/rhizome && pip install -e .',
+						description: '🔧 Install rhizome in development mode (installs all deps)',
+					},
+					{
+						label: 'Show me the full terminal command to copy',
+						description: '💻 I\'ll copy and run it myself',
+					},
+				],
+				{
+					placeHolder: 'Rhizome is missing pyyaml. Choose how to fix:',
+					title: 'Rhizome Dependency Issue - No module named "yaml"'
+				}
+			);
+
+			if (!option) {
+				console.log('[vscode-rhizome.installDeps] User cancelled');
+				return;
+			}
+
+			console.log('[vscode-rhizome.installDeps] User selected:', option.label);
+
+			if (option.label.includes('Show me')) {
+				vscode.window.showInformationMessage(
+					'Copy and paste this into your terminal:\n\npython3 -m pip install pyyaml\n\nThen reload VSCode (Cmd+Shift+P → Reload Window)'
+				);
+				return;
+			}
+
+			const terminal = vscode.window.createTerminal('rhizome: Install Dependencies');
+			terminal.show();
+			terminal.sendText(option.label, true);
+
+			vscode.window.showInformationMessage(
+				'Running in terminal. When you see "Successfully installed", close the terminal and reload VSCode (Cmd+Shift+P → Reload Window).'
+			);
+		})
+	);
+
+	// ======================================
+	// AUTOCOMPLETE: @rhizome ask <persona>
+	// ======================================
+	context.subscriptions.push(
+		vscode.languages.registerCompletionItemProvider(
+			{ scheme: 'file' },
+			{
+				async provideCompletionItems(document, position) {
+					const lineText = document.lineAt(position).text.substring(0, position.character);
+					if (!lineText.includes('@rhizome ask')) {
+						return [];
+					}
+
+					const personas = await getAvailablePersonas();
+					const items: vscode.CompletionItem[] = [];
+
+					for (const [name, role] of personas.entries()) {
+						const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.User);
+						item.detail = role;
+						item.documentation = new vscode.MarkdownString(`**${name}**: ${role}`);
+						item.insertText = name;
+						items.push(item);
+					}
+
+					return items;
+				}
+			},
+			' '
+		)
+	);
+
+	// ======================================
+	// COMMAND: ask any persona (dynamic picker)
+	// ======================================
+	context.subscriptions.push(
+		vscode.commands.registerCommand('vscode-rhizome.askPersona', askPersonaCommand)
+	);
+
+	// ======================================
+	// COMMAND: voice control preview webview
+	// ======================================
+	context.subscriptions.push(registerVoiceControlCommand(context));
+
+	// ======================================
+	// COMMAND: stub generation
+	// ======================================
+	context.subscriptions.push(
+		vscode.commands.registerCommand('vscode-rhizome.stub', async () => {
+			const editor = vscode.window.activeTextEditor;
+			if (!editor) {
+				vscode.window.showErrorMessage('No active editor');
+				return;
+			}
+
+			const document = editor.document;
+			const code = document.getText();
+			const language = detectLanguage(document.languageId);
+
+			if (!language) {
+				vscode.window.showErrorMessage(
+					`Unsupported language: ${document.languageId}. Use TypeScript, JavaScript, or Python.`
+				);
+				return;
+			}
+
+			const stubs = findStubComments(code, language);
+
+			if (stubs.length === 0) {
+				vscode.window.showWarningMessage('No @rhizome stub comments found in this file');
+				return;
+			}
+
+			let targetStub = stubs[0];
+			if (stubs.length > 1) {
+				const picked = await vscode.window.showQuickPick(
+					stubs.map((s) => `Line ${s.line}: ${s.functionName}`),
+					{ placeHolder: 'Which function to stub?' }
+				);
+				if (!picked) return;
+				const index = stubs.map((s) => `Line ${s.line}: ${s.functionName}`).indexOf(picked);
+				targetStub = stubs[index];
+			}
+
+			const stub = generateStub(targetStub.functionName, targetStub.params, targetStub.returnType, language);
+			const modifiedCode = insertStub(code, targetStub.line, stub, language);
+
+			const fullRange = new vscode.Range(document.positionAt(0), document.positionAt(code.length));
+			const edit = new vscode.TextEdit(fullRange, modifiedCode);
+
+			const workspaceEdit = new vscode.WorkspaceEdit();
+			workspaceEdit.set(document.uri, [edit]);
+			await vscode.workspace.applyEdit(workspaceEdit);
+
+			vscode.window.showInformationMessage(`Stub created for ${targetStub.functionName}`);
+		})
+	);
+
+	// ======================================
+	// COMMAND: Document with persona
+	// ======================================
+	context.subscriptions.push(
+		vscode.commands.registerCommand('vscode-rhizome.documentWithPersona', documentWithPersonaCommand)
+	);
 
 	// ===== Epistle Commands =====
-	// Initialize epistle registry
 	const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
 	const epistleRegistry = createEpistleRegistry(workspaceRoot);
 	const epistlesDir = require('path').join(workspaceRoot, '.rhizome', 'plugins', 'epistles');
 
-	// Command: Record letter epistle
-	let recordLetterEpistleDisposable = vscode.commands.registerCommand(
-		'vscode-rhizome.recordLetterEpistle',
-		async () => {
+	context.subscriptions.push(
+		vscode.commands.registerCommand('vscode-rhizome.recordLetterEpistle', async () => {
 			const editor = vscode.window.activeTextEditor;
 			if (!editor) {
 				vscode.window.showErrorMessage('Please open a file and select code before recording an epistle');
 				return;
 			}
-
 			if (editor.selection.isEmpty) {
 				vscode.window.showErrorMessage('Please select some code before recording an epistle');
 				return;
 			}
-
 			await recordLetterEpistle(editor, epistleRegistry, telemetry, epistlesDir, workspaceRoot);
-		}
+		})
 	);
-	context.subscriptions.push(recordLetterEpistleDisposable);
 
-	// Command: Record inline epistle
-	let recordInlineEpistleDisposable = vscode.commands.registerCommand(
-		'vscode-rhizome.recordInlineEpistle',
-		async () => {
+	context.subscriptions.push(
+		vscode.commands.registerCommand('vscode-rhizome.recordInlineEpistle', async () => {
 			const editor = vscode.window.activeTextEditor;
 			if (!editor) {
 				vscode.window.showErrorMessage('Please open a file and select code before recording an inline epistle');
 				return;
 			}
-
 			if (editor.selection.isEmpty) {
 				vscode.window.showErrorMessage('Please select some code before recording an inline epistle');
 				return;
 			}
-
 			await recordInlineEpistle(editor, epistleRegistry, telemetry);
-		}
+		})
 	);
-	context.subscriptions.push(recordInlineEpistleDisposable);
 
-	// Command: Create dynamic persona from file
-	let createDynamicPersonaDisposable = vscode.commands.registerCommand(
-		'vscode-rhizome.createDynamicPersona',
-		async (file?: vscode.Uri) => {
+	context.subscriptions.push(
+		vscode.commands.registerCommand('vscode-rhizome.createDynamicPersona', async (file?: vscode.Uri) => {
 			let filepath: string;
-
 			if (file) {
-				// Called from file explorer context menu
 				filepath = file.fsPath;
 			} else {
-				// Called from command palette
 				const editor = vscode.window.activeTextEditor;
 				if (!editor) {
 					vscode.window.showErrorMessage('Please open a file to create a dynamic persona');
@@ -1532,33 +423,16 @@ export function activate(context: vscode.ExtensionContext) {
 				}
 				filepath = editor.document.fileName;
 			}
-
 			await createDynamicPersona(filepath, epistleRegistry, telemetry);
-		}
+		})
 	);
-	context.subscriptions.push(createDynamicPersonaDisposable);
 
-	// ===== File Advocate Epistles =====
-	/**
-	 * Record file advocate epistle
-	 *
-	 * @rhizome: What's a file advocate epistle?
-	 * When you want to capture a persona's perspective on a whole file (not just code),
-	 * you create an advocate epistle. It analyzes the file's structure, role, and concerns,
-	 * then captures the persona's specific view.
-	 *
-	 * Usage: Right-click file → "Ask persona to advocate for this file"
-	 */
-	let recordFileAdvocateDisposable = vscode.commands.registerCommand(
-		'vscode-rhizome.recordFileAdvocateEpistle',
-		async (file?: vscode.Uri) => {
+	context.subscriptions.push(
+		vscode.commands.registerCommand('vscode-rhizome.recordFileAdvocateEpistle', async (file?: vscode.Uri) => {
 			let filepath: string;
-
 			if (file) {
-				// Called from file explorer context menu
 				filepath = file.fsPath;
 			} else {
-				// Called from command palette
 				const editor = vscode.window.activeTextEditor;
 				if (!editor) {
 					vscode.window.showErrorMessage('Please open a file to create an advocate epistle');
@@ -1566,45 +440,22 @@ export function activate(context: vscode.ExtensionContext) {
 				}
 				filepath = editor.document.fileName;
 			}
-
 			await recordFileAdvocateEpistle(filepath, workspaceRoot, epistleRegistry, telemetry);
-		}
+		})
 	);
-	context.subscriptions.push(recordFileAdvocateDisposable);
 
-	/**
-	 * Add file advocate comment
-	 *
-	 * @rhizome: What's a file advocate comment?
-	 * A quick header comment expressing a persona's perspective on the file.
-	 * Inserted at the top of the file for immediate visibility.
-	 * Great for code review style feedback.
-	 *
-	 * Usage: Right-click file → "Add file advocate comment"
-	 */
-	let addFileAdvocateCommentDisposable = vscode.commands.registerCommand(
-		'vscode-rhizome.addFileAdvocateComment',
-		async () => {
+	context.subscriptions.push(
+		vscode.commands.registerCommand('vscode-rhizome.addFileAdvocateComment', async () => {
 			const editor = vscode.window.activeTextEditor;
 			if (!editor) {
 				vscode.window.showErrorMessage('Please open a file to add an advocate comment');
 				return;
 			}
-
 			await addFileAdvocateComment(editor, telemetry);
-		}
+		})
 	);
-	context.subscriptions.push(addFileAdvocateCommentDisposable);
 
 	// ===== Epistle Sidebar =====
-	/**
-	 * Register the epistle sidebar provider
-	 *
-	 * @rhizome: What does registering the sidebar do?
-	 * VSCode loads the tree view provider and creates the sidebar view.
-	 * Users can see all epistles, filter by type/persona/date/flight-plan, and click to open.
-	 * The provider automatically syncs with registry changes.
-	 */
 	let sidebarProvider: EpistleSidebarProvider | undefined;
 	try {
 		sidebarProvider = registerEpistleSidebar(context, epistleRegistry, workspaceRoot);
@@ -1615,18 +466,8 @@ export function activate(context: vscode.ExtensionContext) {
 		});
 	}
 
-	// Command: Open epistle (tree item click)
-	/**
-	 * When user clicks an epistle in the sidebar, open it
-	 *
-	 * @rhizome: How do we open a file that might not exist yet?
-	 * - Letter epistles: file exists, open it in editor
-	 * - Inline epistles: open file at line range
-	 * - Dynamic personas: these are registry entries, show info dialog
-	 */
-	let openEpistleDisposable = vscode.commands.registerCommand(
-		'vscode-rhizome.openEpistle',
-		async (entry: any, workspaceRootPath: string) => {
+	context.subscriptions.push(
+		vscode.commands.registerCommand('vscode-rhizome.openEpistle', async (entry: any, workspaceRootPath: string) => {
 			telemetry('EPISTLE_SIDEBAR', 'START', 'Open epistle from sidebar', {
 				id: entry.id,
 				type: entry.type,
@@ -1635,7 +476,6 @@ export function activate(context: vscode.ExtensionContext) {
 			try {
 				switch (entry.type) {
 					case 'letter': {
-						// Open letter epistle file
 						const filepath = require('path').join(
 							workspaceRootPath,
 							'.rhizome',
@@ -1643,10 +483,8 @@ export function activate(context: vscode.ExtensionContext) {
 							'epistles',
 							entry.file
 						);
-
 						const doc = await vscode.workspace.openTextDocument(filepath);
 						await vscode.window.showTextDocument(doc);
-
 						telemetry('EPISTLE_SIDEBAR', 'SUCCESS', 'Opened letter epistle', {
 							id: entry.id,
 							file: entry.file,
@@ -1655,11 +493,9 @@ export function activate(context: vscode.ExtensionContext) {
 					}
 
 					case 'inline': {
-						// Open source file at line range
 						const doc = await vscode.workspace.openTextDocument(entry.inline_file);
 						const editor = await vscode.window.showTextDocument(doc);
 
-						// Parse line range (e.g., "148-151")
 						const [startLine, endLine] = entry.lines.split('-').map((s: string) => parseInt(s, 10));
 						const range = new vscode.Range(
 							new vscode.Position(startLine - 1, 0),
@@ -1678,11 +514,9 @@ export function activate(context: vscode.ExtensionContext) {
 					}
 
 					case 'dynamic_persona': {
-						// Show info about dynamic persona
 						vscode.window.showInformationMessage(
 							`Dynamic Persona: ${entry.name}\n\nSource: ${entry.source_file}\nCreated: ${entry.created_at}`
 						);
-
 						telemetry('EPISTLE_SIDEBAR', 'SUCCESS', 'Showed dynamic persona info', {
 							id: entry.id,
 							name: entry.name,
@@ -1698,22 +532,11 @@ export function activate(context: vscode.ExtensionContext) {
 				});
 				vscode.window.showErrorMessage(`Failed to open epistle: ${(error as Error).message}`);
 			}
-		}
+		})
 	);
-	context.subscriptions.push(openEpistleDisposable);
 
-	// Command: Refresh epistle sidebar
-	/**
-	 * User-triggered refresh to reload epistle registry from disk
-	 *
-	 * @rhizome: When would the user need to refresh?
-	 * - After adding epistles from outside the extension
-	 * - If registry file was edited manually
-	 * - To pick up changes from other editors
-	 */
-	let refreshEpistleSidebarDisposable = vscode.commands.registerCommand(
-		'vscode-rhizome.refreshEpistleSidebar',
-		async () => {
+	context.subscriptions.push(
+		vscode.commands.registerCommand('vscode-rhizome.refreshEpistleSidebar', async () => {
 			telemetry('EPISTLE_SIDEBAR', 'START', 'Manual refresh triggered');
 
 			try {
@@ -1727,22 +550,11 @@ export function activate(context: vscode.ExtensionContext) {
 					error: (error as Error).message,
 				});
 			}
-		}
+		})
 	);
-	context.subscriptions.push(refreshEpistleSidebarDisposable);
 
-	// Command: Change epistle sidebar filter
-	/**
-	 * User selects a new filter mode for the sidebar
-	 *
-	 * @rhizome: How should users switch between views?
-	 * Command palette: "Change epistle filter"
-	 * Or quick picker in sidebar context menu
-	 * Available modes: type (default), persona, date, flight-plan
-	 */
-	let changeEpistleFilterDisposable = vscode.commands.registerCommand(
-		'vscode-rhizome.changeEpistleFilter',
-		async () => {
+	context.subscriptions.push(
+		vscode.commands.registerCommand('vscode-rhizome.changeEpistleFilter', async () => {
 			telemetry('EPISTLE_SIDEBAR', 'START', 'Filter mode change requested');
 
 			const selected = await vscode.window.showQuickPick(
@@ -1776,22 +588,11 @@ export function activate(context: vscode.ExtensionContext) {
 				telemetry('EPISTLE_SIDEBAR', 'SUCCESS', 'Filter mode changed', { mode });
 				vscode.window.showInformationMessage(`Epistle view now filtered by ${selected.label.toLowerCase()}`);
 			}
-		}
+		})
 	);
-	context.subscriptions.push(changeEpistleFilterDisposable);
 
-	// Command: Show epistles for active flight plan
-	/**
-	 * View all epistles linked to the active flight plan
-	 *
-	 * @rhizome: Why separate this from the sidebar?
-	 * The sidebar shows all epistles. This command is focused.
-	 * It answers one question: "What design discussions are we having for THIS flight plan?"
-	 * Opens the sidebar, filters by flight plan, shows count and summary.
-	 */
-	let showFlightPlanEpistlesDisposable = vscode.commands.registerCommand(
-		'vscode-rhizome.showFlightPlanEpistles',
-		async () => {
+	context.subscriptions.push(
+		vscode.commands.registerCommand('vscode-rhizome.showFlightPlanEpistles', async () => {
 			const { getActiveFlightPlan, getEpistlesForFlightPlan, getEpistleCountsByType, formatFlightPlanInfo, formatEpistleSummary } = await import('./flightPlanIntegration');
 
 			telemetry('FLIGHT_PLAN_EPISTLES', 'START', 'Show epistles for active flight plan');
@@ -1816,7 +617,6 @@ export function activate(context: vscode.ExtensionContext) {
 					counts,
 				});
 
-				// Show summary and open sidebar filtered by flight plan
 				if (epistles.length === 0) {
 					vscode.window.showInformationMessage(
 						`${formatFlightPlanInfo(activeFlightPlan)}\n\nNo epistles yet. Create one to start recording design decisions!`
@@ -1828,7 +628,6 @@ export function activate(context: vscode.ExtensionContext) {
 					);
 				}
 
-				// Focus the sidebar (if provider exists)
 				if (sidebarProvider) {
 					sidebarProvider.setFilterMode('flight-plan');
 					vscode.commands.executeCommand('epistle-registry-sidebar.focus');
@@ -1839,28 +638,14 @@ export function activate(context: vscode.ExtensionContext) {
 				});
 				vscode.window.showErrorMessage(`Failed to load epistles: ${(error as Error).message}`);
 			}
-		}
+		})
 	);
-	context.subscriptions.push(showFlightPlanEpistlesDisposable);
 
 	console.log('[vscode-rhizome] ========== ACTIVATION COMPLETE ==========');
-	console.log('[vscode-rhizome] Commands registered:');
-	console.log('[vscode-rhizome]   - vscode-rhizome.healthCheck');
-	console.log('[vscode-rhizome]   - vscode-rhizome.init');
-	console.log('[vscode-rhizome]   - vscode-rhizome.installDeps');
-	console.log('[vscode-rhizome]   - vscode-rhizome.askPersona');
-	console.log('[vscode-rhizome]   - vscode-rhizome.documentWithPersona');
-	console.log('[vscode-rhizome]   - vscode-rhizome.recordLetterEpistle');
-	console.log('[vscode-rhizome]   - vscode-rhizome.recordInlineEpistle');
-	console.log('[vscode-rhizome]   - vscode-rhizome.createDynamicPersona');
-	console.log('[vscode-rhizome]   - vscode-rhizome.openEpistle (sidebar)');
-	console.log('[vscode-rhizome]   - vscode-rhizome.refreshEpistleSidebar');
-	console.log('[vscode-rhizome]   - vscode-rhizome.changeEpistleFilter');
-	console.log('[vscode-rhizome]   - @rhizome ask <persona> autocomplete');
-	console.log('[vscode-rhizome] Sidebar: Epistle Registry (filterable by type/persona/date/flight-plan)');
-	console.log('[vscode-rhizome] Ready to use! Open Debug Console (Cmd+Shift+U) to see activity logs.');
-	console.log('[vscode-rhizome] If you see "No module named yaml" errors, run: vscode-rhizome.installDeps');
+	console.log('[vscode-rhizome] Commands registered and ready to use');
 	console.log('[vscode-rhizome] ========== ACTIVATION END ==========');
 }
 
-export function deactivate() {}
+export function deactivate() {
+	disposeCommands();
+}

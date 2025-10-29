@@ -52,7 +52,7 @@ var require_lib = __commonJS({
         }
       return t;
     }
-    var Position2 = class {
+    var Position3 = class {
       constructor(line, col, index) {
         this.line = void 0;
         this.column = void 0;
@@ -78,7 +78,7 @@ var require_lib = __commonJS({
         column,
         index
       } = position;
-      return new Position2(line, column + columnOffset, index + columnOffset);
+      return new Position3(line, column + columnOffset, index + columnOffset);
     }
     var code = "BABEL_PARSER_SOURCETYPE_MODULE_REQUIRED";
     var ModuleErrors = {
@@ -422,7 +422,7 @@ var require_lib = __commonJS({
             column,
             index
           } = (_overrides$loc = overrides.loc) != null ? _overrides$loc : loc;
-          return constructor(new Position2(line, column, index), Object.assign({}, details, overrides.details));
+          return constructor(new Position3(line, column, index), Object.assign({}, details, overrides.details));
         });
         defineHidden(error, "details", details);
         Object.defineProperty(error, "message", {
@@ -5342,7 +5342,7 @@ var require_lib = __commonJS({
         this.startIndex = startIndex;
         this.curLine = startLine;
         this.lineStart = -startColumn;
-        this.startLoc = this.endLoc = new Position2(startLine, startColumn, startIndex);
+        this.startLoc = this.endLoc = new Position3(startLine, startColumn, startIndex);
       }
       get maybeInArrowParameters() {
         return (this.flags & 2) > 0;
@@ -5453,7 +5453,7 @@ var require_lib = __commonJS({
           this.flags &= -4097;
       }
       curPosition() {
-        return new Position2(this.curLine, this.pos - this.lineStart, this.pos + this.startIndex);
+        return new Position3(this.curLine, this.pos - this.lineStart, this.pos + this.startIndex);
       }
       clone() {
         const state = new _State();
@@ -5771,7 +5771,7 @@ var require_lib = __commonJS({
       };
     }
     function buildPosition(pos, lineStart, curLine) {
-      return new Position2(curLine, pos - lineStart, pos);
+      return new Position3(curLine, pos - lineStart, pos);
     }
     var VALID_REGEX_FLAGS = /* @__PURE__ */ new Set([103, 109, 115, 105, 121, 117, 100, 118]);
     var Token = class {
@@ -6677,7 +6677,7 @@ var require_lib = __commonJS({
         this.state.lineStart = lineStart;
         this.state.curLine = curLine;
         if (firstInvalidLoc) {
-          this.state.firstInvalidTemplateEscapePos = new Position2(firstInvalidLoc.curLine, firstInvalidLoc.pos - firstInvalidLoc.lineStart, this.sourceToOffsetPos(firstInvalidLoc.pos));
+          this.state.firstInvalidTemplateEscapePos = new Position3(firstInvalidLoc.curLine, firstInvalidLoc.pos - firstInvalidLoc.lineStart, this.sourceToOffsetPos(firstInvalidLoc.pos));
         }
         if (this.input.codePointAt(pos) === 96) {
           this.finishToken(24, firstInvalidLoc ? null : opening + str + "`");
@@ -6751,7 +6751,7 @@ var require_lib = __commonJS({
         }
       }
       raise(toParseError, at, details = {}) {
-        const loc = at instanceof Position2 ? at : at.loc.start;
+        const loc = at instanceof Position3 ? at : at.loc.start;
         const error = toParseError(loc, details);
         if (!(this.optionFlags & 2048))
           throw error;
@@ -6760,7 +6760,7 @@ var require_lib = __commonJS({
         return error;
       }
       raiseOverwrite(toParseError, at, details = {}) {
-        const loc = at instanceof Position2 ? at : at.loc.start;
+        const loc = at instanceof Position3 ? at : at.loc.start;
         const pos = loc.index;
         const errors = this.state.errors;
         for (let i = errors.length - 1; i >= 0; i--) {
@@ -15005,7 +15005,7 @@ __export(extension_exports, {
   deactivate: () => deactivate
 });
 module.exports = __toCommonJS(extension_exports);
-var vscode4 = __toESM(require("vscode"));
+var vscode5 = __toESM(require("vscode"));
 
 // src/stubGenerator.ts
 function generateStub(functionName, params, returnType, language, options) {
@@ -15239,7 +15239,7 @@ async function transcribeAudioChunk(base64Audio, options = {}) {
       "Content-Length": body.length
     }
   };
-  const responseBody = await new Promise((resolve, reject) => {
+  const responseBody = await new Promise((resolve2, reject) => {
     const req = https.request(requestOptions, (res) => {
       const chunks = [];
       res.on("data", (chunk) => chunks.push(chunk));
@@ -15247,7 +15247,7 @@ async function transcribeAudioChunk(base64Audio, options = {}) {
       res.on("end", () => {
         const payload = import_buffer.Buffer.concat(chunks).toString("utf-8");
         if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-          resolve(payload);
+          resolve2(payload);
         } else {
           reject(new Error(`OpenAI transcription failed (${res.statusCode ?? "unknown"}): ${payload}`));
         }
@@ -15770,7 +15770,8 @@ function createEpistleRegistry(workspaceRoot) {
 
 // src/epistleCommands.ts
 var vscode2 = __toESM(require("vscode"));
-var path5 = __toESM(require("path"));
+var path6 = __toESM(require("path"));
+var fs6 = __toESM(require("fs"));
 
 // src/epistleGenerator.ts
 var fs3 = __toESM(require("fs"));
@@ -16116,6 +16117,199 @@ var DynamicPersonaGenerator = class {
 
 // src/epistleCommands.ts
 init_flightPlanIntegration();
+
+// src/fileAdvocate.ts
+var fs5 = __toESM(require("fs"));
+var path5 = __toESM(require("path"));
+async function analyzeFile(filepath) {
+  if (!fs5.existsSync(filepath)) {
+    throw new Error(`File not found: ${filepath}`);
+  }
+  const content = fs5.readFileSync(filepath, "utf-8");
+  const lines = content.split("\n");
+  const filename = path5.basename(filepath);
+  const ext = path5.extname(filename).toLowerCase();
+  const languageMap = {
+    ".ts": "TypeScript",
+    ".tsx": "TypeScript (React)",
+    ".js": "JavaScript",
+    ".jsx": "JavaScript (React)",
+    ".py": "Python",
+    ".md": "Markdown",
+    ".json": "JSON"
+  };
+  const language = languageMap[ext] || "Unknown";
+  const importRegex = /^import\s+(?:{[^}]*}|\*\s+as\s+\w+|\w+)\s+from\s+['"]([^'"]+)['"]/gm;
+  const imports = [];
+  let match;
+  while ((match = importRegex.exec(content)) !== null) {
+    imports.push(match[1]);
+  }
+  const exportRegex = /^export\s+(?:(?:async\s+)?function|class|const|interface|type)\s+(\w+)/gm;
+  const exports2 = [];
+  while ((match = exportRegex.exec(content)) !== null) {
+    exports2.push(match[1]);
+  }
+  const classRegex = /class\s+(\w+)/g;
+  const classes = [];
+  while ((match = classRegex.exec(content)) !== null) {
+    classes.push(match[1]);
+  }
+  const funcRegex = /(?:^|[\n])(?:async\s+)?function\s+(\w+)/gm;
+  const functions = [];
+  while ((match = funcRegex.exec(content)) !== null) {
+    functions.push(match[1]);
+  }
+  const interfaceRegex = /interface\s+(\w+)/g;
+  const interfaces = [];
+  while ((match = interfaceRegex.exec(content)) !== null) {
+    interfaces.push(match[1]);
+  }
+  const errorHandling = content.includes("try") && content.includes("catch") ? "present" : content.includes("throw") || content.includes("Error") ? "minimal" : "absent";
+  const testCoverage = filename.includes(".test.") || filename.includes(".spec.");
+  const commentCount = (content.match(/\/\//g) || []).length + (content.match(/\/\*/g) || []).length;
+  const documentation = commentCount > lines.length * 0.3 ? "rich" : commentCount > lines.length * 0.1 ? "moderate" : "sparse";
+  const complexity = lines.length > 500 ? "high" : lines.length > 200 ? "medium" : "low";
+  let role = "unknown";
+  if (filename === "extension.ts" || filename === "index.ts" || filename === "main.ts") {
+    role = "entry-point";
+  } else if (filename.includes("test") || filename.includes("spec")) {
+    role = "unknown";
+  } else if (filename.includes("Generator") || filename.includes("Builder")) {
+    role = "generator";
+  } else if (filename.includes("Registry") || filename.includes("Store")) {
+    role = "registry";
+  } else if (filename.includes("Provider") || filename.includes("Panel")) {
+    role = "ui-provider";
+  } else if (filename.includes("util") || filename.includes("helper")) {
+    role = "utility";
+  }
+  const summaryParts = [];
+  if (role !== "unknown") {
+    summaryParts.push(capitalize(role.replace("-", " ")));
+  }
+  if (exports2.length > 0) {
+    summaryParts.push(`exports ${exports2.length} ${exports2.length === 1 ? "function" : "functions"}`);
+  }
+  if (classes.length > 0) {
+    summaryParts.push(`${classes.length} ${classes.length === 1 ? "class" : "classes"}`);
+  }
+  const summary = summaryParts.join(" \u2022 ");
+  return {
+    filepath,
+    filename,
+    language,
+    size: content.length,
+    lines: lines.length,
+    imports,
+    exports: exports2,
+    classes,
+    functions,
+    interfaces,
+    concerns: {
+      errorHandling,
+      testCoverage,
+      documentation,
+      complexity,
+      dependencies: imports.length,
+      exports: exports2.length
+    },
+    role,
+    summary
+  };
+}
+function generateFileAdvocateComment(analysis, persona, personaOpinion, language = "typescript") {
+  const commentPrefix = language === "python" ? "#" : "//";
+  const lines = [];
+  lines.push(`${commentPrefix} [${persona}] ${analysis.summary}`);
+  if (analysis.concerns.exports > 0) {
+    lines.push(`${commentPrefix} - Exports: ${analysis.exports.slice(0, 3).join(", ")}${analysis.exports.length > 3 ? `, +${analysis.exports.length - 3} more` : ""}`);
+  }
+  if (analysis.concerns.dependencies > 0) {
+    lines.push(`${commentPrefix} - Dependencies: ${analysis.concerns.dependencies} modules`);
+  }
+  const concerns = [];
+  if (analysis.concerns.errorHandling === "absent") {
+    concerns.push("error handling");
+  }
+  if (analysis.concerns.complexity === "high") {
+    concerns.push(`complexity (${analysis.lines} lines)`);
+  }
+  if (concerns.length > 0) {
+    lines.push(`${commentPrefix} - Concern: ${concerns.join(", ")}`);
+  }
+  if (personaOpinion) {
+    lines.push(`${commentPrefix} - ${persona} says: ${personaOpinion}`);
+  }
+  return lines.join("\n");
+}
+function capitalize(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+function createFileAdvocateEpistle(analysis, persona, personaOpinion) {
+  const date = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+  const epistle = `# File Advocate: ${analysis.filename}
+
+**Date:** ${date}
+**Persona:** ${persona}
+**File Role:** ${capitalize(analysis.role.replace("-", " "))}
+
+## File Overview
+
+- **Path:** \`${analysis.filepath}\`
+- **Language:** ${analysis.language}
+- **Size:** ${analysis.lines} lines
+- **Exports:** ${analysis.exports.join(", ") || "(none)"}
+- **Classes:** ${analysis.classes.join(", ") || "(none)"}
+
+## Structural Analysis
+
+- **Dependencies:** ${analysis.concerns.dependencies} modules imported
+- **Error Handling:** ${analysis.concerns.errorHandling}
+- **Documentation:** ${analysis.concerns.documentation}
+- **Complexity:** ${analysis.concerns.complexity}
+
+## ${capitalize(persona)}'s Perspective
+
+${personaOpinion || `${capitalize(persona)} is examining this file's role in the system.`}
+
+### Concerns
+
+- File serves as: ${capitalize(analysis.role.replace("-", " "))}
+- Primary exports: ${analysis.exports.slice(0, 5).join(", ") || "(none listed)"}
+- Potential areas for review: ${getReviewAreas(analysis)}
+
+### Questions to Consider
+
+- Is the file's responsibility clear from its structure?
+- Are error cases handled consistently?
+- Could complexity be reduced by extracting utilities?
+- Are imports well-organized and minimal?
+
+---
+
+*Generated by vscode-rhizome epistle system*
+`;
+  return epistle;
+}
+function getReviewAreas(analysis) {
+  const areas = [];
+  if (analysis.concerns.errorHandling === "absent") {
+    areas.push("error handling");
+  }
+  if (analysis.concerns.complexity === "high") {
+    areas.push("complexity reduction");
+  }
+  if (analysis.concerns.documentation === "sparse") {
+    areas.push("documentation");
+  }
+  if (analysis.concerns.dependencies > 10) {
+    areas.push("dependency management");
+  }
+  return areas.join(", ") || "general code quality";
+}
+
+// src/epistleCommands.ts
 async function showPersonaPicker(curated = ["dev-guide", "code-reviewer", "dev-advocate", "don-socratic"]) {
   const items = curated.map((p) => ({
     label: p,
@@ -16211,7 +16405,7 @@ async function recordLetterEpistle(editor, registry, telemetry2, epistlesDir, wo
     }
     telemetry2("EPISTLE", "STEP", "Code selected", {
       codeLength: selectedCode.length,
-      file: path5.basename(selectedFile)
+      file: path6.basename(selectedFile)
     });
     const personas = await showPersonaPicker();
     if (!personas || personas.length === 0) {
@@ -16243,9 +16437,9 @@ async function recordLetterEpistle(editor, registry, telemetry2, epistlesDir, wo
     const { filePath, content } = LetterEpistleGenerator.createFile(context, id, epistlesDir);
     telemetry2("EPISTLE", "STEP", "Epistle file created", {
       id,
-      filepath: path5.basename(filePath)
+      filepath: path6.basename(filePath)
     });
-    const entry = LetterEpistleGenerator.generateRegistryEntry(id, context, path5.basename(filePath));
+    const entry = LetterEpistleGenerator.generateRegistryEntry(id, context, path6.basename(filePath));
     registry.addEntry(entry);
     telemetry2("EPISTLE", "STEP", "Epistle registered", { id });
     const doc = await vscode2.workspace.openTextDocument(filePath);
@@ -16321,7 +16515,7 @@ async function recordInlineEpistle(editor, registry, telemetry2) {
       id,
       topic,
       personas: personas.length,
-      file: path5.basename(selectedFile)
+      file: path6.basename(selectedFile)
     });
     vscode2.window.showInformationMessage(
       `\u2713 Inline epistle "${topic}" created above your selection!`
@@ -16335,7 +16529,7 @@ async function recordInlineEpistle(editor, registry, telemetry2) {
 }
 async function createDynamicPersona(filepath, registry, telemetry2) {
   telemetry2("EPISTLE", "START", "Create dynamic persona from file", {
-    file: path5.basename(filepath)
+    file: path6.basename(filepath)
   });
   try {
     const existing = registry.getDynamicPersonaForFile(filepath);
@@ -16365,7 +16559,7 @@ async function createDynamicPersona(filepath, registry, telemetry2) {
     telemetry2("EPISTLE", "SUCCESS", "Dynamic persona created", {
       id,
       name,
-      file: path5.basename(filepath)
+      file: path6.basename(filepath)
     });
     vscode2.window.showInformationMessage(
       `\u2713 Persona '${name}' created!
@@ -16381,9 +16575,103 @@ Key concerns: ${concerns.join(", ")}`
     vscode2.window.showErrorMessage(`Failed to create persona: ${error.message}`);
   }
 }
+async function recordFileAdvocateEpistle(filepath, workspaceRoot, registry, telemetry2) {
+  const log = telemetry2 || (() => {
+  });
+  try {
+    log("EPISTLE", "START", "Recording file advocate epistle");
+    log("EPISTLE", "STEP", "Analyzing file structure");
+    const analysis = await analyzeFile(filepath);
+    log("EPISTLE", "STEP", `File analyzed: ${analysis.filename} (${analysis.lines} lines, role: ${analysis.role})`);
+    log("EPISTLE", "STEP", "Showing persona picker");
+    const personas = await showPersonaPicker();
+    if (!personas || personas.length === 0) {
+      log("EPISTLE", "STEP", "User cancelled persona selection");
+      return;
+    }
+    const epistlesDir = path6.join(workspaceRoot, ".rhizome", "plugins", "epistles");
+    for (const persona of personas) {
+      log("EPISTLE", "STEP", `Processing advocate epistle for persona: ${persona}`);
+      const epistleContent = createFileAdvocateEpistle(analysis, persona, "(Add persona opinion here)");
+      const id = `advocate-${Math.random().toString(36).substring(2, 11)}`;
+      const filename = `${id}.md`;
+      const epistleFilePath = path6.join(epistlesDir, filename);
+      fs6.mkdirSync(epistlesDir, { recursive: true });
+      fs6.writeFileSync(epistleFilePath, epistleContent, "utf-8");
+      const entry = {
+        id,
+        type: "letter",
+        file: filename,
+        format: "letter",
+        name: `${analysis.filename} advocate: ${persona}`,
+        personas: [persona],
+        created_at: (/* @__PURE__ */ new Date()).toISOString(),
+        tags: ["file-advocate", analysis.role],
+        linked_file: filepath,
+        linked_flight_plan: getActiveFlightPlan(workspaceRoot)?.id
+      };
+      registry.addEntry(entry);
+      log("EPISTLE", "SUCCESS", `Advocate epistle created for ${persona}`, { filename });
+    }
+    vscode2.window.showInformationMessage(
+      `\u2713 File advocate epistles created!
+
+${analysis.filename} (${analysis.role})
+Personas: ${personas.join(", ")}`
+    );
+  } catch (error) {
+    log("EPISTLE", "ERROR", "Failed to record file advocate epistle", { error: error.message });
+    vscode2.window.showErrorMessage(`Failed to create advocate epistle: ${error.message}`);
+  }
+}
+async function addFileAdvocateComment(editor, telemetry2) {
+  const log = telemetry2 || (() => {
+  });
+  try {
+    log("EPISTLE", "START", "Adding file advocate comment");
+    const filepath = editor.document.fileName;
+    log("EPISTLE", "STEP", "Analyzing file for advocate comment");
+    const analysis = await analyzeFile(filepath);
+    const personas = await showPersonaPicker();
+    if (!personas || personas.length === 0) {
+      log("EPISTLE", "STEP", "User cancelled persona selection");
+      return;
+    }
+    const opinion = await vscode2.window.showInputBox({
+      placeHolder: "What is their perspective on this file? (optional)",
+      title: `${personas[0]}'s opinion on ${path6.basename(filepath)}`
+    });
+    const language = detectLanguageFromFile(filepath);
+    const comment = generateFileAdvocateComment(analysis, personas[0], opinion || "", language);
+    await editor.edit((editBuilder) => {
+      const insertPos = new vscode2.Position(0, 0);
+      editBuilder.insert(insertPos, comment + "\n\n");
+    });
+    log("EPISTLE", "SUCCESS", `Advocate comment added for ${personas[0]}`);
+    vscode2.window.showInformationMessage(`\u2713 Added ${personas[0]}'s perspective to file header`);
+  } catch (error) {
+    log("EPISTLE", "ERROR", "Failed to add advocate comment", { error: error.message });
+    vscode2.window.showErrorMessage(`Failed to add advocate comment: ${error.message}`);
+  }
+}
+function detectLanguageFromFile(filepath) {
+  const ext = path6.extname(filepath).toLowerCase();
+  const extMap = {
+    ".ts": "typescript",
+    ".tsx": "typescript",
+    ".js": "javascript",
+    ".jsx": "javascript",
+    ".py": "python",
+    ".rb": "ruby",
+    ".go": "go",
+    ".rs": "rust",
+    ".java": "java"
+  };
+  return extMap[ext] || "typescript";
+}
 
 // src/epistleSidebarProvider.ts
-var path6 = __toESM(require("path"));
+var path7 = __toESM(require("path"));
 var vscode3;
 try {
   vscode3 = require("vscode");
@@ -16410,7 +16698,7 @@ var EpistleTreeItem = class _EpistleTreeItem {
       case "letter":
         return entry.topic || `Letter ${entry.id}`;
       case "inline":
-        return `${path6.basename(entry.inline_file || "unknown")} (lines ${entry.lines})`;
+        return `${path7.basename(entry.inline_file || "unknown")} (lines ${entry.lines})`;
       case "dynamic_persona":
         return `\u{1F464} ${entry.name || entry.id}`;
     }
@@ -16691,6 +16979,259 @@ function registerEpistleSidebar(context, registry, workspaceRoot) {
   return provider;
 }
 
+// src/mcpBridge.ts
+var vscode4 = __toESM(require("vscode"));
+var import_http = require("http");
+var import_fs = require("fs");
+var path8 = __toESM(require("path"));
+var currentBridgeState = null;
+async function activateMcpBridge(context, workspaceRoot) {
+  try {
+    const server = (0, import_http.createServer)(async (req, res) => {
+      if (req.method !== "POST") {
+        res.writeHead(405, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(makeError(null, -32601, "Method not allowed")));
+        return;
+      }
+      if (req.url && req.url !== "/rpc") {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(makeError(null, -32601, "Endpoint not found")));
+        return;
+      }
+      let body = "";
+      req.on("data", (chunk) => {
+        body += chunk.toString("utf-8");
+      });
+      req.on("end", async () => {
+        let request2;
+        try {
+          request2 = JSON.parse(body || "{}");
+        } catch (error) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(makeError(null, -32700, `Invalid JSON: ${error.message}`)));
+          return;
+        }
+        const response = await handleRpcRequest(request2, workspaceRoot);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(response));
+      });
+    });
+    let configPath;
+    server.listen(0, "127.0.0.1", async () => {
+      const address = server.address();
+      const port = address?.port;
+      if (!port) {
+        console.error("[vscode-rhizome] MCP bridge failed: no port assigned");
+        return;
+      }
+      try {
+        const httpBase = `http://127.0.0.1:${port}`;
+        configPath = await writeMcpConfig(workspaceRoot, port);
+        currentBridgeState = {
+          port,
+          configPath,
+          httpBase
+        };
+        await ensureGitignoreEntry(workspaceRoot, ".rhizome/mcp/config.json");
+        console.log(`[vscode-rhizome] MCP bridge ready on ${httpBase}/rpc`);
+      } catch (error) {
+        console.error("[vscode-rhizome] MCP bridge configuration failed:", error.message);
+      }
+    });
+    const disposable = new vscode4.Disposable(async () => {
+      server.close();
+      if (configPath) {
+        try {
+          await import_fs.promises.unlink(configPath);
+        } catch (error) {
+        }
+      }
+      currentBridgeState = null;
+    });
+    context.subscriptions.push(disposable);
+  } catch (error) {
+    console.error("[vscode-rhizome] MCP bridge activation failed:", error.message);
+  }
+}
+async function handleRpcRequest(request2, workspaceRoot) {
+  const id = request2?.id ?? null;
+  const method = request2?.method;
+  if (!method) {
+    return makeError(id, -32600, "Missing method");
+  }
+  try {
+    if (method === "tools/list") {
+      return {
+        jsonrpc: "2.0",
+        id,
+        result: {
+          "repo.describe": {
+            description: "Summarise workspace state for personas (open files, git info, diagnostics).",
+            parameters: {
+              type: "object",
+              properties: {}
+            }
+          },
+          "repo.selection": {
+            description: "Return the active editor selection (file path, language, text).",
+            parameters: {
+              type: "object",
+              properties: {}
+            }
+          },
+          "repo.readFile": {
+            description: "Read a workspace file (UTF-8) so personas can inspect additional context.",
+            parameters: {
+              type: "object",
+              required: ["path"],
+              properties: {
+                path: { type: "string", description: "Path relative to workspace root" }
+              }
+            }
+          }
+        }
+      };
+    }
+    if (method === "tools/call") {
+      const params = request2?.params ?? {};
+      const name = params.name;
+      const args = params.arguments ?? {};
+      if (!name || typeof name !== "string") {
+        return makeError(id, -32602, "Tool name missing or invalid");
+      }
+      const result = await callTool(name, args, workspaceRoot);
+      return { jsonrpc: "2.0", id, result };
+    }
+    return makeError(id, -32601, `Unknown method: ${method}`);
+  } catch (error) {
+    return makeError(id, -32603, error.message);
+  }
+}
+async function callTool(name, args, workspaceRoot) {
+  switch (name) {
+    case "repo.describe":
+      return describeWorkspace(workspaceRoot);
+    case "repo.selection":
+      return selectionSnapshot();
+    case "repo.readFile":
+      return readWorkspaceFile(args?.path, workspaceRoot);
+    default:
+      throw new Error(`Tool not implemented: ${name}`);
+  }
+}
+async function describeWorkspace(workspaceRoot) {
+  const workspaceFolders = vscode4.workspace.workspaceFolders?.map((folder) => ({
+    name: folder.name,
+    path: folder.uri.fsPath
+  })) ?? [];
+  const activeEditor = vscode4.window.activeTextEditor;
+  const active = activeEditor ? {
+    path: activeEditor.document.uri.fsPath,
+    language: activeEditor.document.languageId,
+    isDirty: activeEditor.document.isDirty,
+    selection: activeEditor.selection ? {
+      start: activeEditor.selection.start,
+      end: activeEditor.selection.end,
+      isEmpty: activeEditor.selection.isEmpty
+    } : null
+  } : null;
+  const openEditors = vscode4.window.visibleTextEditors.map((editor) => ({
+    path: editor.document.uri.fsPath,
+    language: editor.document.languageId,
+    isDirty: editor.document.isDirty
+  }));
+  const diagnostics = vscode4.languages.getDiagnostics().filter(([uri]) => uri.fsPath.startsWith(workspaceRoot)).map(([uri, issues]) => ({
+    path: uri.fsPath,
+    issues: issues.map((issue) => ({
+      message: issue.message,
+      severity: issue.severity,
+      start: issue.range.start,
+      end: issue.range.end,
+      source: issue.source
+    }))
+  }));
+  return {
+    ok: true,
+    workspaceFolders,
+    activeEditor: active,
+    openEditors,
+    diagnostics
+  };
+}
+async function selectionSnapshot() {
+  const editor = vscode4.window.activeTextEditor;
+  if (!editor) {
+    return { ok: false, error: "No active editor" };
+  }
+  const selection = editor.selection;
+  if (!selection || selection.isEmpty) {
+    return { ok: false, error: "Selection is empty" };
+  }
+  const text = editor.document.getText(selection);
+  return {
+    ok: true,
+    path: editor.document.uri.fsPath,
+    language: editor.document.languageId,
+    range: {
+      start: selection.start,
+      end: selection.end
+    },
+    text
+  };
+}
+async function readWorkspaceFile(relativePath, workspaceRoot) {
+  if (!relativePath || typeof relativePath !== "string") {
+    throw new Error('Argument "path" must be provided');
+  }
+  const normalized = path8.normalize(relativePath);
+  const absolute = path8.resolve(workspaceRoot, normalized);
+  if (!absolute.startsWith(workspaceRoot)) {
+    throw new Error("Path outside workspace not permitted");
+  }
+  const uri = vscode4.Uri.file(absolute);
+  const bytes = await vscode4.workspace.fs.readFile(uri);
+  return {
+    ok: true,
+    path: normalized,
+    contents: Buffer.from(bytes).toString("utf-8")
+  };
+}
+async function writeMcpConfig(workspaceRoot, port) {
+  const cfgDir = path8.join(workspaceRoot, ".rhizome", "mcp");
+  await import_fs.promises.mkdir(cfgDir, { recursive: true });
+  const cfgPath = path8.join(cfgDir, "config.json");
+  const payload = {
+    http_base: `http://127.0.0.1:${port}`,
+    http_path: "/rpc"
+  };
+  await import_fs.promises.writeFile(cfgPath, JSON.stringify(payload, null, 2), "utf-8");
+  return cfgPath;
+}
+async function ensureGitignoreEntry(workspaceRoot, entry) {
+  const gitignorePath = path8.join(workspaceRoot, ".gitignore");
+  let content = "";
+  try {
+    content = await import_fs.promises.readFile(gitignorePath, "utf-8");
+  } catch {
+  }
+  if (!content.includes(entry)) {
+    const next = content.length > 0 ? content.endsWith("\n") ? content : `${content}
+` : "";
+    await import_fs.promises.writeFile(gitignorePath, `${next}${entry}
+`, "utf-8");
+  }
+}
+function makeError(id, code, message) {
+  return {
+    jsonrpc: "2.0",
+    id,
+    error: {
+      code,
+      message
+    }
+  };
+}
+
 // src/extension.ts
 function telemetry(component, phase, message, data) {
   const timestamp = (/* @__PURE__ */ new Date()).toISOString().split("T")[1];
@@ -16707,7 +17248,7 @@ function telemetry(component, phase, message, data) {
 }
 async function queryPersona(text, persona, timeoutMs = 3e4, workspaceRoot) {
   const { execSync: execSync2 } = require("child_process");
-  const cwd = workspaceRoot || vscode4.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  const cwd = workspaceRoot || vscode5.workspace.workspaceFolders?.[0]?.uri.fsPath;
   telemetry("QUERY", "START", `Query to persona: ${persona}`);
   telemetry("QUERY", "STEP", "Init phase: checking configuration", { persona, timeoutMs, workspace: cwd, inputLength: text.length });
   telemetry("QUERY", "STEP", "Checking API key availability...");
@@ -16719,7 +17260,7 @@ async function queryPersona(text, persona, timeoutMs = 3e4, workspaceRoot) {
   }
   try {
     telemetry("QUERY", "STEP", "Execute phase: running rhizome query", { persona, cwd });
-    const queryPromise = new Promise((resolve, reject) => {
+    const queryPromise = new Promise((resolve2, reject) => {
       try {
         telemetry("QUERY", "STEP", `Executing: rhizome query --persona ${persona}`);
         const response = execSync2(`rhizome query --persona ${persona}`, {
@@ -16735,7 +17276,7 @@ async function queryPersona(text, persona, timeoutMs = 3e4, workspaceRoot) {
         });
         telemetry("QUERY", "STEP", "Execute phase completed successfully", { responseLength: response.length });
         telemetry("QUERY", "STEP", "Format phase: preparing response", { responseLength: response.length, preview: response.substring(0, 200) });
-        resolve(response);
+        resolve2(response);
       } catch (error) {
         const errorMsg = error.message;
         const stderrMsg = error.stderr?.toString() || "";
@@ -16778,9 +17319,9 @@ ${errorDetail}`);
 }
 async function checkApiKeyAvailable(workspaceRoot) {
   const { execSync: execSync2 } = require("child_process");
-  const fs5 = require("fs");
-  const path7 = require("path");
-  const cwd = workspaceRoot || vscode4.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  const fs8 = require("fs");
+  const path9 = require("path");
+  const cwd = workspaceRoot || vscode5.workspace.workspaceFolders?.[0]?.uri.fsPath;
   telemetry("APIKEY", "START", "Checking API key availability", { workspace: cwd });
   telemetry("APIKEY", "STEP", "Checking environment variables for API keys");
   const envKeys = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "RHIZOME_API_KEY"];
@@ -16792,10 +17333,10 @@ async function checkApiKeyAvailable(workspaceRoot) {
   }
   telemetry("APIKEY", "STEP", "No API keys found in environment variables");
   try {
-    const configPath = path7.join(cwd, ".rhizome", "config.json");
+    const configPath = path9.join(cwd, ".rhizome", "config.json");
     telemetry("APIKEY", "STEP", "Checking rhizome config file", { configPath });
-    if (fs5.existsSync(configPath)) {
-      const config = JSON.parse(fs5.readFileSync(configPath, "utf-8"));
+    if (fs8.existsSync(configPath)) {
+      const config = JSON.parse(fs8.readFileSync(configPath, "utf-8"));
       telemetry("APIKEY", "STEP", "Config file exists, checking for API key fields");
       if (config.ai?.openai_key) {
         telemetry("APIKEY", "SUCCESS", "Found ai.openai_key in config");
@@ -16838,7 +17379,7 @@ async function checkApiKeyAvailable(workspaceRoot) {
 async function getAvailablePersonas() {
   telemetry("PERSONAS", "START", "Fetching available personas from rhizome");
   const { execSync: execSync2 } = require("child_process");
-  const cwd = vscode4.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  const cwd = vscode5.workspace.workspaceFolders?.[0]?.uri.fsPath;
   telemetry("PERSONAS", "STEP", "Workspace context", { cwd });
   telemetry("PERSONAS", "STEP", "Attempting JSON format first (rhizome persona list --json)");
   try {
@@ -16915,30 +17456,34 @@ async function getAvailablePersonas() {
     return fallback;
   }
 }
-function formatPersonaOutput(channel, personaName, selectedCode, response) {
+function formatPersonaOutput(channel, personaName, question, selectedCode, response) {
   channel.appendLine("=".repeat(60));
   channel.appendLine(personaName);
   channel.appendLine("=".repeat(60));
-  channel.appendLine("Selected code:");
-  channel.appendLine("");
-  channel.appendLine(selectedCode);
-  channel.appendLine("");
-  channel.appendLine("--- Waiting for persona response ---");
-  channel.appendLine("");
-  channel.appendLine("");
+  if (question) {
+    channel.appendLine("Question:");
+    channel.appendLine(question);
+    channel.appendLine("");
+  }
+  if (selectedCode) {
+    channel.appendLine("Context snippet:");
+    channel.appendLine("");
+    channel.appendLine(selectedCode);
+    channel.appendLine("");
+  }
   channel.appendLine(`Response from ${personaName}:`);
   channel.appendLine("");
   channel.appendLine(response);
 }
 function getActiveSelection() {
-  const editor = vscode4.window.activeTextEditor;
+  const editor = vscode5.window.activeTextEditor;
   if (!editor) {
-    vscode4.window.showErrorMessage("No active editor");
+    vscode5.window.showErrorMessage("No active editor");
     return null;
   }
   const selectedText = editor.document.getText(editor.selection);
   if (!selectedText) {
-    vscode4.window.showErrorMessage("Please select code to question");
+    vscode5.window.showErrorMessage("Please select code to question");
     return null;
   }
   return { editor, selectedText };
@@ -16990,10 +17535,10 @@ async function isUEUMember() {
 }
 async function diagnosticRhizomeMissing() {
   const { execSync: execSync2 } = require("child_process");
-  const fs5 = require("fs");
+  const fs8 = require("fs");
   const diagnostics = [];
   for (const candidate of getCandidateLocations()) {
-    if (fs5.existsSync(candidate)) {
+    if (fs8.existsSync(candidate)) {
       diagnostics.push(`Found rhizome at: ${candidate}`);
     } else {
       diagnostics.push(`Checked path (missing): ${candidate}`);
@@ -17014,14 +17559,14 @@ async function diagnosticRhizomeMissing() {
   return diagnostics;
 }
 async function ensureOpenAIKeyConfigured(workspaceRoot) {
-  const configPath = vscode4.Uri.joinPath(vscode4.Uri.file(workspaceRoot), ".rhizome", "config.json");
+  const configPath = vscode5.Uri.joinPath(vscode5.Uri.file(workspaceRoot), ".rhizome", "config.json");
   try {
     if (process.env.OPENAI_API_KEY) {
       return true;
     }
-    const configExists = await vscode4.workspace.fs.stat(configPath);
+    const configExists = await vscode5.workspace.fs.stat(configPath);
     if (configExists) {
-      const configContent = await vscode4.workspace.fs.readFile(configPath);
+      const configContent = await vscode5.workspace.fs.readFile(configPath);
       const config = JSON.parse(new TextDecoder().decode(configContent));
       if (config.ai?.openai_key) {
         process.env.OPENAI_API_KEY = config.ai.openai_key;
@@ -17030,50 +17575,94 @@ async function ensureOpenAIKeyConfigured(workspaceRoot) {
     }
   } catch {
   }
-  const key = await vscode4.window.showInputBox({
+  const key = await vscode5.window.showInputBox({
     prompt: "Enter your OpenAI API key (stored locally in .rhizome/config.json)",
     password: true,
     ignoreFocusOut: true
   });
   if (!key) {
-    vscode4.window.showWarningMessage("OpenAI API key is required for don-socratic");
+    vscode5.window.showWarningMessage("OpenAI API key is required for don-socratic");
+    return false;
+  }
+  const sanitizedKey = key.trim();
+  if (/^\s*OPENAI_API_KEY\s*=/i.test(sanitizedKey) || sanitizedKey.includes("=")) {
+    vscode5.window.showErrorMessage('Please enter only the OpenAI secret value (omit any "OPENAI_API_KEY=" prefix).');
+    return false;
+  }
+  const keyPattern = /^sk-(proj-)?[A-Za-z0-9_-]{20,}$/;
+  if (!keyPattern.test(sanitizedKey)) {
+    vscode5.window.showErrorMessage(`That doesn't look like an OpenAI API key (expected to start with "sk-" and contain letters, numbers, "-" or "_").`);
+    return false;
+  }
+  const validationOk = await validateOpenAIKey(sanitizedKey);
+  if (!validationOk) {
     return false;
   }
   try {
-    const rhizomePath = vscode4.Uri.joinPath(vscode4.Uri.file(workspaceRoot), ".rhizome");
-    const configPath2 = vscode4.Uri.joinPath(rhizomePath, "config.json");
+    const rhizomePath = vscode5.Uri.joinPath(vscode5.Uri.file(workspaceRoot), ".rhizome");
+    const configPath2 = vscode5.Uri.joinPath(rhizomePath, "config.json");
     let config = {};
     try {
-      const existing = await vscode4.workspace.fs.readFile(configPath2);
+      const existing = await vscode5.workspace.fs.readFile(configPath2);
       config = JSON.parse(new TextDecoder().decode(existing));
     } catch {
     }
     if (!config.ai)
       config.ai = {};
-    config.ai.openai_key = key;
+    config.ai.openai_key = sanitizedKey;
     const configContent = new TextEncoder().encode(JSON.stringify(config, null, 2));
-    await vscode4.workspace.fs.writeFile(configPath2, configContent);
-    process.env.OPENAI_API_KEY = key;
+    await vscode5.workspace.fs.writeFile(configPath2, configContent);
+    process.env.OPENAI_API_KEY = sanitizedKey;
     await addToGitignore(workspaceRoot, ".rhizome/config.json");
-    vscode4.window.showInformationMessage("OpenAI API key configured and stored securely");
+    vscode5.window.showInformationMessage("OpenAI API key configured and stored securely");
     return true;
   } catch (error) {
-    vscode4.window.showErrorMessage(`Failed to save API key: ${error.message}`);
+    vscode5.window.showErrorMessage(`Failed to save API key: ${error.message}`);
+    return false;
+  }
+}
+async function validateOpenAIKey(key) {
+  try {
+    const response = await fetch("https://api.openai.com/v1/models", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${key}`
+      }
+    });
+    if (response.ok) {
+      return true;
+    }
+    const errorText = await response.text();
+    let message = "OpenAI rejected the provided API key.";
+    try {
+      const parsed = JSON.parse(errorText);
+      if (parsed?.error?.message) {
+        message += ` ${parsed.error.message}`;
+      }
+    } catch {
+      if (errorText) {
+        message += ` ${errorText}`;
+      }
+    }
+    vscode5.window.showErrorMessage(message.trim());
+    return false;
+  } catch (error) {
+    vscode5.window.showErrorMessage(`Failed to validate OpenAI API key: ${error.message}`);
     return false;
   }
 }
 async function addToGitignore(workspaceRoot, entry) {
-  const gitignorePath = vscode4.Uri.joinPath(vscode4.Uri.file(workspaceRoot), ".gitignore");
+  const gitignorePath = vscode5.Uri.joinPath(vscode5.Uri.file(workspaceRoot), ".gitignore");
   let content = "";
   try {
-    const existing = await vscode4.workspace.fs.readFile(gitignorePath);
+    const existing = await vscode5.workspace.fs.readFile(gitignorePath);
     content = new TextDecoder().decode(existing);
   } catch {
   }
   if (!content.includes(entry)) {
     content += (content.endsWith("\n") ? "" : "\n") + entry + "\n";
     const encoded = new TextEncoder().encode(content);
-    await vscode4.workspace.fs.writeFile(gitignorePath, encoded);
+    await vscode5.workspace.fs.writeFile(gitignorePath, encoded);
   }
 }
 async function initializeRhizomeIfNeeded(workspaceRoot) {
@@ -17081,118 +17670,115 @@ async function initializeRhizomeIfNeeded(workspaceRoot) {
     const diagnosticsBefore = await diagnosticRhizomeMissing();
     const isMember = await isUEUMember();
     if (isMember) {
-      vscode4.window.showInformationMessage("Diagnostics before installation:\n" + diagnosticsBefore.join("\n"));
-      const response = await vscode4.window.showErrorMessage(
+      vscode5.window.showInformationMessage("Diagnostics before installation:\n" + diagnosticsBefore.join("\n"));
+      const response = await vscode5.window.showErrorMessage(
         "rhizome CLI not found. You are a member of Unity-Environmental-University. Install rhizome now?",
         "Install rhizome",
         "View Guide"
       );
       if (response === "Install rhizome") {
         try {
-          vscode4.window.showInformationMessage("Installing rhizome...");
+          vscode5.window.showInformationMessage("Installing rhizome...");
           const { execSync: execSync2 } = require("child_process");
           execSync2("npm install -g @rhizome/cli", {
             encoding: "utf-8",
             timeout: 6e4,
             stdio: "inherit"
           });
-          vscode4.window.showInformationMessage("rhizome installed successfully!");
+          vscode5.window.showInformationMessage("rhizome installed successfully!");
           const diagnosticsAfter = await diagnosticRhizomeMissing();
-          vscode4.window.showInformationMessage(
+          vscode5.window.showInformationMessage(
             "Diagnostics after installation:\n" + diagnosticsAfter.join("\n")
           );
           if (!isRhizomeInstalled()) {
-            vscode4.window.showWarningMessage(
+            vscode5.window.showWarningMessage(
               "Installation completed but rhizome still not found in PATH. You may need to restart VSCode."
             );
             return false;
           }
           return await initializeRhizomeIfNeeded(workspaceRoot);
         } catch (error) {
-          vscode4.window.showErrorMessage(`Failed to install rhizome: ${error.message}`);
+          vscode5.window.showErrorMessage(`Failed to install rhizome: ${error.message}`);
           const diagnosticsFailure = await diagnosticRhizomeMissing();
-          vscode4.window.showInformationMessage(
+          vscode5.window.showInformationMessage(
             "Diagnostics after failed installation:\n" + diagnosticsFailure.join("\n")
           );
           return false;
         }
       } else if (response === "View Guide") {
-        vscode4.env.openExternal(vscode4.Uri.parse("https://github.com/your-rhizome-repo#installation"));
+        vscode5.env.openExternal(vscode5.Uri.parse("https://github.com/your-rhizome-repo#installation"));
       }
       return false;
     } else {
-      const response = await vscode4.window.showWarningMessage(
+      const response = await vscode5.window.showWarningMessage(
         "rhizome CLI not found. Please install it to use vscode-rhizome.",
         "View Installation Guide"
       );
       if (response === "View Installation Guide") {
-        vscode4.env.openExternal(vscode4.Uri.parse("https://github.com/your-rhizome-repo#installation"));
+        vscode5.env.openExternal(vscode5.Uri.parse("https://github.com/your-rhizome-repo#installation"));
       }
       return false;
     }
   }
-  const rhizomePath = vscode4.Uri.joinPath(vscode4.Uri.file(workspaceRoot), ".rhizome");
+  const rhizomePath = vscode5.Uri.joinPath(vscode5.Uri.file(workspaceRoot), ".rhizome");
   try {
-    await vscode4.workspace.fs.stat(rhizomePath);
+    await vscode5.workspace.fs.stat(rhizomePath);
     const keyConfigured = await ensureOpenAIKeyConfigured(workspaceRoot);
     return keyConfigured;
   } catch {
     try {
-      vscode4.window.showInformationMessage("Initializing rhizome in workspace...");
+      vscode5.window.showInformationMessage("Initializing rhizome in workspace...");
       const { execSync: execSync2 } = require("child_process");
       execSync2("rhizome init --force", {
         cwd: workspaceRoot,
         encoding: "utf-8",
         timeout: 1e4
       });
-      vscode4.window.showInformationMessage("Rhizome initialized in workspace");
+      vscode5.window.showInformationMessage("Rhizome initialized in workspace");
       const keyConfigured = await ensureOpenAIKeyConfigured(workspaceRoot);
       return keyConfigured;
     } catch (error) {
-      vscode4.window.showErrorMessage(`Failed to initialize rhizome: ${error.message}`);
+      vscode5.window.showErrorMessage(`Failed to initialize rhizome: ${error.message}`);
       return false;
     }
   }
 }
-async function askPersonaAboutSelection(persona, personaDisplayName) {
-  telemetry("QUERY", "START", `Asking ${persona} to analyze code`);
-  const selection = getActiveSelection();
-  if (!selection) {
-    telemetry("QUERY", "ERROR", "No selection found");
-    return;
-  }
-  const { selectedText } = selection;
-  telemetry("QUERY", "STEP", "Selection verified", {
-    length: selectedText.length,
-    persona
+async function askPersonaWithPrompt(persona, personaDisplayName, prompt, context) {
+  telemetry("QUERY", "START", `Asking ${persona} to analyze input`, {
+    question: context?.question,
+    selectionLength: context?.selectedText?.length ?? 0
   });
-  const workspaceRoot = vscode4.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  const workspaceRoot = vscode5.workspace.workspaceFolders?.[0]?.uri.fsPath;
   if (!workspaceRoot) {
     telemetry("QUERY", "ERROR", "No workspace folder");
-    vscode4.window.showErrorMessage("No workspace folder open");
+    vscode5.window.showErrorMessage("No workspace folder open");
     return;
   }
   telemetry("QUERY", "STEP", "Initializing rhizome if needed...");
   const initialized = await initializeRhizomeIfNeeded(workspaceRoot);
   if (!initialized) {
     telemetry("QUERY", "ERROR", "Rhizome initialization failed");
-    vscode4.window.showErrorMessage("Could not initialize rhizome. Check workspace permissions.");
+    vscode5.window.showErrorMessage("Could not initialize rhizome. Check workspace permissions.");
     return;
   }
   telemetry("QUERY", "STEP", "Rhizome initialized");
   telemetry("QUERY", "STEP", "Creating output channel...");
-  const outputChannel = vscode4.window.createOutputChannel("vscode-rhizome");
+  const outputChannel = vscode5.window.createOutputChannel("vscode-rhizome");
   outputChannel.show(true);
   try {
     telemetry("QUERY", "STEP", "Calling queryPersona...");
-    const response = await queryPersona(selectedText, persona, 3e4, workspaceRoot);
+    const response = await queryPersona(prompt, persona, 3e4, workspaceRoot);
     telemetry("QUERY", "SUCCESS", "Got response from persona", {
       persona,
       responseLength: response.length
     });
     telemetry("QUERY", "STEP", "Formatting response for output...");
-    formatPersonaOutput(outputChannel, personaDisplayName, selectedText, response);
+    formatPersonaOutput(outputChannel, personaDisplayName, context?.question ?? "", context?.selectedText ?? "", response);
     telemetry("QUERY", "RESULT", "Response displayed in output pane");
+    const suggestedCommands = extractAgenticCommands(response);
+    if (suggestedCommands.length > 0) {
+      await promptAgenticActions(suggestedCommands);
+    }
   } catch (error) {
     telemetry("QUERY", "ERROR", "Query failed", {
       persona,
@@ -17205,10 +17791,88 @@ async function askPersonaAboutSelection(persona, personaDisplayName) {
     outputChannel.appendLine("Make sure rhizome is installed and in your PATH.");
   }
 }
+function extractAgenticCommands(response) {
+  const commands3 = /* @__PURE__ */ new Set();
+  const codeBlockRegex = /```[a-zA-Z0-9+\-_.]*\s*([\s\S]*?)```/g;
+  let match;
+  while ((match = codeBlockRegex.exec(response)) !== null) {
+    const block = match[1].split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
+    for (const line of block) {
+      const cleaned = line.startsWith("$") ? line.slice(1).trim() : line;
+      if (isLikelyCommand(cleaned)) {
+        commands3.add(cleaned);
+      }
+    }
+  }
+  const inlineRegex = /^\s*(?:-|\*|•)?\s*(?:Command|Action|Run|Execute)\s*[:：]\s*`?([^`\n]+)`?/gim;
+  let inlineMatch;
+  while ((inlineMatch = inlineRegex.exec(response)) !== null) {
+    const cleaned = inlineMatch[1].trim();
+    if (isLikelyCommand(cleaned)) {
+      commands3.add(cleaned);
+    }
+  }
+  return Array.from(commands3.values());
+}
+function isLikelyCommand(text) {
+  if (!text)
+    return false;
+  const lower = text.toLowerCase();
+  return lower.startsWith("rhizome ") || lower.startsWith("npm ") || lower.startsWith("pip ") || lower.startsWith("python ") || lower.startsWith("node ") || lower.startsWith("bash ") || lower.startsWith("./") || lower.startsWith("gh ");
+}
+function inferQuestionFromSelection(selection, languageId) {
+  const descriptor = languageId?.includes("markdown") || languageId === "plaintext" ? "content" : "code";
+  const trimmed = selection.replace(/\s+/g, " ").trim();
+  const snippet = trimmed.slice(0, 90);
+  const ellipsis = trimmed.length > 90 ? "\u2026" : "";
+  return `What should we improve in this ${descriptor}? (${snippet}${ellipsis})`;
+}
+var agenticTerminal;
+function getAgenticTerminal() {
+  if (!agenticTerminal) {
+    agenticTerminal = vscode5.window.createTerminal({
+      name: "Rhizome Agentic Actions"
+    });
+  }
+  return agenticTerminal;
+}
+async function promptAgenticActions(commands3) {
+  telemetry("ACTION", "STEP", "Agentic suggestions detected", { count: commands3.length });
+  const items = commands3.map((command) => ({
+    label: command,
+    description: "Send to terminal"
+  }));
+  const picked = await vscode5.window.showQuickPick(items, {
+    canPickMany: true,
+    title: "Rhizome suggested actions",
+    placeHolder: "Select commands to run (Esc to skip)"
+  });
+  if (!picked || picked.length === 0) {
+    telemetry("ACTION", "STEP", "User skipped agentic actions");
+    return;
+  }
+  const confirmation = await vscode5.window.showWarningMessage(
+    `Run ${picked.length} command${picked.length > 1 ? "s" : ""} in terminal?`,
+    { modal: true },
+    "Run",
+    "Cancel"
+  );
+  if (confirmation !== "Run") {
+    telemetry("ACTION", "STEP", "User cancelled agentic execution");
+    return;
+  }
+  const terminal = getAgenticTerminal();
+  terminal.show(true);
+  for (const { label } of picked) {
+    terminal.sendText(label, true);
+  }
+  telemetry("ACTION", "SUCCESS", "Agentic commands dispatched", { count: picked.length });
+  vscode5.window.showInformationMessage(`Sent ${picked.length} command${picked.length > 1 ? "s" : ""} to terminal.`);
+}
 async function performHealthCheck(workspaceRoot) {
   const details = [];
   const { execSync: execSync2 } = require("child_process");
-  const fs5 = require("fs");
+  const fs8 = require("fs");
   try {
     try {
       const version = execSync2("rhizome --version", {
@@ -17222,7 +17886,7 @@ async function performHealthCheck(workspaceRoot) {
       return { healthy: false, details };
     }
     const rhizomeDir = `${workspaceRoot}/.rhizome`;
-    if (fs5.existsSync(rhizomeDir)) {
+    if (fs8.existsSync(rhizomeDir)) {
       details.push(`\u2713 .rhizome directory exists at ${rhizomeDir}`);
     } else {
       details.push(`\u26A0 .rhizome directory not found. Run: vscode-rhizome.init`);
@@ -17265,6 +17929,20 @@ function activate(context) {
   console.log("[vscode-rhizome] Activation starting");
   ensureLocalBinOnPath();
   console.log("[vscode-rhizome] Local bin path ensured");
+  const initialWorkspaceRoot = vscode5.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (initialWorkspaceRoot) {
+    activateMcpBridge(context, initialWorkspaceRoot).catch((error) => {
+      console.error("[vscode-rhizome] Failed to start MCP bridge:", error.message);
+    });
+  }
+  context.subscriptions.push(
+    new vscode5.Disposable(() => {
+      if (agenticTerminal) {
+        agenticTerminal.dispose();
+        agenticTerminal = void 0;
+      }
+    })
+  );
   (async () => {
     console.log("[vscode-rhizome] Fetching available personas on startup...");
     try {
@@ -17279,13 +17957,13 @@ function activate(context) {
       console.log("[vscode-rhizome] ERROR fetching personas on startup:", error.message);
     }
   })();
-  let healthCheckDisposable = vscode4.commands.registerCommand("vscode-rhizome.healthCheck", async () => {
-    const workspaceRoot2 = vscode4.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  let healthCheckDisposable = vscode5.commands.registerCommand("vscode-rhizome.healthCheck", async () => {
+    const workspaceRoot2 = vscode5.workspace.workspaceFolders?.[0]?.uri.fsPath;
     if (!workspaceRoot2) {
-      vscode4.window.showErrorMessage("No workspace folder open");
+      vscode5.window.showErrorMessage("No workspace folder open");
       return;
     }
-    const outputChannel = vscode4.window.createOutputChannel("vscode-rhizome: Health Check");
+    const outputChannel = vscode5.window.createOutputChannel("vscode-rhizome: Health Check");
     outputChannel.show(true);
     outputChannel.appendLine("=".repeat(60));
     outputChannel.appendLine("vscode-rhizome Health Check");
@@ -17303,28 +17981,28 @@ function activate(context) {
     }
   });
   context.subscriptions.push(healthCheckDisposable);
-  let initDisposable = vscode4.commands.registerCommand("vscode-rhizome.init", async () => {
+  let initDisposable = vscode5.commands.registerCommand("vscode-rhizome.init", async () => {
     console.log("[vscode-rhizome.init] Command invoked");
-    const workspaceRoot2 = vscode4.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const workspaceRoot2 = vscode5.workspace.workspaceFolders?.[0]?.uri.fsPath;
     if (!workspaceRoot2) {
       console.log("[vscode-rhizome.init] No workspace folder");
-      vscode4.window.showErrorMessage("No workspace folder open");
+      vscode5.window.showErrorMessage("No workspace folder open");
       return;
     }
     console.log("[vscode-rhizome.init] Initializing at:", workspaceRoot2);
     const initialized = await initializeRhizomeIfNeeded(workspaceRoot2);
     if (initialized) {
       console.log("[vscode-rhizome.init] Initialization successful");
-      vscode4.window.showInformationMessage("Rhizome is ready in this workspace");
+      vscode5.window.showInformationMessage("Rhizome is ready in this workspace");
     } else {
       console.log("[vscode-rhizome.init] Initialization failed");
     }
   });
   context.subscriptions.push(initDisposable);
-  let diagnosisDisposable = vscode4.commands.registerCommand("vscode-rhizome.diagnoseEnvironment", async () => {
+  let diagnosisDisposable = vscode5.commands.registerCommand("vscode-rhizome.diagnoseEnvironment", async () => {
     console.log("[diagnoseEnvironment] Starting rhizome environment diagnosis");
     const { execSync: execSync2 } = require("child_process");
-    const outputChannel = vscode4.window.createOutputChannel("vscode-rhizome: Environment Diagnosis");
+    const outputChannel = vscode5.window.createOutputChannel("vscode-rhizome: Environment Diagnosis");
     outputChannel.show(true);
     outputChannel.appendLine("=".repeat(70));
     outputChannel.appendLine("RHIZOME ENVIRONMENT DIAGNOSIS");
@@ -17392,13 +18070,13 @@ function activate(context) {
     } catch (error) {
       outputChannel.appendLine(`ERROR: ${error.message}`);
     }
-    vscode4.window.showInformationMessage("Diagnosis complete. See output panel for details.");
+    vscode5.window.showInformationMessage("Diagnosis complete. See output panel for details.");
   });
   context.subscriptions.push(diagnosisDisposable);
-  let installDepsDisposable = vscode4.commands.registerCommand("vscode-rhizome.installDeps", async () => {
+  let installDepsDisposable = vscode5.commands.registerCommand("vscode-rhizome.installDeps", async () => {
     console.log("[vscode-rhizome.installDeps] Command invoked");
     const { execSync: execSync2 } = require("child_process");
-    const option = await vscode4.window.showQuickPick(
+    const option = await vscode5.window.showQuickPick(
       [
         {
           label: "python3 -m pip install pyyaml",
@@ -17428,21 +18106,21 @@ function activate(context) {
     }
     console.log("[vscode-rhizome.installDeps] User selected:", option.label);
     if (option.label.includes("Show me")) {
-      vscode4.window.showInformationMessage(
+      vscode5.window.showInformationMessage(
         "Copy and paste this into your terminal:\n\npython3 -m pip install pyyaml\n\nThen reload VSCode (Cmd+Shift+P \u2192 Reload Window)"
       );
       return;
     }
-    const terminal = vscode4.window.createTerminal("rhizome: Install Dependencies");
+    const terminal = vscode5.window.createTerminal("rhizome: Install Dependencies");
     terminal.show();
     console.log("[vscode-rhizome.installDeps] Executing:", option.label);
     terminal.sendText(option.label, true);
-    vscode4.window.showInformationMessage(
+    vscode5.window.showInformationMessage(
       'Running in terminal. When you see "Successfully installed", close the terminal and reload VSCode (Cmd+Shift+P \u2192 Reload Window).'
     );
   });
   context.subscriptions.push(installDepsDisposable);
-  const completionProvider = vscode4.languages.registerCompletionItemProvider(
+  const completionProvider = vscode5.languages.registerCompletionItemProvider(
     { scheme: "file" },
     // Apply to all files
     {
@@ -17459,9 +18137,9 @@ function activate(context) {
         console.log("[autocomplete] Personas available:", Array.from(personas.keys()));
         const items = [];
         for (const [name, role] of personas.entries()) {
-          const item = new vscode4.CompletionItem(name, vscode4.CompletionItemKind.User);
+          const item = new vscode5.CompletionItem(name, vscode5.CompletionItemKind.User);
           item.detail = role;
-          item.documentation = new vscode4.MarkdownString(`**${name}**: ${role}`);
+          item.documentation = new vscode5.MarkdownString(`**${name}**: ${role}`);
           item.insertText = name;
           items.push(item);
         }
@@ -17473,18 +18151,14 @@ function activate(context) {
     // Trigger on space (after "@rhizome ask ")
   );
   context.subscriptions.push(completionProvider);
-  let askPersonaDisposable = vscode4.commands.registerCommand("vscode-rhizome.askPersona", async () => {
+  let askPersonaDisposable = vscode5.commands.registerCommand("vscode-rhizome.askPersona", async () => {
     telemetry("WORKFLOW", "START", 'User invoked "Ask a persona" command');
-    const selection = getActiveSelection();
-    if (!selection) {
-      telemetry("WORKFLOW", "ERROR", "No text selected", { action: "abort" });
-      vscode4.window.showErrorMessage("Please select some code first");
-      return;
-    }
-    const { selectedText } = selection;
-    telemetry("WORKFLOW", "STEP", "Selection obtained", {
-      length: selectedText.length,
-      preview: selectedText.substring(0, 50) + (selectedText.length > 50 ? "..." : "")
+    const editor = vscode5.window.activeTextEditor;
+    const selectionRange = editor?.selection;
+    const selectedText = editor && selectionRange && !selectionRange.isEmpty ? editor.document.getText(selectionRange).trim() : "";
+    telemetry("WORKFLOW", "STEP", "Context gathered", {
+      selectionLength: selectedText.length,
+      language: editor?.document.languageId
     });
     telemetry("WORKFLOW", "STEP", "Fetching available personas...");
     const personas = await getAvailablePersonas();
@@ -17494,7 +18168,7 @@ function activate(context) {
     });
     if (personas.size === 0) {
       telemetry("WORKFLOW", "ERROR", "No personas available", { action: "abort" });
-      vscode4.window.showErrorMessage("No personas available. Check rhizome installation.");
+      vscode5.window.showErrorMessage("No personas available. Check rhizome installation.");
       return;
     }
     const personaOptions = Array.from(personas.entries()).map(([name, role]) => ({
@@ -17502,7 +18176,7 @@ function activate(context) {
       description: role
     }));
     telemetry("WORKFLOW", "STEP", "Showing quick picker");
-    const picked = await vscode4.window.showQuickPick(personaOptions, {
+    const picked = await vscode5.window.showQuickPick(personaOptions, {
       placeHolder: "Choose a persona to question your code",
       matchOnDescription: true
     });
@@ -17514,36 +18188,78 @@ function activate(context) {
       persona: picked.label,
       role: picked.description
     });
+    let question;
+    if (selectedText) {
+      const inferred = inferQuestionFromSelection(selectedText, editor?.document.languageId);
+      const confirmed = await vscode5.window.showInputBox({
+        title: "Question for persona",
+        prompt: "Review or adjust the question before asking.",
+        value: inferred,
+        valueSelection: [0, inferred.length],
+        ignoreFocusOut: true
+      });
+      if (confirmed === void 0) {
+        telemetry("WORKFLOW", "STEP", "User cancelled question confirmation");
+        return;
+      }
+      question = confirmed.trim();
+      if (!question) {
+        vscode5.window.showErrorMessage("Question cannot be empty.");
+        return;
+      }
+    } else {
+      const entered = await vscode5.window.showInputBox({
+        title: "Ask a persona",
+        prompt: "What would you like to ask?",
+        placeHolder: "e.g., What should I focus on next?",
+        ignoreFocusOut: true
+      });
+      if (!entered) {
+        telemetry("WORKFLOW", "STEP", "User cancelled question entry");
+        return;
+      }
+      question = entered.trim();
+      if (!question) {
+        vscode5.window.showErrorMessage("Question cannot be empty.");
+        return;
+      }
+    }
+    const prompt = selectedText ? `${question}
+
+${selectedText}` : question;
     telemetry("WORKFLOW", "STEP", "Calling queryPersona...");
-    await askPersonaAboutSelection(picked.label, picked.label);
+    await askPersonaWithPrompt(picked.label, picked.label, prompt, {
+      question,
+      selectedText
+    });
     telemetry("WORKFLOW", "SUCCESS", "Ask persona command completed");
   });
   context.subscriptions.push(askPersonaDisposable);
   const voiceControlDisposable = registerVoiceControlCommand(context);
   context.subscriptions.push(voiceControlDisposable);
-  let stubDisposable = vscode4.commands.registerCommand("vscode-rhizome.stub", async () => {
-    const editor = vscode4.window.activeTextEditor;
+  let stubDisposable = vscode5.commands.registerCommand("vscode-rhizome.stub", async () => {
+    const editor = vscode5.window.activeTextEditor;
     if (!editor) {
-      vscode4.window.showErrorMessage("No active editor");
+      vscode5.window.showErrorMessage("No active editor");
       return;
     }
     const document = editor.document;
     const code = document.getText();
     const language = detectLanguage(document.languageId);
     if (!language) {
-      vscode4.window.showErrorMessage(
+      vscode5.window.showErrorMessage(
         `Unsupported language: ${document.languageId}. Use TypeScript, JavaScript, or Python.`
       );
       return;
     }
     const stubs = findStubComments(code, language);
     if (stubs.length === 0) {
-      vscode4.window.showWarningMessage("No @rhizome stub comments found in this file");
+      vscode5.window.showWarningMessage("No @rhizome stub comments found in this file");
       return;
     }
     let targetStub = stubs[0];
     if (stubs.length > 1) {
-      const picked = await vscode4.window.showQuickPick(
+      const picked = await vscode5.window.showQuickPick(
         stubs.map((s) => `Line ${s.line}: ${s.functionName}`),
         { placeHolder: "Which function to stub?" }
       );
@@ -17554,22 +18270,22 @@ function activate(context) {
     }
     const stub = generateStub(targetStub.functionName, targetStub.params, targetStub.returnType, language);
     const modifiedCode = insertStub(code, targetStub.line, stub, language);
-    const fullRange = new vscode4.Range(document.positionAt(0), document.positionAt(code.length));
-    const edit = new vscode4.TextEdit(fullRange, modifiedCode);
-    const workspaceEdit = new vscode4.WorkspaceEdit();
+    const fullRange = new vscode5.Range(document.positionAt(0), document.positionAt(code.length));
+    const edit = new vscode5.TextEdit(fullRange, modifiedCode);
+    const workspaceEdit = new vscode5.WorkspaceEdit();
     workspaceEdit.set(document.uri, [edit]);
-    await vscode4.workspace.applyEdit(workspaceEdit);
-    vscode4.window.showInformationMessage(`Stub created for ${targetStub.functionName}`);
+    await vscode5.workspace.applyEdit(workspaceEdit);
+    vscode5.window.showInformationMessage(`Stub created for ${targetStub.functionName}`);
   });
   context.subscriptions.push(stubDisposable);
-  let documentWithPersonaDisposable = vscode4.commands.registerCommand(
+  let documentWithPersonaDisposable = vscode5.commands.registerCommand(
     "vscode-rhizome.documentWithPersona",
     async () => {
       telemetry("DOCUMENT", "START", 'User invoked "Document with persona" command');
       const selection = getActiveSelection();
       if (!selection) {
         telemetry("DOCUMENT", "ERROR", "No text selected", { action: "abort" });
-        vscode4.window.showErrorMessage("Please select some code first");
+        vscode5.window.showErrorMessage("Please select some code first");
         return;
       }
       const { editor, selectedText } = selection;
@@ -17587,7 +18303,7 @@ function activate(context) {
       });
       if (personasMap.size === 0) {
         telemetry("DOCUMENT", "ERROR", "No personas available", { action: "abort" });
-        vscode4.window.showErrorMessage("No personas available. Check rhizome installation.");
+        vscode5.window.showErrorMessage("No personas available. Check rhizome installation.");
         return;
       }
       telemetry("DOCUMENT", "STEP", "Showing quick picker");
@@ -17595,7 +18311,7 @@ function activate(context) {
         label: name,
         description: role || `Ask ${name} to document this`
       }));
-      const picked = await vscode4.window.showQuickPick(personaOptions, {
+      const picked = await vscode5.window.showQuickPick(personaOptions, {
         placeHolder: "Which persona should document this code?"
       });
       if (!picked) {
@@ -17607,17 +18323,17 @@ function activate(context) {
         role: picked.description
       });
       telemetry("DOCUMENT", "STEP", "Getting workspace root...");
-      const workspaceRoot2 = vscode4.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      const workspaceRoot2 = vscode5.workspace.workspaceFolders?.[0]?.uri.fsPath;
       if (!workspaceRoot2) {
         telemetry("DOCUMENT", "ERROR", "No workspace folder");
-        vscode4.window.showErrorMessage("No workspace folder open");
+        vscode5.window.showErrorMessage("No workspace folder open");
         return;
       }
       telemetry("DOCUMENT", "STEP", "Initializing rhizome...");
       const initialized = await initializeRhizomeIfNeeded(workspaceRoot2);
       if (!initialized) {
         telemetry("DOCUMENT", "ERROR", "Rhizome initialization failed");
-        vscode4.window.showErrorMessage("Could not initialize rhizome.");
+        vscode5.window.showErrorMessage("Could not initialize rhizome.");
         return;
       }
       const prompt = `Please provide clear documentation/comments for this code:
@@ -17627,9 +18343,9 @@ ${selectedText}`;
         promptLength: prompt.length,
         selectedLength: selectedText.length
       });
-      await vscode4.window.withProgress(
+      await vscode5.window.withProgress(
         {
-          location: vscode4.ProgressLocation.Notification,
+          location: vscode5.ProgressLocation.Notification,
           title: `Asking ${picked.label} to document your code...`,
           cancellable: false
         },
@@ -17660,21 +18376,21 @@ ${selectedText}`;
               line: insertPos.line,
               character: insertPos.character
             });
-            const edit = new vscode4.TextEdit(
-              new vscode4.Range(insertPos, insertPos),
+            const edit = new vscode5.TextEdit(
+              new vscode5.Range(insertPos, insertPos),
               `${comment}
 `
             );
-            const workspaceEdit = new vscode4.WorkspaceEdit();
+            const workspaceEdit = new vscode5.WorkspaceEdit();
             workspaceEdit.set(document.uri, [edit]);
             telemetry("DOCUMENT", "STEP", "Text edit created and applying...");
-            await vscode4.workspace.applyEdit(workspaceEdit);
+            await vscode5.workspace.applyEdit(workspaceEdit);
             telemetry("DOCUMENT", "RESULT", "Comments inserted into file", {
               persona: picked.label,
               file: document.fileName
             });
             progress.report({ message: "Documentation added! \u2713" });
-            vscode4.window.showInformationMessage(`${picked.label} documentation added above selection`);
+            vscode5.window.showInformationMessage(`${picked.label} documentation added above selection`);
             telemetry("DOCUMENT", "SUCCESS", "Document command completed successfully");
           } catch (error) {
             telemetry("DOCUMENT", "ERROR", "Query or insertion failed", {
@@ -17682,7 +18398,7 @@ ${selectedText}`;
               error: error.message
             });
             progress.report({ message: `Error: ${error.message}` });
-            vscode4.window.showErrorMessage(
+            vscode5.window.showErrorMessage(
               `Failed to get documentation from ${picked.label}: ${error.message}`
             );
           }
@@ -17691,51 +18407,51 @@ ${selectedText}`;
     }
   );
   context.subscriptions.push(documentWithPersonaDisposable);
-  const workspaceRoot = vscode4.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
+  const workspaceRoot = vscode5.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
   const epistleRegistry = createEpistleRegistry(workspaceRoot);
   const epistlesDir = require("path").join(workspaceRoot, ".rhizome", "plugins", "epistles");
-  let recordLetterEpistleDisposable = vscode4.commands.registerCommand(
+  let recordLetterEpistleDisposable = vscode5.commands.registerCommand(
     "vscode-rhizome.recordLetterEpistle",
     async () => {
-      const editor = vscode4.window.activeTextEditor;
+      const editor = vscode5.window.activeTextEditor;
       if (!editor) {
-        vscode4.window.showErrorMessage("Please open a file and select code before recording an epistle");
+        vscode5.window.showErrorMessage("Please open a file and select code before recording an epistle");
         return;
       }
       if (editor.selection.isEmpty) {
-        vscode4.window.showErrorMessage("Please select some code before recording an epistle");
+        vscode5.window.showErrorMessage("Please select some code before recording an epistle");
         return;
       }
       await recordLetterEpistle(editor, epistleRegistry, telemetry, epistlesDir, workspaceRoot);
     }
   );
   context.subscriptions.push(recordLetterEpistleDisposable);
-  let recordInlineEpistleDisposable = vscode4.commands.registerCommand(
+  let recordInlineEpistleDisposable = vscode5.commands.registerCommand(
     "vscode-rhizome.recordInlineEpistle",
     async () => {
-      const editor = vscode4.window.activeTextEditor;
+      const editor = vscode5.window.activeTextEditor;
       if (!editor) {
-        vscode4.window.showErrorMessage("Please open a file and select code before recording an inline epistle");
+        vscode5.window.showErrorMessage("Please open a file and select code before recording an inline epistle");
         return;
       }
       if (editor.selection.isEmpty) {
-        vscode4.window.showErrorMessage("Please select some code before recording an inline epistle");
+        vscode5.window.showErrorMessage("Please select some code before recording an inline epistle");
         return;
       }
       await recordInlineEpistle(editor, epistleRegistry, telemetry);
     }
   );
   context.subscriptions.push(recordInlineEpistleDisposable);
-  let createDynamicPersonaDisposable = vscode4.commands.registerCommand(
+  let createDynamicPersonaDisposable = vscode5.commands.registerCommand(
     "vscode-rhizome.createDynamicPersona",
     async (file) => {
       let filepath;
       if (file) {
         filepath = file.fsPath;
       } else {
-        const editor = vscode4.window.activeTextEditor;
+        const editor = vscode5.window.activeTextEditor;
         if (!editor) {
-          vscode4.window.showErrorMessage("Please open a file to create a dynamic persona");
+          vscode5.window.showErrorMessage("Please open a file to create a dynamic persona");
           return;
         }
         filepath = editor.document.fileName;
@@ -17744,6 +18460,36 @@ ${selectedText}`;
     }
   );
   context.subscriptions.push(createDynamicPersonaDisposable);
+  let recordFileAdvocateDisposable = vscode5.commands.registerCommand(
+    "vscode-rhizome.recordFileAdvocateEpistle",
+    async (file) => {
+      let filepath;
+      if (file) {
+        filepath = file.fsPath;
+      } else {
+        const editor = vscode5.window.activeTextEditor;
+        if (!editor) {
+          vscode5.window.showErrorMessage("Please open a file to create an advocate epistle");
+          return;
+        }
+        filepath = editor.document.fileName;
+      }
+      await recordFileAdvocateEpistle(filepath, workspaceRoot, epistleRegistry, telemetry);
+    }
+  );
+  context.subscriptions.push(recordFileAdvocateDisposable);
+  let addFileAdvocateCommentDisposable = vscode5.commands.registerCommand(
+    "vscode-rhizome.addFileAdvocateComment",
+    async () => {
+      const editor = vscode5.window.activeTextEditor;
+      if (!editor) {
+        vscode5.window.showErrorMessage("Please open a file to add an advocate comment");
+        return;
+      }
+      await addFileAdvocateComment(editor, telemetry);
+    }
+  );
+  context.subscriptions.push(addFileAdvocateCommentDisposable);
   let sidebarProvider;
   try {
     sidebarProvider = registerEpistleSidebar(context, epistleRegistry, workspaceRoot);
@@ -17753,7 +18499,7 @@ ${selectedText}`;
       error: error.message
     });
   }
-  let openEpistleDisposable = vscode4.commands.registerCommand(
+  let openEpistleDisposable = vscode5.commands.registerCommand(
     "vscode-rhizome.openEpistle",
     async (entry, workspaceRootPath) => {
       telemetry("EPISTLE_SIDEBAR", "START", "Open epistle from sidebar", {
@@ -17770,8 +18516,8 @@ ${selectedText}`;
               "epistles",
               entry.file
             );
-            const doc = await vscode4.workspace.openTextDocument(filepath);
-            await vscode4.window.showTextDocument(doc);
+            const doc = await vscode5.workspace.openTextDocument(filepath);
+            await vscode5.window.showTextDocument(doc);
             telemetry("EPISTLE_SIDEBAR", "SUCCESS", "Opened letter epistle", {
               id: entry.id,
               file: entry.file
@@ -17779,15 +18525,15 @@ ${selectedText}`;
             break;
           }
           case "inline": {
-            const doc = await vscode4.workspace.openTextDocument(entry.inline_file);
-            const editor = await vscode4.window.showTextDocument(doc);
+            const doc = await vscode5.workspace.openTextDocument(entry.inline_file);
+            const editor = await vscode5.window.showTextDocument(doc);
             const [startLine, endLine] = entry.lines.split("-").map((s) => parseInt(s, 10));
-            const range = new vscode4.Range(
-              new vscode4.Position(startLine - 1, 0),
-              new vscode4.Position(endLine - 1, 0)
+            const range = new vscode5.Range(
+              new vscode5.Position(startLine - 1, 0),
+              new vscode5.Position(endLine - 1, 0)
             );
-            editor.selection = new vscode4.Selection(range.start, range.end);
-            editor.revealRange(range, vscode4.TextEditorRevealType.InCenter);
+            editor.selection = new vscode5.Selection(range.start, range.end);
+            editor.revealRange(range, vscode5.TextEditorRevealType.InCenter);
             telemetry("EPISTLE_SIDEBAR", "SUCCESS", "Opened inline epistle", {
               id: entry.id,
               file: entry.inline_file,
@@ -17796,7 +18542,7 @@ ${selectedText}`;
             break;
           }
           case "dynamic_persona": {
-            vscode4.window.showInformationMessage(
+            vscode5.window.showInformationMessage(
               `Dynamic Persona: ${entry.name}
 
 Source: ${entry.source_file}
@@ -17815,12 +18561,12 @@ Created: ${entry.created_at}`
           type: entry.type,
           error: error.message
         });
-        vscode4.window.showErrorMessage(`Failed to open epistle: ${error.message}`);
+        vscode5.window.showErrorMessage(`Failed to open epistle: ${error.message}`);
       }
     }
   );
   context.subscriptions.push(openEpistleDisposable);
-  let refreshEpistleSidebarDisposable = vscode4.commands.registerCommand(
+  let refreshEpistleSidebarDisposable = vscode5.commands.registerCommand(
     "vscode-rhizome.refreshEpistleSidebar",
     async () => {
       telemetry("EPISTLE_SIDEBAR", "START", "Manual refresh triggered");
@@ -17828,7 +18574,7 @@ Created: ${entry.created_at}`
         if (sidebarProvider) {
           sidebarProvider.refresh();
           telemetry("EPISTLE_SIDEBAR", "SUCCESS", "Sidebar refreshed");
-          vscode4.window.showInformationMessage("Epistle registry refreshed");
+          vscode5.window.showInformationMessage("Epistle registry refreshed");
         }
       } catch (error) {
         telemetry("EPISTLE_SIDEBAR", "ERROR", "Failed to refresh sidebar", {
@@ -17838,11 +18584,11 @@ Created: ${entry.created_at}`
     }
   );
   context.subscriptions.push(refreshEpistleSidebarDisposable);
-  let changeEpistleFilterDisposable = vscode4.commands.registerCommand(
+  let changeEpistleFilterDisposable = vscode5.commands.registerCommand(
     "vscode-rhizome.changeEpistleFilter",
     async () => {
       telemetry("EPISTLE_SIDEBAR", "START", "Filter mode change requested");
-      const selected = await vscode4.window.showQuickPick(
+      const selected = await vscode5.window.showQuickPick(
         [
           { label: "By Type", description: "Letters, Inline epistles, Dynamic personas" },
           { label: "By Persona", description: "dev-guide, code-reviewer, etc." },
@@ -17868,12 +18614,12 @@ Created: ${entry.created_at}`
       if (sidebarProvider && mode) {
         sidebarProvider.setFilterMode(mode);
         telemetry("EPISTLE_SIDEBAR", "SUCCESS", "Filter mode changed", { mode });
-        vscode4.window.showInformationMessage(`Epistle view now filtered by ${selected.label.toLowerCase()}`);
+        vscode5.window.showInformationMessage(`Epistle view now filtered by ${selected.label.toLowerCase()}`);
       }
     }
   );
   context.subscriptions.push(changeEpistleFilterDisposable);
-  let showFlightPlanEpistlesDisposable = vscode4.commands.registerCommand(
+  let showFlightPlanEpistlesDisposable = vscode5.commands.registerCommand(
     "vscode-rhizome.showFlightPlanEpistles",
     async () => {
       const { getActiveFlightPlan: getActiveFlightPlan2, getEpistlesForFlightPlan: getEpistlesForFlightPlan2, getEpistleCountsByType: getEpistleCountsByType2, formatFlightPlanInfo: formatFlightPlanInfo2, formatEpistleSummary: formatEpistleSummary2 } = await Promise.resolve().then(() => (init_flightPlanIntegration(), flightPlanIntegration_exports));
@@ -17882,7 +18628,7 @@ Created: ${entry.created_at}`
         const activeFlightPlan = getActiveFlightPlan2(workspaceRoot);
         if (!activeFlightPlan) {
           telemetry("FLIGHT_PLAN_EPISTLES", "STEP", "No active flight plan");
-          vscode4.window.showInformationMessage(
+          vscode5.window.showInformationMessage(
             "No active flight plan. Set an active flight plan via the rhizome CLI and try again."
           );
           return;
@@ -17895,14 +18641,14 @@ Created: ${entry.created_at}`
           counts
         });
         if (epistles.length === 0) {
-          vscode4.window.showInformationMessage(
+          vscode5.window.showInformationMessage(
             `${formatFlightPlanInfo2(activeFlightPlan)}
 
 No epistles yet. Create one to start recording design decisions!`
           );
         } else {
           const summary = formatEpistleSummary2(counts.letters, counts.inline, counts.personas);
-          vscode4.window.showInformationMessage(
+          vscode5.window.showInformationMessage(
             `${formatFlightPlanInfo2(activeFlightPlan)}
 
 ${summary}`
@@ -17910,13 +18656,13 @@ ${summary}`
         }
         if (sidebarProvider) {
           sidebarProvider.setFilterMode("flight-plan");
-          vscode4.commands.executeCommand("epistle-registry-sidebar.focus");
+          vscode5.commands.executeCommand("epistle-registry-sidebar.focus");
         }
       } catch (error) {
         telemetry("FLIGHT_PLAN_EPISTLES", "ERROR", "Failed to show flight plan epistles", {
           error: error.message
         });
-        vscode4.window.showErrorMessage(`Failed to load epistles: ${error.message}`);
+        vscode5.window.showErrorMessage(`Failed to load epistles: ${error.message}`);
       }
     }
   );

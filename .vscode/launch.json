@@ -7,7 +7,7 @@
 			"request": "launch",
 			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}",
-				"${workspaceFolder}/test-workspace"
+				"/Users/hallie/Documents/courses/1cc-rhizome-test"
 			],
 			"env": {
 				"RHIZOME_DEBUG": "true"
