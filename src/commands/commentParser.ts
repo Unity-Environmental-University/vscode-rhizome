@@ -19,6 +19,9 @@ export interface CommentInsertion {
  * Line 12-15: This loop could be optimized with a Set instead of array lookup
  * Line 20: Good error handling, but consider logging the error
  *
+ * The commentPrefix parameter (// for TypeScript, # for Python) is prepended to each
+ * parsed comment. This ensures comments use the correct syntax for the file type.
+ *
  * Falls back to inserting at logical points if no line numbers detected.
  */
 export function parseCommentInsertion(

@@ -1,8 +1,8 @@
 # CLAUDE.md: Working with vscode-rhizome
 
-**LAST UPDATED:** Oct 28, 2025 18:23 UTC
-**STATUS:** Persona comments feature complete, ready for users (fp-1761674707)
-**GIT:** 36 commits ahead of origin/main
+**LAST UPDATED:** Oct 29, 2025 16:00 UTC
+**STATUS:** Comment syntax formatting complete, ready for manual testing
+**GIT:** Main branch, all changes committed
 
 ## What This Document Is
 
@@ -723,81 +723,80 @@ The extension teaches by example. Your job is to maintain that example with care
 
 ---
 
-## Session Summary (Oct 28, 2025)
+## Session Summary (Oct 29, 2025)
 
-### Completed: Persona Comments Feature (fp-1761674707)
+### Completed: Comment Syntax Formatting
 
-**What Was Built:**
-- Command: "Ask a persona to document this" (right-click menu)
-- Code: 85 lines in `src/extension.ts:681-764`
-- Tests: 7 focused tests (all passing)
-- Status: Production-ready, documented, ready for users
+**What Was Done:**
+- Updated `redPenReviewCommand()` prompt with `${commentPrefix}` examples (lines 132-150)
+- Updated `redPenReviewFileCommand()` prompt with `${commentPrefix}` examples (lines 236-257)
+- Both prompts now explicitly request persona format comments using correct syntax
+- Built and tested: all 113 tests passing, no regressions
 
-**User Flow:**
+**Why It Matters:**
+Personas now see concrete examples of the correct comment syntax (// for TypeScript, # for Python) directly in the prompt, ensuring feedback is formatted correctly for each file type.
+
+**The Implementation:**
 ```
-Select code → Right-click → "Ask a persona to document this"
-→ Choose persona → Comments inserted above (language-aware)
+1. detectLanguage(languageId) → "typescript" or "python"
+2. commentPrefix = (language === 'python' ? '#' : '//')
+3. Prompt interpolates ${commentPrefix} → persona sees "// Line 5: ..." or "# Line 5: ..."
+4. Persona formats response with correct syntax
+5. parseCommentInsertion() applies prefix to parsed comments
+6. Insertion: "${commentPrefix} 🔴 [feedback]"
 ```
 
-**Design Decisions:**
-1. Dynamic persona picker (scales automatically)
-2. Comments above selection (JSDoc convention)
-3. Language-aware syntax (// vs #)
-4. Simple line-prefix formatter (95% coverage)
-5. Single hardcoded prompt (customizable later)
+**How to Test:**
+1. F5 to open extension in debug mode
+2. Test selection-based review: select code in test.ts (TypeScript), right-click → "Red Pen Review"
+   - Verify comments use `//` syntax
+3. Test selection-based review: select code in test.py (Python), right-click → "Red Pen Review"
+   - Verify comments use `#` syntax
+4. Test file-level review: right-click file in Explorer → "Red Pen Review (entire file)"
+   - Verify syntax matches file type
+   - Verify line numbers are accurate and don't drift
 
-**Flight Plan Phases:**
-- ✓ kitchen_table: Design (dynamic picker choice)
-- ✓ garden: Implementation + testing
-- ✓ library: Documentation + teaching moments
+**Design Notes:**
+- Prompt examples include actual `${commentPrefix}` value, not placeholder
+- Three commands use consistent logic: askPersona, redPenReview, redPenReviewFile
+- Reverse-order insertion prevents line number drift when applying multiple comments
+- Comment prefix flows through entire pipeline: detectLanguage → prompt → parsing → insertion
 
-**Documentation:**
-- `.rhizome/persona-comments-feature.md` — Complete design doc
-- `.rhizome/TEACHING_MOMENTS.md` — Items #5, #6 added
-- Code comments — Don-socratic questions throughout
+**Commits:**
+- `533def4`: "refactor: Improve persona review prompts with comment syntax examples"
+- `6b463f9`: "docs: Add session documentation for comment syntax improvements"
 
-### Next Priorities
+### Testing Commands
 
-Choose one:
+Run manual tests on test-workspace files:
+- `test-workspace/test.ts` — TypeScript examples
+- `test-workspace/test.py` — Python examples
 
-1. **GraphBuilder** (Secondary, scaffolded tests exist)
-   - Parse actions.ndjson → knowledge graph
-   - Build node/edge structure
-   - Status: Tests written, needs implementation
+Press F5 to debug extension with test workspace automatically loaded.
 
-2. **Voice Control** (Feature, UI exists)
-   - Implement audio transcription streaming
-   - Connect to rhizome persona
-   - Status: UI ready, needs audio logic
-   - Note: Some type errors in tests
+### Build Status
 
-3. **Refactor & Extract** (Code quality)
-   - Comment formatting utility
-   - Command handler pattern
-   - Status: Patterns identified, ready
+```bash
+npm run esbuild      # ✅ 25.2kb (2ms)
+npm run typecheck    # ✅ No errors
+npm test             # ✅ 113 passing
+```
 
-4. **User Documentation** (Support)
-   - User guide with examples
-   - Screenshot/walkthrough
-   - Status: Design notes exist, needs polish
+### Code Files Modified
 
-5. **Fix Rhizome CLI Bug** (Technical debt)
-   - `rhizome flight phase` command broken
-   - KeyError in flight_commands.py:329
-   - Status: Identified, ready
+- `src/commands/personaCommands.ts` — Updated prompts with comment syntax examples
+- `dist/extension.js` — Rebuilt
+- `dist/extension.js.map` — Rebuilt
 
-### Git Status
+### Next Steps
 
-- **36 commits ahead** of origin/main
-- Last 3 commits:
-  - `fe55ce5` — Implement persona comments
-  - `e0c2257` — Document feature (library phase)
-  - `acad139` — Record completion
-
-- Ready to push when needed
+1. **Manual Testing** — Run tests per instructions above
+2. **User Validation** — Verify actual persona responses use correct syntax
+3. **Edge Cases** — Test with large files, many comments, various languages
+4. **Documentation** — Update user guide if behavior changes needed
 
 ---
 
-*Last Updated: 2025-10-28 18:23 UTC*
+*Last Updated: 2025-10-29 16:00 UTC*
 *Maintained by: Hallie + Claude Code, guided by rhizome flight plans*
-*Current Feature: Persona comments (COMPLETE & READY)*
+*Current Work: Comment syntax formatting (READY FOR MANUAL TESTING)*

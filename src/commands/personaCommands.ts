@@ -117,6 +117,8 @@ export const redPenReviewCommand = async () => {
 	const selectedText = editor.document.getText(editor.selection);
 
 	try {
+		// Detect file language and set appropriate comment syntax
+		// This ensures personas format feedback with correct syntax (// for TS, # for Python)
 		const language = detectLanguage(editor.document.languageId);
 		const commentPrefix = language === 'python' ? '#' : '//';
 
@@ -221,6 +223,7 @@ export const redPenReviewFileCommand = async (fileUri?: vscode.Uri) => {
 		const fileText = new TextDecoder().decode(fileContent);
 
 		const doc = await vscode.workspace.openTextDocument(targetUri);
+		// Detect file language and set appropriate comment syntax for persona response formatting
 		const language = detectLanguage(doc.languageId);
 		const commentPrefix = language === 'python' ? '#' : '//';
 
