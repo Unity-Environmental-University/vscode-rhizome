@@ -54,8 +54,57 @@ export type SessionState = {
 };
 
 /**
- * Test: Can decohere synthesize a ConversationEntry from the UI and storage views?
- * The decohere build step will see this call and generate test data.
- * (This will be replaced with actual test data by the build step, or removed.)
+ * Create a new session state.
+ * Initial state: line 0, empty history, session ongoing.
  */
-export const TEST_CONVERSATION_ENTRY: ConversationEntry = Decohere<ConversationEntry>();
+export function createSessionState(
+  filePath: string,
+  totalLines: number,
+  fileContentHash: string
+): SessionState {
+  const sessionId = `session-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+  return {
+    sessionId,
+    filePath,
+    startedAt: new Date(),
+    endedAt: null,
+    currentLineNum: 0,
+    totalLines,
+    conversationHistory: [],
+    fileContentHashAtStart: fileContentHash,
+  };
+}
+
+// Stubs for remaining functions (to be implemented)
+export function nextLine(state: SessionState): SessionState {
+  throw new Error(`nextLine: not implemented`);
+}
+
+export function previousLine(state: SessionState): SessionState {
+  throw new Error(`previousLine: not implemented`);
+}
+
+export function jumpToLine(state: SessionState, lineNum: number): SessionState {
+  throw new Error(`jumpToLine: not implemented`);
+}
+
+export function addEntry(state: SessionState, entry: ConversationEntry): SessionState {
+  throw new Error(`addEntry: not implemented`);
+}
+
+export function hasLineBeenCovered(state: SessionState, lineNum: number): boolean {
+  throw new Error(`hasLineBeenCovered: not implemented`);
+}
+
+export function getSummary(state: SessionState): { linesVisited: Set<number>; coverage: number; observations: string[] } {
+  throw new Error(`getSummary: not implemented`);
+}
+
+export function endSession(state: SessionState): SessionState {
+  throw new Error(`endSession: not implemented`);
+}
+
+export function loadHistory(state: SessionState, history: ConversationEntry[]): SessionState {
+  throw new Error(`loadHistory: not implemented`);
+}
