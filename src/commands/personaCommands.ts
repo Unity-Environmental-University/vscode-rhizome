@@ -11,6 +11,7 @@ import { askPersonaWithPrompt } from '../services/personaService';
 import { getAvailablePersonas } from '../services/rhizomeService';
 import { detectLanguage } from '../utils/helpers';
 import { parseCommentInsertion, formatInsertionPreview } from './commentParser';
+import { ensureOpenAIKeyConfigured } from '../extension';
 
 /**
  * Command: Add inline comment from persona
@@ -21,6 +22,17 @@ export const askPersonaCommand = async () => {
 	const editor = vscode.window.activeTextEditor;
 	if (!editor || editor.selection.isEmpty) {
 		vscode.window.showErrorMessage('Please select code');
+		return;
+	}
+
+	const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+	if (!workspaceRoot) {
+		vscode.window.showErrorMessage('No workspace folder open');
+		return;
+	}
+
+	// Check API key before proceeding
+	if (!(await ensureOpenAIKeyConfigured(workspaceRoot))) {
 		return;
 	}
 
@@ -114,6 +126,17 @@ export const redPenReviewCommand = async () => {
 		return;
 	}
 
+	const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+	if (!workspaceRoot) {
+		vscode.window.showErrorMessage('No workspace folder open');
+		return;
+	}
+
+	// Check API key before proceeding
+	if (!(await ensureOpenAIKeyConfigured(workspaceRoot))) {
+		return;
+	}
+
 	const selectedText = editor.document.getText(editor.selection);
 
 	try {
@@ -201,6 +224,12 @@ export const redPenReviewFileCommand = async (fileUri?: vscode.Uri) => {
 	let targetUri = fileUri;
 	let activeEditor: vscode.TextEditor | undefined;
 
+	const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+	if (!workspaceRoot) {
+		vscode.window.showErrorMessage('No workspace folder open');
+		return;
+	}
+
 	// If called from editor, remember the current editor and its selection
 	// If called from explorer, just get the file
 	if (!targetUri) {
@@ -215,6 +244,11 @@ export const redPenReviewFileCommand = async (fileUri?: vscode.Uri) => {
 		activeEditor = vscode.window.visibleTextEditors.find(
 			editor => editor.document.uri.fsPath === targetUri!.fsPath
 		);
+	}
+
+	// Check API key before proceeding
+	if (!(await ensureOpenAIKeyConfigured(workspaceRoot))) {
+		return;
 	}
 
 	try {
