@@ -1,0 +1,335 @@
+---
+# VSCode Rhizome Development Protocol
+# A structured, persona-guided feature development workflow
+# Version: 1.0
+# Last Updated: 2025-10-30
+
+protocol:
+  name: "VSCode Rhizome Feature Development"
+  philosophy: "Build thoughtfully via don-socratic questioning. Every decision deserves a 'why'."
+  version: "1.0"
+  applies_to: ["feature development", "architectural decisions", "module design"]
+
+phases:
+  - phase: "Bootstrap"
+    description: "Initialize the development environment and establish context"
+    conductor: "rhizome (meta-coordinator)"
+    steps:
+      - step: "Check active flight plans"
+        command: "rhizome flight list"
+        goal: "Understand what's in progress"
+        outcome: "Know the current state"
+
+      - step: "Consult dev-guide persona"
+        command: "rhizome query --persona dev-guide 'What should I focus on?'"
+        goal: "Get strategic guidance"
+        outcome: "Recommended focus areas from experienced perspective"
+
+      - step: "Record session start"
+        command: "rhizome record --action begin"
+        goal: "Create audit trail"
+        outcome: "Session tracked in .rhizome/actions.ndjson"
+
+  - phase: "Kitchen Table (Design)"
+    description: "Ask hard questions before building anything"
+    conductor: "una (guide) + bro (executor) leading, root (skeptic) listening"
+    steps:
+      - step: "Create flight plan"
+        command: "rhizome flight init --title '...' --requester '...' --story-as '...' --story-want '...' --story-so '...'"
+        goal: "Frame the work as a user story"
+        outcome: "Flight plan created and active"
+
+      - step: "Ask code-reviewer: Is the schema sound?"
+        command: "rhizome query --persona code-reviewer '[schema description]'"
+        goal: "Stress-test assumptions early"
+        outcome: "Edge cases identified, tradeoffs documented"
+
+      - step: "Ask ux-advocate: Does this feel natural?"
+        command: "rhizome query --persona ux-advocate '[ux design]'"
+        goal: "Validate user experience"
+        outcome: "UX concerns surfaced, affordances clarified"
+
+      - step: "Ask dev-advocate: What's working here?"
+        command: "rhizome query --persona dev-advocate '[full design]'"
+        goal: "Synthesize perspectives"
+        outcome: "Trade-offs articulated, next steps clear"
+
+      - step: "Record design decisions"
+        command: "rhizome record --action decide --confidence 0.8-0.9"
+        goal: "Document the reasoning"
+        outcome: "Decision linked to design, not just code"
+
+      - step: "Add design steps to flight plan"
+        command: "rhizome flight add --title '...'"
+        goal: "Break work into reversible chunks"
+        outcome: "3-4 design-phase steps defined"
+
+      - step: "Complete design steps"
+        command: "rhizome flight start --step N && rhizome flight done --step N"
+        goal: "Mark progress"
+        outcome: "Design phase items completed"
+
+      - step: "Transition to garden phase"
+        command: "rhizome flight phase --move-to garden"
+        goal: "Signal readiness to build"
+        outcome: "Phase changed, conductor shifts to root (execution)"
+
+  - phase: "Garden (Implementation)"
+    description: "Build the implementation skeleton with teaching friction"
+    conductor: "root (skeptic) + bro (executor) leading, una documenting"
+    steps:
+      - step: "Stub all modules with method signatures"
+        goal: "Define the architecture without implementation"
+        approach: |
+          For each module:
+          - Create file with full interfaces/classes
+          - Add all method signatures
+          - Throw errors with don-socratic questions instead of implementation
+          - Example: throw new Error('methodName: What should this do? Why would a user want this?')
+        outcome: "Skeleton architecture that teaches through friction"
+
+      - step: "Commit stubs with teaching context"
+        command: "git commit -m 'scaffold: Add [module] stubs with don-socratic questions'"
+        goal: "Make teaching visible in git history"
+        outcome: "Stubs in repo, questions preserved"
+
+      - step: "Add implementation steps to flight plan"
+        command: "rhizome flight add --title 'Implement [module]: [specific responsibility]'"
+        goal: "Break implementation into reversible pieces"
+        outcome: "One step per module (or finer if needed)"
+
+  - phase: "Implementation (per-module)"
+    description: "Implement each module while keeping questions visible"
+    conductor: "bro (executor) leading, root reviewing"
+    steps:
+      - step: "Start implementation step"
+        command: "rhizome flight start --step N"
+        goal: "Mark work in progress"
+        outcome: "Step shows as in-progress"
+
+      - step: "For EACH method in the stub:"
+        repeating: true
+        sub_steps:
+          - step: "Read the don-socratic question"
+            goal: "Understand the design choice"
+            outcome: "Question comprehended"
+
+          - step: "Ask a persona for guidance (if needed)"
+            command: "rhizome query --persona code-reviewer 'How should I handle [design question]?'"
+            goal: "Get expert perspective"
+            outcome: "Guidance documented (in commit message or CLAUDE.md)"
+
+          - step: "Make a design decision"
+            goal: "Answer the question explicitly"
+            outcome: "Decision made, documented in code comment or commit"
+
+          - step: "Implement the method"
+            goal: "Translate decision into code"
+            outcome: "Method has actual implementation"
+
+          - step: "Write tests for the method"
+            goal: "Verify behavior, document intent"
+            outcome: "Unit tests pass"
+
+      - step: "Test the module end-to-end"
+        goal: "Verify module integrates with others"
+        outcome: "Module tests pass, ready for integration"
+
+      - step: "Ask code-reviewer: Does this implementation match the design?"
+        command: "rhizome query --persona code-reviewer << 'EOF'\n[implementation code]\nEOF"
+        goal: "Validate quality"
+        outcome: "Code review recorded, issues surfaced"
+
+      - step: "Commit implementation"
+        command: "git commit -m 'feat: Implement [module]: [specific behavior]'"
+        goal: "Save work, link to decision"
+        outcome: "Commit in repo"
+
+      - step: "Link commit to rhizome"
+        command: "rhizome link-commit --note 'Implemented [module] with [key decisions]'"
+        goal: "Connect code to decision log"
+        outcome: "Commit linked in .rhizome/actions.ndjson"
+
+      - step: "Complete implementation step"
+        command: "rhizome flight done --step N"
+        goal: "Mark step complete"
+        outcome: "Step shows as done"
+
+  - phase: "Integration"
+    description: "Wire modules together, test full feature"
+    conductor: "root (execution) + bro (testing)"
+    steps:
+      - step: "Create integration tests"
+        goal: "Test modules working together"
+        outcome: "Integration test file created"
+
+      - step: "Wire command into extension.ts"
+        goal: "Make feature accessible to users"
+        outcome: "Command registered and callable"
+
+      - step: "Manual testing in VSCode debug"
+        goal: "Test the real user experience"
+        outcome: "Feature works end-to-end (or issues documented)"
+
+      - step: "Ask ux-advocate: Does this feel right?"
+        command: "rhizome query --persona ux-advocate 'I tested the [feature]. Here's what I found...'"
+        goal: "Validate user experience with real interaction"
+        outcome: "UX feedback recorded"
+
+      - step: "Address any issues"
+        goal: "Fix bugs, improve UX"
+        outcome: "All tests pass, feature ready"
+
+      - step: "Commit integration"
+        command: "git commit -m 'feat: Integrate rubber duck into extension'"
+        goal: "Save integrated work"
+        outcome: "Integration commit in repo"
+
+  - phase: "Library (Reflection)"
+    description: "Document, reflect, extract patterns"
+    conductor: "una (curator/guide) leading"
+    steps:
+      - step: "Transition flight plan to library"
+        command: "rhizome flight phase --move-to library"
+        goal: "Signal reflection phase"
+        outcome: "Phase changed"
+
+      - step: "Update TEACHING_MOMENTS.md"
+        goal: "Document intentional rough edges"
+        outcome: "Teaching moments visible for future developers"
+
+      - step: "Record reflection"
+        command: "rhizome record --action document --what 'What did we learn?'"
+        goal: "Capture lessons"
+        outcome: "Reflection in action log"
+
+      - step: "Ask dev-advocate: What worked? What should we do differently next time?"
+        command: "rhizome query --persona dev-advocate '[feature summary]'"
+        goal: "Extract patterns"
+        outcome: "Patterns documented"
+
+      - step: "Update CLAUDE.md with patterns"
+        goal: "Make knowledge accessible to next developer"
+        outcome: "Documentation reflects new pattern"
+
+      - step: "Mark flight plan complete"
+        command: "rhizome flight finish"
+        goal: "Archive this work"
+        outcome: "Flight plan marked done"
+
+decision_recording:
+  when: "At each major inflection point (design, architecture, implementation choice)"
+  command_format: "rhizome record --action [decide|scaffold|document|propose] --object '[feature-aspect]' --what '[high-level summary]' --note '[detailed reasoning]' --confidence [0.0-1.0]"
+  confidence_scale:
+    - level: 0.0-0.3
+      meaning: "Proposal - uncertain, needs validation"
+    - level: 0.4-0.6
+      meaning: "Design decision - reasonable, open to feedback"
+    - level: 0.7-0.8
+      meaning: "Well-reasoned - confidence in approach, ready to build"
+    - level: 0.9-1.0
+      meaning: "Validated - tested, proven, ready to document"
+
+personas_and_when_to_call:
+  - persona: "dev-guide"
+    when: "Before major decisions, feeling rushed, need to step back"
+    question: "What were you trying to accomplish? Is this the simplest way to express it?"
+
+  - persona: "code-reviewer"
+    when: "Design validation, edge case stress-testing, before shipping"
+    question: "What's your evidence? What trade-off are we making? Can you document it?"
+
+  - persona: "ux-advocate"
+    when: "UX design validation, feature planning, accessibility checks"
+    question: "Is this cognitive load acceptable? Have we watched a user try this?"
+
+  - persona: "dev-advocate"
+    when: "Synthesis, retrospectives, bridging perspectives, team decisions"
+    question: "What's working here? What trade-off are we making? How can we improve next time?"
+
+teaching_through_friction:
+  principle: "Rough edges teach more than smooth ones"
+  example: |
+    Instead of implementing parseCommand() perfectly, we ask:
+    "Should 'NEXT' and 'next' both work? What about '→'? How strict should parsing be?"
+
+    The developer then:
+    1. Reads the question
+    2. Thinks about the design choice
+    3. Decides the answer
+    4. Documents the reasoning
+    5. Implements intentionally, not reflexively
+
+  pattern: "Method stubs throw errors with questions, not implementations"
+  benefit: "Forces intentional decision-making, makes assumptions visible, creates teaching moments"
+
+testing_strategy:
+  structure: |
+    describe('Feature: [Feature Name]', () => {
+      describe('Happy Path: [Expected behavior]', () => {
+        it('should [do the thing]', () => { ... });
+      });
+
+      describe('Error Paths: [Edge cases]', () => {
+        it('should handle [edge case]', () => { ... });
+      });
+
+      describe('Integration: [Modules together]', () => {
+        it('should [work end-to-end]', () => { ... });
+      });
+    });
+
+  when: "As you implement each method"
+  tools: "Use test-utils.ts for TestWorkspace, MockRhizome, TestAssertions, TestSetup"
+
+git_commit_pattern:
+  format: |
+    [type]: [description]
+
+    [Detailed explanation of what changed and why]
+
+    [If applicable: persona feedback, design decision, test coverage]
+
+    🤖 Generated with Claude Code
+    Co-Authored-By: Claude <noreply@anthropic.com>
+
+  link_to_rhizome: "Always run 'rhizome link-commit --note [...]' after committing"
+
+success_criteria:
+  design_phase_complete:
+    - Flight plan created with user story
+    - Design steps completed
+    - Personas consulted and feedback recorded
+    - Architectural decisions documented
+    - Moved to garden phase
+
+  implementation_ready:
+    - Stub architecture complete (all methods signed)
+    - Questions visible (not hidden in todos)
+    - Tests written (at least skeleton)
+    - Ready to pick one module and implement
+
+  feature_complete:
+    - All modules implemented
+    - All tests passing
+    - Integrated into extension
+    - Manual testing done
+    - Personas validated UX
+    - Reflection documented
+
+anti_patterns:
+  - name: "Implementing without questions answered"
+    problem: "Code works but you don't know why you chose this approach"
+    solution: "Read the stub questions. Ask a persona. Document the decision."
+
+  - name: "Isolated implementation (no integration testing)"
+    problem: "Module works alone but fails with others"
+    solution: "Write integration tests as you implement"
+
+  - name: "Silent fallbacks without visibility"
+    problem: "Feature 'works' but is fragile, failures are hard to debug"
+    solution: "Make assumptions explicit, log errors, ask don-socratic questions"
+
+  - name: "Skipping reflection phase"
+    problem: "Next developer repeats mistakes, patterns aren't captured"
+    solution: "Always do library phase - even briefly"

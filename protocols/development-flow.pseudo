@@ -1,0 +1,402 @@
+/**
+ * VSCode Rhizome Development Protocol - Pseudocode Flow
+ * Shows the actual execution pattern for feature development
+ *
+ * Philosophy: Think before code. Ask personas. Document decisions. Test intentionally.
+ */
+
+PROTOCOL vscode_rhizome_feature_development {
+
+  // ═══════════════════════════════════════════════════════════════
+  // PHASE 1: BOOTSTRAP
+  // ═══════════════════════════════════════════════════════════════
+
+  BOOTSTRAP() {
+    LOG("Initializing development environment...")
+
+    // Check what's already in motion
+    flights = rhizome.flight.list()
+    IF flights.has_active() THEN
+      active_plan = flights.get_active()
+      LOG("Active flight plan: " + active_plan.title)
+    END IF
+
+    // Get guidance on priorities
+    dev_guide_response = rhizome.query(
+      persona="dev-guide",
+      question="What should I focus on? What's the current state?"
+    )
+    LOG("Dev-guide recommends: " + dev_guide_response)
+
+    // Create session record
+    rhizome.record(
+      action="begin",
+      object="session-name",
+      what="High-level session goal",
+      note="Detailed context",
+      confidence=0.85
+    )
+
+    LOG("Bootstrap complete. Ready for kitchen table phase.")
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // PHASE 2: KITCHEN TABLE (Design)
+  // ═══════════════════════════════════════════════════════════════
+
+  KITCHEN_TABLE() {
+    LOG("Beginning design phase...")
+
+    // Frame the work
+    story = USER_PROVIDES(
+      as="[role]",
+      want="[feature description]",
+      so_that="[user benefit]"
+    )
+
+    flight_plan = rhizome.flight.init(
+      title="Feature name",
+      requester="Claude Code",
+      story_as=story.as,
+      story_want=story.want,
+      story_so=story.so_that
+    )
+    LOG("Flight plan created: " + flight_plan.id)
+
+    // Ask personas to stress-test the design
+    DESIGN_VALIDATION_LOOP:
+      code_reviewer_feedback = rhizome.query(
+        persona="code-reviewer",
+        context="[design document]",
+        question="Is the schema sound? What edge cases are we missing?"
+      )
+      LOG("Code-reviewer feedback: " + code_reviewer_feedback)
+
+      ux_feedback = rhizome.query(
+        persona="ux-advocate",
+        context="[UX design]",
+        question="Does this feel natural? Is cognitive load acceptable?"
+      )
+      LOG("UX-advocate feedback: " + ux_feedback)
+
+      dev_advocate_synthesis = rhizome.query(
+        persona="dev-advocate",
+        context="[full design]",
+        question="What's working? What trade-off are we making?"
+      )
+      LOG("Dev-advocate synthesis: " + dev_advocate_synthesis)
+
+    // Document the design
+    DESIGN_DECISIONS = {
+      "architecture": {
+        "description": "[high-level structure]",
+        "modules": ["module1", "module2", ...],
+        "data_model": "[JSONL/JSON/etc]"
+      },
+      "ui_interaction": {
+        "entry_point": "[right-click menu/command palette]",
+        "commands": ["next", "deeper", "stop", ...],
+        "display": "[output channel/webview/etc]"
+      },
+      "error_handling": {
+        "case1": "[how to handle]",
+        "case2": "[how to handle]",
+        ...
+      }
+    }
+
+    // Record design decisions
+    FOR EACH design_item IN DESIGN_DECISIONS:
+      rhizome.record(
+        action="decide",
+        object=design_item.name,
+        what="[high-level description]",
+        note="[detailed reasoning from personas]",
+        confidence=0.8  // Design is well-reasoned but not yet tested
+      )
+    END FOR
+
+    // Add design steps to flight plan
+    design_steps = ["Design persona", "Define interaction model", "Create storage schema"]
+    FOR EACH step IN design_steps:
+      rhizome.flight.add(title=step)
+    END FOR
+
+    // Mark design steps complete
+    FOR step = 1 TO flight_plan.steps.length:
+      rhizome.flight.start(step)
+      rhizome.flight.done(step)
+    END FOR
+
+    // Transition to execution phase
+    rhizome.flight.phase(move_to="garden")
+    LOG("Design phase complete. Transitioned to garden (execution) phase.")
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // PHASE 3: GARDEN (Implementation)
+  // ═══════════════════════════════════════════════════════════════
+
+  GARDEN() {
+    LOG("Beginning implementation phase...")
+
+    // Step 1: Stub the architecture
+    STUB_ARCHITECTURE() {
+      FOR EACH module IN architecture.modules:
+        CREATE_FILE(module.filename, {
+          imports: module.dependencies,
+          interfaces: module.interfaces,
+          classes: module.classes_with_all_method_signatures,
+          each_method_body: "throw new Error('methodName: " + DESIGN_QUESTION + "?')"
+        })
+
+        LOG("Created stub: " + module.filename)
+      END FOR
+
+      // Commit stubs - the questions are the point!
+      git.add("src/rubber*.ts")
+      git.commit("scaffold: Add [modules] with don-socratic questions")
+      rhizome.link_commit("Created module stubs with teaching questions")
+
+      LOG("Architecture stubbed. Each method contains a design question instead of implementation.")
+    }
+
+    // Step 2: Add implementation steps
+    FOR EACH module IN architecture.modules:
+      rhizome.flight.add(
+        title="Implement " + module.name + ": [specific responsibility]"
+      )
+    END FOR
+
+    // Step 3-N: Implement each module
+    FOR EACH step IN flight_plan.implementation_steps:
+      rhizome.flight.start(step)
+
+      MODULE = step.module
+
+      FOR EACH method IN MODULE.methods:
+        LOG("Implementing: " + method.name)
+
+        // Read the stub question
+        question = method.stub_error_message
+        LOG("Design question: " + question)
+
+        // Ask a persona for guidance if unclear
+        IF DEVELOPER_NEEDS_HELP:
+          guidance = rhizome.query(
+            persona="code-reviewer",
+            question=question
+          )
+          LOG("Persona guidance: " + guidance)
+        END IF
+
+        // Make explicit design decision
+        decision = DEVELOPER_DECIDES(question)
+        CODE_COMMENT = "// " + decision
+
+        // Implement the method
+        method.implementation = DEVELOPER_WRITES_CODE(decision)
+
+        // Write tests
+        TEST = DEVELOPER_WRITES_TESTS(method)
+        VERIFY_TESTS_PASS(TEST)
+
+      END FOR
+
+      // Commit the module
+      git.commit("feat: Implement " + MODULE.name + ": [behavior]")
+      rhizome.link_commit("Implemented " + MODULE.name)
+
+      rhizome.flight.done(step)
+    END FOR
+
+    LOG("All modules implemented. Ready for integration.")
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // PHASE 4: INTEGRATION & TESTING
+  // ═══════════════════════════════════════════════════════════════
+
+  INTEGRATION() {
+    LOG("Beginning integration phase...")
+
+    // Write integration tests
+    integration_tests = CREATE_TEST_FILE("src/[feature].integration.test.ts", {
+      "Happy Path": "Full feature workflow succeeds",
+      "Error Paths": "Edge cases handled gracefully",
+      "Module Interactions": "All modules work together"
+    })
+    VERIFY_TESTS_PASS(integration_tests)
+
+    // Wire into extension.ts
+    REGISTER_COMMAND("vscode-rhizome.[feature]", async () => {
+      new [FeatureClass](activeEditor).start()
+    })
+    REGISTER_CONTEXT_MENU_ITEM("[feature]")
+
+    // Manual testing
+    vscode.launch_debug_mode()
+    MANUAL_TEST("Test real user interaction")
+    COLLECT_FEEDBACK()
+
+    // Validate UX
+    ux_validation = rhizome.query(
+      persona="ux-advocate",
+      question="Does this feel natural? Is it discoverable? Did you have to think?"
+    )
+    LOG("UX validation: " + ux_validation)
+
+    // Fix any issues
+    WHILE issues_exist DO
+      DEVELOPER_FIXES_ISSUE()
+      VERIFY_TESTS_PASS()
+    END WHILE
+
+    // Commit integration
+    git.commit("feat: Integrate [feature] into extension")
+    rhizome.link_commit("Integrated [feature], all tests passing")
+
+    LOG("Integration complete. Feature works end-to-end.")
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // PHASE 5: LIBRARY (Reflection & Documentation)
+  // ═══════════════════════════════════════════════════════════════
+
+  LIBRARY() {
+    LOG("Beginning reflection phase...")
+
+    // Transition flight plan
+    rhizome.flight.phase(move_to="library")
+
+    // Document teaching moments
+    UPDATE_FILE("protocols/TEACHING_MOMENTS.md", {
+      "Intentional rough edges": "What we kept rough and why",
+      "Trade-offs made": "What we chose and what we gave up",
+      "Patterns discovered": "What should next developer know?"
+    })
+
+    // Ask for retrospective
+    retrospective = rhizome.query(
+      persona="dev-advocate",
+      question="What worked? What should we do differently next time?"
+    )
+    LOG("Retrospective: " + retrospective)
+
+    // Record final reflection
+    rhizome.record(
+      action="document",
+      object="[feature]-completion",
+      what="[feature] implementation reflection",
+      note="[lessons learned, patterns, trade-offs]",
+      confidence=0.95  // Backed by implementation
+    )
+
+    // Update CLAUDE.md
+    APPEND_TO("CLAUDE.md", {
+      "Pattern": "[feature] implementation discovered pattern X",
+      "When to use": "[when is this relevant?]",
+      "Example": "[code example]"
+    })
+
+    // Mark complete
+    rhizome.flight.finish()
+    LOG("Feature development complete. Reflection documented.")
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // MAIN FLOW
+  // ═══════════════════════════════════════════════════════════════
+
+  MAIN() {
+    BOOTSTRAP()
+    KITCHEN_TABLE()
+    GARDEN()
+    INTEGRATION()
+    LIBRARY()
+
+    LOG("✅ Feature development complete.")
+    LOG("   - Decisions recorded in .rhizome/actions.ndjson")
+    LOG("   - Patterns documented in CLAUDE.md")
+    LOG("   - Tests provide ongoing verification")
+    LOG("   - Next developer sees questions, not just code")
+  }
+
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HELPER FUNCTIONS
+// ═══════════════════════════════════════════════════════════════
+
+FUNCTION rhizome.query(persona, context, question) RETURNS string {
+  // Execute: rhizome query --persona [persona] [context] [question]
+  // Return: Persona's response
+}
+
+FUNCTION rhizome.record(action, object, what, note, confidence) {
+  // Execute: rhizome record --action [action] --object [object] --what [what] --note [note] --confidence [confidence]
+}
+
+FUNCTION rhizome.flight.init(title, requester, story_as, story_want, story_so) RETURNS FlightPlan {
+  // Execute: rhizome flight init --title [title] --requester [requester] --story-as [as] --story-want [want] --story-so [so]
+}
+
+FUNCTION rhizome.flight.add(title) {
+  // Execute: rhizome flight add --title [title]
+}
+
+FUNCTION rhizome.flight.start(step) {
+  // Execute: rhizome flight start --step [step]
+}
+
+FUNCTION rhizome.flight.done(step) {
+  // Execute: rhizome flight done --step [step]
+}
+
+FUNCTION rhizome.flight.phase(move_to) {
+  // Execute: rhizome flight phase --move-to [move_to]
+}
+
+FUNCTION rhizome.flight.finish() {
+  // Execute: rhizome flight finish
+}
+
+FUNCTION rhizome.link_commit(note) {
+  // Execute: rhizome link-commit --note [note]
+}
+
+// ═══════════════════════════════════════════════════════════════
+// KEY PRINCIPLES
+// ═══════════════════════════════════════════════════════════════
+
+PRINCIPLE teaching_through_friction {
+  // Don't implement methods - ask questions
+  // Forces developer to think, not reflexively code
+  // Makes assumptions visible
+  // Creates teaching moments
+}
+
+PRINCIPLE every_decision_deserves_why {
+  // Record decisions (rhizome record)
+  // Link commits to decisions (rhizome link-commit)
+  // Document reasoning (in code, commits, CLAUDE.md)
+}
+
+PRINCIPLE personas_are_your_advisors {
+  // code-reviewer: Stress-test design, edge cases
+  // ux-advocate: Validate user experience
+  // dev-guide: Step back, think about intent
+  // dev-advocate: Synthesize, extract patterns
+}
+
+PRINCIPLE tests_verify_thinking {
+  // Write tests as you implement
+  // Happy path + error paths + integration
+  // Tests are executable documentation
+}
+
+PRINCIPLE reflection_completes_the_cycle {
+  // Library phase isn't optional
+  // Patterns discovered in implementation
+  // Next feature builds on lessons learned
+}
