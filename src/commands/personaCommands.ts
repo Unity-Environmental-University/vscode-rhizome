@@ -9,9 +9,116 @@
 import * as vscode from 'vscode';
 import { askPersonaWithPrompt } from '../services/personaService';
 import { getAvailablePersonas } from '../services/rhizomeService';
+import { initializeRhizomeIfNeeded, clearStoredOpenAIKey } from '../services/initService';
 import { detectLanguage } from '../utils/helpers';
 import { parseCommentInsertion, formatInsertionPreview } from './commentParser';
 import { ensureOpenAIKeyConfigured } from '../extension';
+import { execSync } from 'child_process';
+
+/**
+ * Parse rhizome errors and provide helpful feedback
+ */
+function getUserFriendlyError(error: any): string {
+	const message = (error as Error).message || String(error);
+
+	// Check for 401 / 403 / auth errors
+	if (message.includes('401') || message.includes('Unauthorized') || message.includes('403')) {
+		return 'OpenAI API error: Check that your API key is valid and has credits remaining. Run: export OPENAI_API_KEY="sk-..." and restart VSCode';
+	}
+
+	// Check for persona not found
+	if (message.includes('not found') || message.includes('Persona context')) {
+		return 'Rhizome persona context issue. Try: rhizome persona list to verify personas are available';
+	}
+
+	// Check for timeout
+	if (message.includes('timed out')) {
+		return 'Request timed out. Check internet connection and OpenAI API status';
+	}
+
+	// Check for rhizome CLI not found
+	if (message.includes('rhizome') && message.includes('not found')) {
+		return 'Rhizome CLI not found. Make sure rhizome is installed and in your PATH: which rhizome';
+	}
+
+	// Generic fallback
+	return `Error: ${message.substring(0, 150)}`;
+}
+
+async function ensurePersonaReady(workspaceRoot: string, persona: string): Promise<boolean> {
+	const personas = await getAvailablePersonas();
+	if (personas.has(persona)) {
+		return true;
+	}
+
+	const choice = await vscode.window.showWarningMessage(
+		`${persona} persona is not available in this workspace. Initialize rhizome first?`,
+		'Run rhizome init',
+		'Rebuild personas',
+		'Cancel'
+	);
+
+	if (!choice || choice === 'Cancel') {
+		return false;
+	}
+
+	try {
+		if (choice === 'Run rhizome init') {
+			const initialized = await initializeRhizomeIfNeeded(workspaceRoot);
+			if (!initialized) {
+				return false;
+			}
+		} else if (choice === 'Rebuild personas') {
+			execSync('rhizome persona merge', {
+				cwd: workspaceRoot,
+				encoding: 'utf-8',
+				stdio: 'pipe',
+				env: process.env,
+			});
+		}
+	} catch (error: any) {
+		console.log('[vscode-rhizome:persona] Failed to repair persona context', error);
+		vscode.window.showErrorMessage(`Failed to prepare personas: ${(error as Error).message}`);
+		return false;
+	}
+
+	const refreshed = await getAvailablePersonas();
+	if (!refreshed.has(persona)) {
+		vscode.window.showErrorMessage(
+			`${persona} persona is still missing. Please run "rhizome init" in the workspace and try again.`
+		);
+		return false;
+	}
+
+	return true;
+}
+
+function isOpenAIAuthError(error: any): boolean {
+	const message = ((error as Error)?.message || '').toLowerCase();
+	const stdout = typeof (error as any)?.stdout === 'string' ? (error as any).stdout.toLowerCase() : '';
+	return message.includes('401') || message.includes('unauthorized') || stdout.includes('401') || stdout.includes('unauthorized');
+}
+
+async function handleOpenAIAuthError(workspaceRoot: string, error: any): Promise<boolean> {
+	if (!isOpenAIAuthError(error)) {
+		return false;
+	}
+
+	console.log('[vscode-rhizome] Detected OpenAI auth error. Clearing stored key and prompting user.');
+	await clearStoredOpenAIKey(workspaceRoot);
+	const reconfigured = await ensureOpenAIKeyConfigured(workspaceRoot, {
+		forcePrompt: true,
+		promptReason: 'OpenAI rejected the stored API key (HTTP 401). Please enter a new key.',
+	});
+
+	if (reconfigured) {
+		vscode.window.showInformationMessage('OpenAI API key updated. Please run the command again.');
+	} else {
+		vscode.window.showWarningMessage('OpenAI API key remains unset. Command cancelled.');
+	}
+
+	return true;
+}
 
 /**
  * Command: Add inline comment from persona
@@ -99,7 +206,12 @@ export const askPersonaCommand = async () => {
 			}
 		);
 	} catch (error: any) {
-		vscode.window.showErrorMessage(`Failed: ${(error as Error).message}`);
+		if (workspaceRoot && (await handleOpenAIAuthError(workspaceRoot, error))) {
+			return;
+		}
+		console.log('[vscode-rhizome:ask-persona] Command failed', error);
+		const friendlyError = getUserFriendlyError(error);
+		vscode.window.showErrorMessage(friendlyError);
 	}
 };
 
@@ -137,7 +249,14 @@ export const redPenReviewCommand = async () => {
 		return;
 	}
 
+	if (!(await ensurePersonaReady(workspaceRoot, 'don-socratic'))) {
+		return;
+	}
+
 	const selectedText = editor.document.getText(editor.selection);
+	console.log(
+		`[vscode-rhizome:red-pen] Command invoked — file: ${editor.document.fileName}, language: ${editor.document.languageId}, selectionLength: ${selectedText.length}`
+	);
 
 	try {
 		// Detect file language and set appropriate comment syntax
@@ -166,10 +285,12 @@ ${commentPrefix} Lines 12-15: Checking membership in an array. Have you measured
 
 Here:\n\n${selectedText}`;
 				const response = await askPersonaWithPrompt('don-socratic', 'don-socratic', prompt);
+				console.log(`[vscode-rhizome:red-pen] Persona response received — length: ${response.length}`);
 
 				// Parse response into structured insertions
 				const fileLines = editor.document.getText().split('\n');
 				const insertions = parseCommentInsertion(response, fileLines, commentPrefix);
+				console.log(`[vscode-rhizome:red-pen] Parsed insertions — count: ${insertions.length}`);
 
 				// Show preview
 				const preview = formatInsertionPreview(insertions, fileLines);
@@ -211,7 +332,11 @@ Here:\n\n${selectedText}`;
 			}
 		);
 	} catch (error: any) {
-		vscode.window.showErrorMessage(`Failed: ${(error as Error).message}`);
+		if (await handleOpenAIAuthError(workspaceRoot, error)) {
+			return;
+		}
+		const friendlyError = getUserFriendlyError(error);
+		vscode.window.showErrorMessage(friendlyError);
 	}
 };
 
@@ -251,7 +376,16 @@ export const redPenReviewFileCommand = async (fileUri?: vscode.Uri) => {
 		return;
 	}
 
+	if (!(await ensurePersonaReady(workspaceRoot, 'don-socratic'))) {
+		return;
+	}
+
 	try {
+		console.log(
+			`[vscode-rhizome:red-pen-file] Command invoked — target: ${targetUri?.fsPath ?? 'unknown'}, selectionActive: ${
+				activeEditor && !activeEditor.selection.isEmpty
+			}`
+		);
 		const fileContent = await vscode.workspace.fs.readFile(targetUri);
 		const fileText = new TextDecoder().decode(fileContent);
 
@@ -295,15 +429,24 @@ ${commentPrefix} Lines 45-50: Happy path handled. What about the sad one?
 
 Here:\n\n${textToReview}`;
 				const response = await askPersonaWithPrompt('don-socratic', 'don-socratic', prompt);
+				console.log(
+					`[vscode-rhizome:red-pen-file] Persona response received — length: ${response.length}`
+				);
 
 				// Parse response into structured insertions
 				const fileLines = fileText.split('\n');
 				let insertions = parseCommentInsertion(response, fileLines, commentPrefix);
+				console.log(
+					`[vscode-rhizome:red-pen-file] Parsed insertions before selection filter — count: ${insertions.length}`
+				);
 
 				// If reviewing a selection, filter insertions to only that range
 				if (activeEditor && !activeEditor.selection.isEmpty) {
 					insertions = insertions.filter(
 						ins => ins.lineNumber >= selectionStartLine && ins.lineNumber <= selectionEndLine
+					);
+					console.log(
+						`[vscode-rhizome:red-pen-file] Parsed insertions after selection filter — count: ${insertions.length}`
 					);
 				}
 
@@ -350,7 +493,12 @@ Here:\n\n${textToReview}`;
 			}
 		);
 	} catch (error: any) {
-		vscode.window.showErrorMessage(`Failed: ${(error as Error).message}`);
+		if (await handleOpenAIAuthError(workspaceRoot, error)) {
+			return;
+		}
+		console.log('[vscode-rhizome:red-pen-file] Command failed', error);
+		const friendlyError = getUserFriendlyError(error);
+		vscode.window.showErrorMessage(friendlyError);
 	}
 };
 

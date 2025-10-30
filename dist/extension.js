@@ -32,7 +32,7 @@ var extension_exports = {};
 __export(extension_exports, {
   activate: () => activate,
   deactivate: () => deactivate,
-  ensureOpenAIKeyConfigured: () => ensureOpenAIKeyConfigured2
+  ensureOpenAIKeyConfigured: () => ensureOpenAIKeyConfigured
 });
 module.exports = __toCommonJS(extension_exports);
 var vscode6 = __toESM(require("vscode"));
@@ -48,6 +48,9 @@ var vscode = __toESM(require("vscode"));
 var { execSync } = require("child_process");
 async function queryPersona(text, persona, timeoutMs = 3e4, workspaceRoot) {
   const cwd = workspaceRoot || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  console.log(
+    `[vscode-rhizome:rhizomeService] queryPersona invoked \u2014 persona: ${persona}, textLength: ${text.length}, cwd: ${cwd ?? "unknown"}`
+  );
   const queryPromise = new Promise((resolve, reject) => {
     try {
       const response = execSync(`rhizome query --persona ${persona}`, {
@@ -56,16 +59,26 @@ async function queryPersona(text, persona, timeoutMs = 3e4, workspaceRoot) {
         timeout: timeoutMs,
         cwd,
         stdio: ["pipe", "pipe", "pipe"],
-        maxBuffer: 10 * 1024 * 1024
+        maxBuffer: 10 * 1024 * 1024,
+        env: process.env
+        // Pass environment variables to child process
       });
       resolve(response);
     } catch (error) {
+      console.log("[vscode-rhizome:rhizomeService] queryPersona execSync failed", {
+        message: error?.message,
+        status: error?.status,
+        stdout: error?.stdout,
+        stderr: error?.stderr
+      });
       reject(error);
     }
   });
   const timeoutPromise = new Promise((_, reject) => {
     setTimeout(() => {
-      reject(new Error(`${persona} timed out after ${timeoutMs}ms`));
+      const timeoutMessage = `${persona} timed out after ${timeoutMs}ms`;
+      console.log("[vscode-rhizome:rhizomeService] queryPersona timeout", { persona, timeoutMs, cwd });
+      reject(new Error(timeoutMessage));
     }, timeoutMs + 1e3);
   });
   return Promise.race([queryPromise, timeoutPromise]);
@@ -78,7 +91,8 @@ async function getAvailablePersonas() {
         encoding: "utf-8",
         timeout: 5e3,
         stdio: "pipe",
-        cwd
+        cwd,
+        env: process.env
       });
       const personasObj = JSON.parse(jsonOutput);
       const personas = /* @__PURE__ */ new Map();
@@ -92,7 +106,8 @@ async function getAvailablePersonas() {
         encoding: "utf-8",
         timeout: 5e3,
         stdio: "pipe",
-        cwd
+        cwd,
+        env: process.env
       });
       const personas = /* @__PURE__ */ new Map();
       const lines = output.split("\n");
@@ -192,6 +207,56 @@ function ensureLocalBinOnPath() {
 var { execSync: execSync3 } = require("child_process");
 var fs2 = require("fs");
 var path2 = require("path");
+var REQUIRED_PERSONAS = [
+  path2.join("custom", "don-socratic.yml"),
+  path2.join("custom", "dev-guide.yml"),
+  path2.join("custom", "code-reviewer.yml"),
+  path2.join("custom", "dev-advocate.yml")
+];
+async function ensureBaselinePersonas(workspaceRoot) {
+  try {
+    const sourceRoot = path2.join(__dirname, "..", ".rhizome", "personas.d");
+    if (!fs2.existsSync(sourceRoot)) {
+      console.log("[vscode-rhizome:init] Baseline personas not found in extension package.");
+      return;
+    }
+    const personasRoot = path2.join(workspaceRoot, ".rhizome", "personas.d");
+    await fs2.promises.mkdir(personasRoot, { recursive: true });
+    let copied = false;
+    for (const relativePath of REQUIRED_PERSONAS) {
+      const sourcePath = path2.join(sourceRoot, relativePath);
+      const targetPath = path2.join(personasRoot, relativePath);
+      if (!fs2.existsSync(sourcePath)) {
+        console.log(`[vscode-rhizome:init] Missing packaged persona: ${relativePath}`);
+        continue;
+      }
+      const targetExists = await fs2.promises.access(targetPath, fs2.constants.F_OK).then(() => true).catch(() => false);
+      if (targetExists) {
+        continue;
+      }
+      await fs2.promises.mkdir(path2.dirname(targetPath), { recursive: true });
+      await fs2.promises.copyFile(sourcePath, targetPath);
+      copied = true;
+      console.log(`[vscode-rhizome:init] Installed baseline persona: ${relativePath}`);
+    }
+    if (copied) {
+      try {
+        execSync3("rhizome persona merge", {
+          cwd: workspaceRoot,
+          encoding: "utf-8",
+          timeout: 5e3,
+          stdio: "pipe",
+          env: process.env
+        });
+        console.log("[vscode-rhizome:init] Refreshed persona cache after installing baselines.");
+      } catch (mergeError) {
+        console.log("[vscode-rhizome:init] Failed to merge personas after install", mergeError?.message ?? mergeError);
+      }
+    }
+  } catch (error) {
+    console.log("[vscode-rhizome:init] Failed to ensure baseline personas", error?.message ?? error);
+  }
+}
 async function initializeRhizomeIfNeeded(workspaceRoot) {
   if (!isRhizomeInstalled()) {
     const isMember = await isUEUMember();
@@ -239,6 +304,7 @@ async function initializeRhizomeIfNeeded(workspaceRoot) {
   const rhizomePath = vscode2.Uri.joinPath(vscode2.Uri.file(workspaceRoot), ".rhizome");
   try {
     await vscode2.workspace.fs.stat(rhizomePath);
+    await ensureBaselinePersonas(workspaceRoot);
     const keyConfigured = await ensureOpenAIKeyConfigured(workspaceRoot);
     return keyConfigured;
   } catch {
@@ -250,6 +316,7 @@ async function initializeRhizomeIfNeeded(workspaceRoot) {
         timeout: 1e4
       });
       vscode2.window.showInformationMessage("Rhizome initialized in workspace");
+      await ensureBaselinePersonas(workspaceRoot);
       const keyConfigured = await ensureOpenAIKeyConfigured(workspaceRoot);
       return keyConfigured;
     } catch (error) {
@@ -258,25 +325,31 @@ async function initializeRhizomeIfNeeded(workspaceRoot) {
     }
   }
 }
-async function ensureOpenAIKeyConfigured(workspaceRoot) {
+async function ensureOpenAIKeyConfigured(workspaceRoot, options = {}) {
   const configPath = vscode2.Uri.joinPath(vscode2.Uri.file(workspaceRoot), ".rhizome", "config.json");
+  const forcePrompt = options.forcePrompt ?? false;
+  const promptReason = options.promptReason ?? "";
   try {
-    if (process.env.OPENAI_API_KEY) {
+    if (process.env.OPENAI_API_KEY && !forcePrompt) {
       return true;
     }
-    const configExists = await vscode2.workspace.fs.stat(configPath);
-    if (configExists) {
-      const configContent = await vscode2.workspace.fs.readFile(configPath);
-      const config = JSON.parse(new TextDecoder().decode(configContent));
-      if (config.ai?.openai_key) {
-        process.env.OPENAI_API_KEY = config.ai.openai_key;
-        return true;
+    if (!forcePrompt) {
+      const configExists = await vscode2.workspace.fs.stat(configPath);
+      if (configExists) {
+        const configContent = await vscode2.workspace.fs.readFile(configPath);
+        const config = JSON.parse(new TextDecoder().decode(configContent));
+        if (config.ai?.openai_key) {
+          process.env.OPENAI_API_KEY = config.ai.openai_key;
+          return true;
+        }
       }
     }
   } catch {
   }
   const key = await vscode2.window.showInputBox({
-    prompt: "Enter your OpenAI API key (stored locally in .rhizome/config.json)",
+    prompt: promptReason ? `${promptReason}
+
+Enter your OpenAI API key (stored locally in .rhizome/config.json)` : "Enter your OpenAI API key (stored locally in .rhizome/config.json)",
     password: true,
     ignoreFocusOut: true
   });
@@ -365,6 +438,30 @@ async function addToGitignore(workspaceRoot, entry) {
     await vscode2.workspace.fs.writeFile(gitignorePath, encoded);
   }
 }
+async function clearStoredOpenAIKey(workspaceRoot) {
+  try {
+    delete process.env.OPENAI_API_KEY;
+    const configPathFs = path2.join(workspaceRoot, ".rhizome", "config.json");
+    if (!fs2.existsSync(configPathFs)) {
+      return;
+    }
+    const raw = await fs2.promises.readFile(configPathFs, "utf-8");
+    const config = JSON.parse(raw);
+    if (config.ai?.openai_key) {
+      delete config.ai.openai_key;
+      if (Object.keys(config.ai).length === 0) {
+        delete config.ai;
+      }
+    }
+    if (Object.keys(config).length === 0) {
+      await fs2.promises.unlink(configPathFs).catch(() => void 0);
+      return;
+    }
+    await fs2.promises.writeFile(configPathFs, JSON.stringify(config, null, 2));
+  } catch (error) {
+    console.log("[vscode-rhizome:init] Failed to clear stored OpenAI key", error?.message ?? error);
+  }
+}
 async function isUEUMember() {
   try {
     execSync3("gh auth status", {
@@ -399,6 +496,9 @@ async function isUEUMember() {
 
 // src/services/personaService.ts
 async function askPersonaWithPrompt(persona, personaDisplayName, prompt, context) {
+  console.log(
+    `[vscode-rhizome:persona] askPersonaWithPrompt \u2014 persona: ${persona}, promptLength: ${prompt.length}, hasContext: ${context ? "yes" : "no"}`
+  );
   const workspaceRoot = vscode3.workspace.workspaceFolders?.[0]?.uri.fsPath;
   if (!workspaceRoot) {
     vscode3.window.showErrorMessage("No workspace folder open");
@@ -409,7 +509,16 @@ async function askPersonaWithPrompt(persona, personaDisplayName, prompt, context
     vscode3.window.showErrorMessage("Could not initialize rhizome. Check workspace permissions.");
     throw new Error("Rhizome initialization failed");
   }
-  return await queryPersona(prompt, persona, 3e4, workspaceRoot);
+  try {
+    const response = await queryPersona(prompt, persona, 3e4, workspaceRoot);
+    console.log(
+      `[vscode-rhizome:persona] queryPersona success \u2014 persona: ${persona}, responseLength: ${response.length}`
+    );
+    return response;
+  } catch (error) {
+    console.log("[vscode-rhizome:persona] queryPersona failed", error);
+    throw error;
+  }
 }
 
 // src/utils/helpers.ts
@@ -465,6 +574,87 @@ ${codeLine}
 }
 
 // src/commands/personaCommands.ts
+var import_child_process2 = require("child_process");
+function getUserFriendlyError(error) {
+  const message = error.message || String(error);
+  if (message.includes("401") || message.includes("Unauthorized") || message.includes("403")) {
+    return 'OpenAI API error: Check that your API key is valid and has credits remaining. Run: export OPENAI_API_KEY="sk-..." and restart VSCode';
+  }
+  if (message.includes("not found") || message.includes("Persona context")) {
+    return "Rhizome persona context issue. Try: rhizome persona list to verify personas are available";
+  }
+  if (message.includes("timed out")) {
+    return "Request timed out. Check internet connection and OpenAI API status";
+  }
+  if (message.includes("rhizome") && message.includes("not found")) {
+    return "Rhizome CLI not found. Make sure rhizome is installed and in your PATH: which rhizome";
+  }
+  return `Error: ${message.substring(0, 150)}`;
+}
+async function ensurePersonaReady(workspaceRoot, persona) {
+  const personas = await getAvailablePersonas();
+  if (personas.has(persona)) {
+    return true;
+  }
+  const choice = await vscode5.window.showWarningMessage(
+    `${persona} persona is not available in this workspace. Initialize rhizome first?`,
+    "Run rhizome init",
+    "Rebuild personas",
+    "Cancel"
+  );
+  if (!choice || choice === "Cancel") {
+    return false;
+  }
+  try {
+    if (choice === "Run rhizome init") {
+      const initialized = await initializeRhizomeIfNeeded(workspaceRoot);
+      if (!initialized) {
+        return false;
+      }
+    } else if (choice === "Rebuild personas") {
+      (0, import_child_process2.execSync)("rhizome persona merge", {
+        cwd: workspaceRoot,
+        encoding: "utf-8",
+        stdio: "pipe",
+        env: process.env
+      });
+    }
+  } catch (error) {
+    console.log("[vscode-rhizome:persona] Failed to repair persona context", error);
+    vscode5.window.showErrorMessage(`Failed to prepare personas: ${error.message}`);
+    return false;
+  }
+  const refreshed = await getAvailablePersonas();
+  if (!refreshed.has(persona)) {
+    vscode5.window.showErrorMessage(
+      `${persona} persona is still missing. Please run "rhizome init" in the workspace and try again.`
+    );
+    return false;
+  }
+  return true;
+}
+function isOpenAIAuthError(error) {
+  const message = (error?.message || "").toLowerCase();
+  const stdout = typeof error?.stdout === "string" ? error.stdout.toLowerCase() : "";
+  return message.includes("401") || message.includes("unauthorized") || stdout.includes("401") || stdout.includes("unauthorized");
+}
+async function handleOpenAIAuthError(workspaceRoot, error) {
+  if (!isOpenAIAuthError(error)) {
+    return false;
+  }
+  console.log("[vscode-rhizome] Detected OpenAI auth error. Clearing stored key and prompting user.");
+  await clearStoredOpenAIKey(workspaceRoot);
+  const reconfigured = await ensureOpenAIKeyConfigured(workspaceRoot, {
+    forcePrompt: true,
+    promptReason: "OpenAI rejected the stored API key (HTTP 401). Please enter a new key."
+  });
+  if (reconfigured) {
+    vscode5.window.showInformationMessage("OpenAI API key updated. Please run the command again.");
+  } else {
+    vscode5.window.showWarningMessage("OpenAI API key remains unset. Command cancelled.");
+  }
+  return true;
+}
 var askPersonaCommand = async () => {
   const editor = vscode5.window.activeTextEditor;
   if (!editor || editor.selection.isEmpty) {
@@ -476,7 +666,7 @@ var askPersonaCommand = async () => {
     vscode5.window.showErrorMessage("No workspace folder open");
     return;
   }
-  if (!await ensureOpenAIKeyConfigured2(workspaceRoot)) {
+  if (!await ensureOpenAIKeyConfigured(workspaceRoot)) {
     return;
   }
   const selectedText = editor.document.getText(editor.selection).trim();
@@ -534,7 +724,12 @@ ${comment}
       }
     );
   } catch (error) {
-    vscode5.window.showErrorMessage(`Failed: ${error.message}`);
+    if (workspaceRoot && await handleOpenAIAuthError(workspaceRoot, error)) {
+      return;
+    }
+    console.log("[vscode-rhizome:ask-persona] Command failed", error);
+    const friendlyError = getUserFriendlyError(error);
+    vscode5.window.showErrorMessage(friendlyError);
   }
 };
 var redPenReviewCommand = async () => {
@@ -548,10 +743,16 @@ var redPenReviewCommand = async () => {
     vscode5.window.showErrorMessage("No workspace folder open");
     return;
   }
-  if (!await ensureOpenAIKeyConfigured2(workspaceRoot)) {
+  if (!await ensureOpenAIKeyConfigured(workspaceRoot)) {
+    return;
+  }
+  if (!await ensurePersonaReady(workspaceRoot, "don-socratic")) {
     return;
   }
   const selectedText = editor.document.getText(editor.selection);
+  console.log(
+    `[vscode-rhizome:red-pen] Command invoked \u2014 file: ${editor.document.fileName}, language: ${editor.document.languageId}, selectionLength: ${selectedText.length}`
+  );
   try {
     const language = detectLanguage(editor.document.languageId);
     const commentPrefix = language === "python" ? "#" : "//";
@@ -577,8 +778,10 @@ Here:
 
 ${selectedText}`;
         const response = await askPersonaWithPrompt("don-socratic", "don-socratic", prompt);
+        console.log(`[vscode-rhizome:red-pen] Persona response received \u2014 length: ${response.length}`);
         const fileLines = editor.document.getText().split("\n");
         const insertions = parseCommentInsertion(response, fileLines, commentPrefix);
+        console.log(`[vscode-rhizome:red-pen] Parsed insertions \u2014 count: ${insertions.length}`);
         const preview = formatInsertionPreview(insertions, fileLines);
         const approved = await vscode5.window.showInformationMessage(
           `Found ${insertions.length} suggested comments. Insert them?`,
@@ -613,7 +816,11 @@ ${selectedText}`;
       }
     );
   } catch (error) {
-    vscode5.window.showErrorMessage(`Failed: ${error.message}`);
+    if (await handleOpenAIAuthError(workspaceRoot, error)) {
+      return;
+    }
+    const friendlyError = getUserFriendlyError(error);
+    vscode5.window.showErrorMessage(friendlyError);
   }
 };
 var redPenReviewFileCommand = async (fileUri) => {
@@ -636,10 +843,16 @@ var redPenReviewFileCommand = async (fileUri) => {
       (editor) => editor.document.uri.fsPath === targetUri.fsPath
     );
   }
-  if (!await ensureOpenAIKeyConfigured2(workspaceRoot)) {
+  if (!await ensureOpenAIKeyConfigured(workspaceRoot)) {
+    return;
+  }
+  if (!await ensurePersonaReady(workspaceRoot, "don-socratic")) {
     return;
   }
   try {
+    console.log(
+      `[vscode-rhizome:red-pen-file] Command invoked \u2014 target: ${targetUri?.fsPath ?? "unknown"}, selectionActive: ${activeEditor && !activeEditor.selection.isEmpty}`
+    );
     const fileContent = await vscode5.workspace.fs.readFile(targetUri);
     const fileText = new TextDecoder().decode(fileContent);
     const doc = await vscode5.workspace.openTextDocument(targetUri);
@@ -676,11 +889,20 @@ Here:
 
 ${textToReview}`;
         const response = await askPersonaWithPrompt("don-socratic", "don-socratic", prompt);
+        console.log(
+          `[vscode-rhizome:red-pen-file] Persona response received \u2014 length: ${response.length}`
+        );
         const fileLines = fileText.split("\n");
         let insertions = parseCommentInsertion(response, fileLines, commentPrefix);
+        console.log(
+          `[vscode-rhizome:red-pen-file] Parsed insertions before selection filter \u2014 count: ${insertions.length}`
+        );
         if (activeEditor && !activeEditor.selection.isEmpty) {
           insertions = insertions.filter(
             (ins) => ins.lineNumber >= selectionStartLine && ins.lineNumber <= selectionEndLine
+          );
+          console.log(
+            `[vscode-rhizome:red-pen-file] Parsed insertions after selection filter \u2014 count: ${insertions.length}`
           );
         }
         const preview = formatInsertionPreview(insertions, fileLines);
@@ -718,80 +940,18 @@ ${textToReview}`;
       }
     );
   } catch (error) {
-    vscode5.window.showErrorMessage(`Failed: ${error.message}`);
+    if (await handleOpenAIAuthError(workspaceRoot, error)) {
+      return;
+    }
+    console.log("[vscode-rhizome:red-pen-file] Command failed", error);
+    const friendlyError = getUserFriendlyError(error);
+    vscode5.window.showErrorMessage(friendlyError);
   }
 };
 function disposeCommands() {
 }
 
 // src/extension.ts
-var fs3 = require("fs");
-var path3 = require("path");
-async function addToGitignore2(workspaceRoot, line) {
-  const gitignorePath = path3.join(workspaceRoot, ".gitignore");
-  try {
-    let content = "";
-    try {
-      content = fs3.readFileSync(gitignorePath, "utf-8");
-    } catch {
-    }
-    if (!content.includes(line)) {
-      content += (content ? "\n" : "") + line + "\n";
-      fs3.writeFileSync(gitignorePath, content);
-    }
-  } catch (error) {
-    console.log("[vscode-rhizome] Could not update .gitignore:", error);
-  }
-}
-async function ensureOpenAIKeyConfigured2(workspaceRoot) {
-  try {
-    if (process.env.OPENAI_API_KEY) {
-      return true;
-    }
-    const configPath = vscode6.Uri.joinPath(vscode6.Uri.file(workspaceRoot), ".rhizome", "config.json");
-    const configExists = await vscode6.workspace.fs.stat(configPath).catch(() => null);
-    if (configExists) {
-      const configContent = await vscode6.workspace.fs.readFile(configPath);
-      const config = JSON.parse(new TextDecoder().decode(configContent));
-      if (config.ai?.openai_key) {
-        process.env.OPENAI_API_KEY = config.ai.openai_key;
-        return true;
-      }
-    }
-  } catch {
-  }
-  const key = await vscode6.window.showInputBox({
-    prompt: "Enter your OpenAI API key (stored locally in .rhizome/config.json)",
-    password: true,
-    ignoreFocusOut: true
-  });
-  if (!key) {
-    vscode6.window.showWarningMessage("OpenAI API key is required for don-socratic");
-    return false;
-  }
-  try {
-    const rhizomePath = vscode6.Uri.joinPath(vscode6.Uri.file(workspaceRoot), ".rhizome");
-    const configPath = vscode6.Uri.joinPath(rhizomePath, "config.json");
-    let config = {};
-    try {
-      const existing = await vscode6.workspace.fs.readFile(configPath);
-      config = JSON.parse(new TextDecoder().decode(existing));
-    } catch {
-    }
-    if (!config.ai)
-      config.ai = {};
-    config.ai.openai_key = key;
-    const configContent = new TextEncoder().encode(JSON.stringify(config, null, 2));
-    await vscode6.workspace.fs.writeFile(configPath, configContent);
-    process.env.OPENAI_API_KEY = key;
-    await addToGitignore2(workspaceRoot, ".rhizome/config.json");
-    vscode6.window.showInformationMessage("OpenAI key saved to .rhizome/config.json");
-    return true;
-  } catch (error) {
-    vscode6.window.showErrorMessage(`Failed to save API key: ${error.message}`);
-    return false;
-  }
-}
 function activate(context) {
   console.log("[vscode-rhizome] ACTIVATION START");
   ensureLocalBinOnPath();
@@ -800,6 +960,24 @@ function activate(context) {
       disposeCommands();
     })
   );
+  (async () => {
+    try {
+      const workspaceRoot = vscode6.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      if (!workspaceRoot) {
+        console.log("[vscode-rhizome] No workspace folder open, skipping initialization");
+        return;
+      }
+      console.log("[vscode-rhizome] Checking rhizome setup...");
+      const initialized = await initializeRhizomeIfNeeded(workspaceRoot);
+      if (initialized) {
+        console.log("[vscode-rhizome] Rhizome is ready");
+      } else {
+        console.log("[vscode-rhizome] Rhizome initialization incomplete or cancelled");
+      }
+    } catch (error) {
+      console.log("[vscode-rhizome] ERROR during initialization:", error.message);
+    }
+  })();
   (async () => {
     try {
       const personas = await getAvailablePersonas();

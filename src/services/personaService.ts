@@ -26,6 +26,11 @@ export async function askPersonaWithPrompt(
 	prompt: string,
 	context?: { question?: string; selectedText?: string }
 ): Promise<string> {
+	console.log(
+		`[vscode-rhizome:persona] askPersonaWithPrompt — persona: ${persona}, promptLength: ${prompt.length}, hasContext: ${
+			context ? 'yes' : 'no'
+		}`
+	);
 	const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 	if (!workspaceRoot) {
 		vscode.window.showErrorMessage('No workspace folder open');
@@ -38,7 +43,16 @@ export async function askPersonaWithPrompt(
 		throw new Error('Rhizome initialization failed');
 	}
 
-	return await queryPersona(prompt, persona, 30000, workspaceRoot);
+	try {
+		const response = await queryPersona(prompt, persona, 30000, workspaceRoot);
+		console.log(
+			`[vscode-rhizome:persona] queryPersona success — persona: ${persona}, responseLength: ${response.length}`
+		);
+		return response;
+	} catch (error) {
+		console.log('[vscode-rhizome:persona] queryPersona failed', error);
+		throw error;
+	}
 }
 
 /**

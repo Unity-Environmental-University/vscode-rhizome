@@ -30,6 +30,11 @@ export async function queryPersona(
 	workspaceRoot?: string
 ): Promise<string> {
 	const cwd = workspaceRoot || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+	console.log(
+		`[vscode-rhizome:rhizomeService] queryPersona invoked — persona: ${persona}, textLength: ${text.length}, cwd: ${
+			cwd ?? 'unknown'
+		}`
+	);
 
 	// Wrap execSync in a promise with explicit timeout
 	const queryPromise = new Promise<string>((resolve, reject) => {
@@ -45,13 +50,21 @@ export async function queryPersona(
 			});
 			resolve(response);
 		} catch (error: any) {
+			console.log('[vscode-rhizome:rhizomeService] queryPersona execSync failed', {
+				message: error?.message,
+				status: error?.status,
+				stdout: error?.stdout,
+				stderr: error?.stderr,
+			});
 			reject(error);
 		}
 	});
 
 	const timeoutPromise = new Promise<string>((_, reject) => {
 		setTimeout(() => {
-			reject(new Error(`${persona} timed out after ${timeoutMs}ms`));
+			const timeoutMessage = `${persona} timed out after ${timeoutMs}ms`;
+			console.log('[vscode-rhizome:rhizomeService] queryPersona timeout', { persona, timeoutMs, cwd });
+			reject(new Error(timeoutMessage));
 		}, timeoutMs + 1000);
 	});
 

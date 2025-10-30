@@ -14,6 +14,67 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
+const REQUIRED_PERSONAS = [
+	path.join('custom', 'don-socratic.yml'),
+	path.join('custom', 'dev-guide.yml'),
+	path.join('custom', 'code-reviewer.yml'),
+	path.join('custom', 'dev-advocate.yml'),
+];
+
+async function ensureBaselinePersonas(workspaceRoot: string): Promise<void> {
+	try {
+		const sourceRoot = path.join(__dirname, '..', '.rhizome', 'personas.d');
+		if (!fs.existsSync(sourceRoot)) {
+			console.log('[vscode-rhizome:init] Baseline personas not found in extension package.');
+			return;
+		}
+
+		const personasRoot = path.join(workspaceRoot, '.rhizome', 'personas.d');
+		await fs.promises.mkdir(personasRoot, { recursive: true });
+
+		let copied = false;
+		for (const relativePath of REQUIRED_PERSONAS) {
+			const sourcePath = path.join(sourceRoot, relativePath);
+			const targetPath = path.join(personasRoot, relativePath);
+
+			if (!fs.existsSync(sourcePath)) {
+				console.log(`[vscode-rhizome:init] Missing packaged persona: ${relativePath}`);
+				continue;
+			}
+
+			const targetExists = await fs.promises
+				.access(targetPath, fs.constants.F_OK)
+				.then(() => true)
+				.catch(() => false);
+			if (targetExists) {
+				continue;
+			}
+
+			await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
+			await fs.promises.copyFile(sourcePath, targetPath);
+			copied = true;
+			console.log(`[vscode-rhizome:init] Installed baseline persona: ${relativePath}`);
+		}
+
+		if (copied) {
+			try {
+				execSync('rhizome persona merge', {
+					cwd: workspaceRoot,
+					encoding: 'utf-8',
+					timeout: 5000,
+					stdio: 'pipe',
+					env: process.env,
+				});
+				console.log('[vscode-rhizome:init] Refreshed persona cache after installing baselines.');
+			} catch (mergeError: any) {
+				console.log('[vscode-rhizome:init] Failed to merge personas after install', mergeError?.message ?? mergeError);
+			}
+		}
+	} catch (error: any) {
+		console.log('[vscode-rhizome:init] Failed to ensure baseline personas', error?.message ?? error);
+	}
+}
+
 /**
  * Initialize rhizome in workspace if needed
  *
@@ -74,6 +135,7 @@ export async function initializeRhizomeIfNeeded(workspaceRoot: string): Promise<
 	try {
 		await vscode.workspace.fs.stat(rhizomePath);
 		// .rhizome exists, check for key config
+		await ensureBaselinePersonas(workspaceRoot);
 		const keyConfigured = await ensureOpenAIKeyConfigured(workspaceRoot);
 		return keyConfigured;
 	} catch {
@@ -87,6 +149,7 @@ export async function initializeRhizomeIfNeeded(workspaceRoot: string): Promise<
 			});
 			vscode.window.showInformationMessage('Rhizome initialized in workspace');
 
+			await ensureBaselinePersonas(workspaceRoot);
 			const keyConfigured = await ensureOpenAIKeyConfigured(workspaceRoot);
 			return keyConfigured;
 		} catch (error: any) {
@@ -102,21 +165,33 @@ export async function initializeRhizomeIfNeeded(workspaceRoot: string): Promise<
  * @param workspaceRoot - Workspace root directory
  * @returns true if key is configured, false otherwise
  */
-export async function ensureOpenAIKeyConfigured(workspaceRoot: string): Promise<boolean> {
+interface OpenAIKeyOptions {
+	forcePrompt?: boolean;
+	promptReason?: string;
+}
+
+export async function ensureOpenAIKeyConfigured(
+	workspaceRoot: string,
+	options: OpenAIKeyOptions = {}
+): Promise<boolean> {
 	const configPath = vscode.Uri.joinPath(vscode.Uri.file(workspaceRoot), '.rhizome', 'config.json');
+	const forcePrompt = options.forcePrompt ?? false;
+	const promptReason = options.promptReason ?? '';
 
 	try {
-		if (process.env.OPENAI_API_KEY) {
+		if (process.env.OPENAI_API_KEY && !forcePrompt) {
 			return true;
 		}
 
-		const configExists = await vscode.workspace.fs.stat(configPath);
-		if (configExists) {
-			const configContent = await vscode.workspace.fs.readFile(configPath);
-			const config = JSON.parse(new TextDecoder().decode(configContent));
-			if (config.ai?.openai_key) {
-				process.env.OPENAI_API_KEY = config.ai.openai_key;
-				return true;
+		if (!forcePrompt) {
+			const configExists = await vscode.workspace.fs.stat(configPath);
+			if (configExists) {
+				const configContent = await vscode.workspace.fs.readFile(configPath);
+				const config = JSON.parse(new TextDecoder().decode(configContent));
+				if (config.ai?.openai_key) {
+					process.env.OPENAI_API_KEY = config.ai.openai_key;
+					return true;
+				}
 			}
 		}
 	} catch {
@@ -125,7 +200,9 @@ export async function ensureOpenAIKeyConfigured(workspaceRoot: string): Promise<
 
 	// No key found, ask user
 	const key = await vscode.window.showInputBox({
-		prompt: 'Enter your OpenAI API key (stored locally in .rhizome/config.json)',
+		prompt: promptReason
+			? `${promptReason}\n\nEnter your OpenAI API key (stored locally in .rhizome/config.json)`
+			: 'Enter your OpenAI API key (stored locally in .rhizome/config.json)',
 		password: true,
 		ignoreFocusOut: true,
 	});
@@ -238,6 +315,39 @@ export async function addToGitignore(workspaceRoot: string, entry: string): Prom
 		content += (content.endsWith('\n') ? '' : '\n') + entry + '\n';
 		const encoded = new TextEncoder().encode(content);
 		await vscode.workspace.fs.writeFile(gitignorePath, encoded);
+	}
+}
+
+/**
+ * Clear stored OpenAI key from environment and workspace config.
+ */
+export async function clearStoredOpenAIKey(workspaceRoot: string): Promise<void> {
+	try {
+		delete process.env.OPENAI_API_KEY;
+
+		const configPathFs = path.join(workspaceRoot, '.rhizome', 'config.json');
+		if (!fs.existsSync(configPathFs)) {
+			return;
+		}
+
+		const raw = await fs.promises.readFile(configPathFs, 'utf-8');
+		const config = JSON.parse(raw);
+
+		if (config.ai?.openai_key) {
+			delete config.ai.openai_key;
+			if (Object.keys(config.ai).length === 0) {
+				delete config.ai;
+			}
+		}
+
+		if (Object.keys(config).length === 0) {
+			await fs.promises.unlink(configPathFs).catch(() => undefined);
+			return;
+		}
+
+		await fs.promises.writeFile(configPathFs, JSON.stringify(config, null, 2));
+	} catch (error: any) {
+		console.log('[vscode-rhizome:init] Failed to clear stored OpenAI key', error?.message ?? error);
 	}
 }
 

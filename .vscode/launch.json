@@ -7,7 +7,7 @@
 			"request": "launch",
 			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}",
-				"/Users/hallie/Documents/courses/1cc-rhizome-test"
+				"/Users/hallie/Documents/repos/1-Credit-Running-Template"
 			],
 			"env": {
 				"RHIZOME_DEBUG": "true"
