@@ -41,6 +41,7 @@ export async function queryPersona(
 				cwd: cwd,
 				stdio: ['pipe', 'pipe', 'pipe'],
 				maxBuffer: 10 * 1024 * 1024,
+				env: process.env, // Pass environment variables to child process
 			});
 			resolve(response);
 		} catch (error: any) {
@@ -74,6 +75,7 @@ export async function getAvailablePersonas(): Promise<Map<string, string>> {
 				timeout: 5000,
 				stdio: 'pipe',
 				cwd: cwd,
+				env: process.env,
 			});
 
 			const personasObj = JSON.parse(jsonOutput);
@@ -92,6 +94,7 @@ export async function getAvailablePersonas(): Promise<Map<string, string>> {
 				timeout: 5000,
 				stdio: 'pipe',
 				cwd: cwd,
+				env: process.env,
 			});
 
 			const personas = new Map<string, string>();
@@ -161,6 +164,7 @@ export async function checkApiKeyAvailable(workspaceRoot?: string): Promise<bool
 			cwd: cwd,
 			stdio: ['pipe', 'pipe', 'pipe'],
 			timeout: 5000,
+			env: process.env,
 		});
 		if (configOutput && configOutput.includes('key')) {
 			return true;
