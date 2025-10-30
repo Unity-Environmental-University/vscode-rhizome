@@ -1,7 +1,7 @@
 # CLAUDE.md: Working with vscode-rhizome
 
-**LAST UPDATED:** Oct 29, 2025 16:00 UTC
-**STATUS:** Comment syntax formatting complete, ready for manual testing
+**LAST UPDATED:** Oct 30, 2025 13:30 UTC
+**STATUS:** Extension production-ready. Startup checks, error handling, and environment fixes in place.
 **GIT:** Main branch, all changes committed
 
 ## What This Document Is
@@ -39,6 +39,27 @@ The code has **deliberate rough edges**:
 - insertStub heuristic → when to stop and ask for help
 
 **These are not bugs. They're teaching moments.** Preserve them.
+
+### Developer Responsibility: "That's Not Our Problem" Never Flies
+
+When building tools for others:
+
+**DON'T say:** "That's not our problem" (auth issues, setup failures, environment problems)
+
+**DO say:** "Someone else is better equipped to handle that. We should make sure they know to [do X], and we'll detect when it's missing."
+
+**Examples:**
+- User doesn't have rhizome installed? Extension detects it and offers to install.
+- OpenAI API key missing? Extension prompts for it on startup.
+- Environment variables not passed to subprocess? We explicitly pass them.
+- Initialization fails silently? We log it and show friendly errors.
+
+**The principle:** Even if something is technically "not the extension's responsibility," if it will break the user experience, we handle it. Either:
+1. **Handle it directly** (check, prompt, guide)
+2. **Detect the problem** and tell users how to fix it
+3. **Document it clearly** so they don't hit it blind
+
+Our job is to be a responsible steward of the user's time and frustration.
 
 ---
 
