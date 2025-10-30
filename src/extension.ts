@@ -12,6 +12,7 @@ import * as vscode from 'vscode';
 import { askPersonaCommand, redPenReviewCommand, redPenReviewFileCommand, disposeCommands } from './commands/personaCommands';
 import { ensureLocalBinOnPath } from './utils/rhizomePath';
 import { getAvailablePersonas } from './services/rhizomeService';
+import { initializeRhizomeIfNeeded } from './services/initService';
 
 const fs = require('fs');
 const path = require('path');
@@ -127,6 +128,27 @@ export function activate(context: vscode.ExtensionContext) {
 			disposeCommands();
 		})
 	);
+
+	// Initialize rhizome on startup (check rhizome, .rhizome/, and API key)
+	(async () => {
+		try {
+			const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+			if (!workspaceRoot) {
+				console.log('[vscode-rhizome] No workspace folder open, skipping initialization');
+				return;
+			}
+
+			console.log('[vscode-rhizome] Checking rhizome setup...');
+			const initialized = await initializeRhizomeIfNeeded(workspaceRoot);
+			if (initialized) {
+				console.log('[vscode-rhizome] Rhizome is ready');
+			} else {
+				console.log('[vscode-rhizome] Rhizome initialization incomplete or cancelled');
+			}
+		} catch (error) {
+			console.log('[vscode-rhizome] ERROR during initialization:', (error as Error).message);
+		}
+	})();
 
 	// Log available personas on startup
 	(async () => {
