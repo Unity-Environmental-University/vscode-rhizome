@@ -8,6 +8,13 @@
  *
  * As functions are implemented, tests move from "describe what should happen"
  * to "verify what actually happens"
+ *
+ * FUTURE: Integrate decohereFuzzGenerator for property-based fuzzing
+ * @see https://github.com/anthropics/ts-decohere/blob/main/src/decohereFuzzGenerator.ts
+ * When implemented, replace hand-written test cases with:
+ *   const gen = decohereFuzzGenerator<SessionState>();
+ *   const samples = gen.generateN(100);
+ *   samples.forEach((state, i) => { it(`property test ${i}`, ...) });
  */
 
 import * as assert from 'assert';
