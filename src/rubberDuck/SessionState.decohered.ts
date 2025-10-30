@@ -58,4 +58,4 @@ export type SessionState = {
  * The decohere build step will see this call and generate test data.
  * (This will be replaced with actual test data by the build step, or removed.)
  */
-export const TEST_CONVERSATION_ENTRY: ConversationEntry = Decohere<ConversationEntry>();
+export const TEST_CONVERSATION_ENTRY: ConversationEntry = ({"id":"12345","timestamp":1684320000000,"sender":"user","message":"Hello, how can I help you today?","metadata":{}} as unknown as ConversationEntry);

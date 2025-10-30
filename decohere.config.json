@@ -1,0 +1,5 @@
+{
+  "envSearchPaths": [".env", "../ts-decohere/.env"],
+  "factoryCacheDir": "generated/decohere-cache",
+  "tsconfigPath": "./tsconfig.json"
+}

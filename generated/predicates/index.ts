@@ -1,0 +1,65 @@
+export type PredicateEntry = {
+  id: string;
+  name: string;
+  description: string;
+  test: (value: unknown) => boolean;
+};
+
+export const predicateEntries: Record<string, PredicateEntry> = {
+  "2b1d73a55f68e30e755eccee57e48a3d1166f95a47acedb0588e69bdc26ae467": {
+    id: "2b1d73a55f68e30e755eccee57e48a3d1166f95a47acedb0588e69bdc26ae467",
+    name: "hasTimestampAsNumber",
+    description: "The timestamp property is a finite number representing when the entry was created",
+    test: (value) => typeof value.timestamp === "number" && Number.isFinite(value.timestamp)
+  },
+  "88da18016bb6fe4f15d5b76afcfb6fd6cb3539f39df1e7f3568e484eb9748546": {
+    id: "88da18016bb6fe4f15d5b76afcfb6fd6cb3539f39df1e7f3568e484eb9748546",
+    name: "isStringValue",
+    description: "Value must be a string",
+    test: (value) => typeof value === "string"
+  },
+  "aba394e61e9ff5323a0b75fff3844ddb72d1ab28fc08117918f19bce6ccb0ac1": {
+    id: "aba394e61e9ff5323a0b75fff3844ddb72d1ab28fc08117918f19bce6ccb0ac1",
+    name: "hasMetadataAsObject",
+    description: "The metadata property is an object holding auxiliary data for the entry",
+    test: (value) => value.metadata !== null && typeof value.metadata === "object" && !Array.isArray(value.metadata)
+  },
+  "dcfbf2a80e1711c4cbf21739366f5f21d5e5c1a12238d5ce4480f950a74640b5": {
+    id: "dcfbf2a80e1711c4cbf21739366f5f21d5e5c1a12238d5ce4480f950a74640b5",
+    name: "isNumberValue",
+    description: "Value must be a finite number",
+    test: (value) => typeof value === "number" && Number.isFinite(value)
+  },
+  "e2e81b65a2ef0f08eac79476619b341e0f64f3094d71328c0566edb1bc8871bf": {
+    id: "e2e81b65a2ef0f08eac79476619b341e0f64f3094d71328c0566edb1bc8871bf",
+    name: "hasIdAsString",
+    description: "The id property is a string identifying the conversation entry",
+    test: (value) => typeof value.id === "string"
+  },
+  "e9f64671d50f7ef368e6ac6b4c291d554fd875317356b83a8337723921e4bbf7": {
+    id: "e9f64671d50f7ef368e6ac6b4c291d554fd875317356b83a8337723921e4bbf7",
+    name: "hasMessageAsString",
+    description: "The message property is a string containing the message text",
+    test: (value) => typeof value.message === "string"
+  },
+  "f5b5fc81b3131213a4ce34155aece962362794ee1ff176ba77e0093bbe636468": {
+    id: "f5b5fc81b3131213a4ce34155aece962362794ee1ff176ba77e0093bbe636468",
+    name: "hasSenderAsString",
+    description: "The sender property is a string identifying who sent the message",
+    test: (value) => typeof value.sender === "string"
+  }
+};
+
+export function evaluatePredicates(ids: readonly string[], value: unknown): boolean {
+  for (const id of ids) {
+    const entry = predicateEntries[id];
+    if (!entry || !entry.test(value)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function getPredicateEntry(id: string): PredicateEntry | undefined {
+  return predicateEntries[id];
+}
