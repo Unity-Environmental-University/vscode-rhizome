@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
-import { RubberDuckStorage, RUBBER_DUCK_STATE_DIR, RUBBER_DUCK_FILE_EXT, RUBBER_DUCK_ARCHIVE_EXT } from './rubberDuckStorage';
+import { RubberDuckStorage, RUBBER_DUCK_STATE_DIR, RUBBER_DUCK_FILE_EXT, RUBBER_DUCK_ARCHIVE_EXT } from './storage';
 
 /**
  * Test Suite: RubberDuckStorage

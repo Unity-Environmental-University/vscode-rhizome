@@ -1,4 +1,4 @@
-import { ConversationEntry } from './rubberDuckStorage';
+import { ConversationEntry } from './storage';
 
 /**
  * We're walking through code line by line.

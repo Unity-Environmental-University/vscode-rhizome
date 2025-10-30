@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
-import { SessionState } from './rubberDuckStateManager';
-import { RubberDuckStorage, ConversationEntry } from './rubberDuckStorage';
-import { DuckObservation } from './rubberDuckQuery';
+import { SessionState } from './stateManager';
+import { RubberDuckStorage, ConversationEntry } from './storage';
+import { DuckObservation } from './query';
 
 /**
  * Commands the user can issue during a rubber duck session.
