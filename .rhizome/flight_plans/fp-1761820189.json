@@ -1,0 +1,283 @@
+{
+  "id": "fp-1761820189",
+  "title": "Rubber Duck Debugging: Interactive Line-by-Line Personas",
+  "requester": "Claude Code",
+  "workflow": "custom",
+  "targets": [],
+  "stories": [
+    {
+      "as": "developer",
+      "i_want": "walk through code line-by-line with a supportive persona (rubber duck)",
+      "so_that": "deepen understanding without flow interruption"
+    }
+  ],
+  "created_at": "2025-10-30T10:29:49Z",
+  "status": "active",
+  "require_approval": false,
+  "approval": {
+    "state": "approved",
+    "by": null,
+    "at": null,
+    "notes": null
+  },
+  "steps": [
+    {
+      "id": 1,
+      "title": "Design rubber duck persona: gentler than don-socratic, supportive voice",
+      "status": "done"
+    },
+    {
+      "id": 2,
+      "title": "Define interaction model: next/deeper commands, conversation flow",
+      "status": "done"
+    },
+    {
+      "id": 3,
+      "title": "Schema design: storage path .rhizome/vscodestate/rubber/[[file]].rubber.[[ext]]",
+      "status": "done"
+    },
+    {
+      "id": 4,
+      "title": "Implement rubberDuckStorage.ts: JSONL read/write, content hashing",
+      "status": "done"
+    },
+    {
+      "id": 5,
+      "title": "Implement rubberDuckStateManager.ts: session state, line navigation",
+      "status": "pending"
+    },
+    {
+      "id": 6,
+      "title": "Implement rubberDuckQuery.ts: persona integration, gentle voice",
+      "status": "pending"
+    },
+    {
+      "id": 7,
+      "title": "Implement rubberDuckSession.ts: orchestration, command handling, UI",
+      "status": "pending"
+    },
+    {
+      "id": 8,
+      "title": "Integrate rubber duck command into extension.ts",
+      "status": "pending"
+    },
+    {
+      "id": 9,
+      "title": "Write comprehensive tests: storage, state, integration",
+      "status": "pending"
+    },
+    {
+      "id": 10,
+      "title": "Manual testing: VSCode debug, full session flow",
+      "status": "pending"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2025-10-30T10:30:54Z",
+      "type": "action",
+      "data": {
+        "actor": "unknown",
+        "action": "decide",
+        "object": "rubber-duck-design",
+        "qualifiers": [],
+        "confidence": 0.8,
+        "evidence": {
+          "repo": "vscode-rhizome",
+          "branch": "main",
+          "commit": "e293e20df345d089f19fd55b322b06a130fe6ea0",
+          "path": null,
+          "lines": null,
+          "note": "Schema: .rhizome/vscodestate/rubber/[[filename]].rubber.json with conversation array. Voice: reflective + collaborative, not interrogative. Commands: next/deeper/summary/stop. Code-reviewer flagged edge cases (long lines, invalid commands, error handling). UX-advocate recommends output panel + visual mode indicator + button commands."
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": "Designed rubber duck debugging feature: supportive line-by-line code conversation with append-only JSON storage",
+        "timestamp": "2025-10-30T10:30:54Z"
+      }
+    },
+    {
+      "ts": "2025-10-30T10:32:29Z",
+      "type": "action",
+      "data": {
+        "actor": "unknown",
+        "action": "decide",
+        "object": "rubber-duck-architecture",
+        "qualifiers": [],
+        "confidence": 0.9,
+        "evidence": {
+          "repo": "vscode-rhizome",
+          "branch": "main",
+          "commit": "e293e20df345d089f19fd55b322b06a130fe6ea0",
+          "path": null,
+          "lines": null,
+          "note": "STORAGE: JSONL (append-only, streaming) vs JSON Array. Chose JSONL for efficiency with long interactive sessions. LINE TRACKING: content hash to survive code changes. VSCode UI: Output Channel + Input Box (append buttons to editor if needed later). Persona: new rubber-duck-query() function (not reusing queryPersona). State: in-memory current-line + content-hash mapping. PATTERNS: Modular architecture, Observer for state changes, Command pattern for next/deeper/stop."
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": "Rubber Duck VSCode extension architecture: JSONL storage, content-hash line tracking, Output Channel UI, new rubber-duck-query() function",
+        "timestamp": "2025-10-30T10:32:29Z"
+      }
+    },
+    {
+      "ts": "2025-10-30T10:32:59Z",
+      "type": "action",
+      "data": {
+        "actor": "unknown",
+        "action": "document",
+        "object": "rubber-duck-implementation-spec",
+        "qualifiers": [],
+        "confidence": 0.9,
+        "evidence": {
+          "repo": "vscode-rhizome",
+          "branch": "main",
+          "commit": "e293e20df345d089f19fd55b322b06a130fe6ea0",
+          "path": null,
+          "lines": null,
+          "note": "Modules: rubberDuckSession (main flow), rubberDuckQuery (persona), rubberDuckStorage (JSONL + hash), rubberDuckStateManager (state). Storage: JSONL at .rhizome/vscodestate/rubber/[[path]].rubber.jsonl. UI: Output channel + input box + buttons. Commands: next/deeper/summary/stop. MVP scope: single file, load previous session. Phase 2: multi-file, editor highlighting, statistics."
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": "Detailed implementation specification for rubber duck: 4 new modules, JSONL storage, content hashing, output channel UI, command flow",
+        "timestamp": "2025-10-30T10:32:59Z"
+      }
+    },
+    {
+      "ts": "2025-10-30T10:35:13Z",
+      "type": "action",
+      "data": {
+        "actor": "system",
+        "action": "link_commit",
+        "object": "",
+        "qualifiers": [
+          "post-commit"
+        ],
+        "confidence": 1.0,
+        "evidence": {
+          "repo": "vscode-rhizome",
+          "branch": "main",
+          "commit": "0ac16b08942af4e81d1bc03bfdd93ae7b33c7f21",
+          "path": null,
+          "lines": null,
+          "note": "Created 4 rubber duck module stubs with method signatures and don-socratic questions"
+        },
+        "agent": null,
+        "timestamp": "2025-10-30T10:35:13Z"
+      }
+    },
+    {
+      "ts": "2025-10-30T10:35:16Z",
+      "type": "action",
+      "data": {
+        "actor": "unknown",
+        "action": "scaffold",
+        "object": "rubber-duck-module-stubs",
+        "qualifiers": [],
+        "confidence": 1.0,
+        "evidence": {
+          "repo": "vscode-rhizome",
+          "branch": "main",
+          "commit": "0ac16b08942af4e81d1bc03bfdd93ae7b33c7f21",
+          "path": null,
+          "lines": null,
+          "note": "Each stub contains don-socratic questions instead of implementation. Pattern: forces developer to read question → think → decide → document. Storage: 7 methods. StateManager: 9 methods. Query: 3 functions. Session: 13 methods. Ready for implementation phase."
+        },
+        "agent": {
+          "name": null,
+          "prompt": null
+        },
+        "act": null,
+        "intent": null,
+        "what": "Stubbed 4 modules: Storage, StateManager, Query, Session with method signatures and teaching questions",
+        "timestamp": "2025-10-30T10:35:16Z"
+      }
+    }
+  ],
+  "personas": {
+    "active": [
+      "rhizome"
+    ],
+    "conducting": "root",
+    "voices": {
+      "una": {
+        "active": true,
+        "mode": "guide",
+        "archive": [
+          {
+            "phase": "kitchen_table",
+            "mode": "guide",
+            "ended_at": "2025-10-30T10:30:05Z"
+          },
+          {
+            "phase": "kitchen_table",
+            "mode": "guide",
+            "ended_at": "2025-10-30T10:33:06Z"
+          }
+        ]
+      },
+      "bro": {
+        "active": true,
+        "mode": "executor",
+        "archive": [
+          {
+            "phase": "kitchen_table",
+            "mode": "executor",
+            "ended_at": "2025-10-30T10:30:05Z"
+          },
+          {
+            "phase": "kitchen_table",
+            "mode": "executor",
+            "ended_at": "2025-10-30T10:33:06Z"
+          }
+        ]
+      },
+      "root": {
+        "active": true,
+        "mode": "reasoner",
+        "archive": [
+          {
+            "phase": "kitchen_table",
+            "mode": "reasoner",
+            "ended_at": "2025-10-30T10:30:05Z"
+          },
+          {
+            "phase": "kitchen_table",
+            "mode": "reasoner",
+            "ended_at": "2025-10-30T10:33:06Z"
+          }
+        ]
+      }
+    }
+  },
+  "phase": {
+    "current": "garden",
+    "entered_at": "2025-10-30T10:33:06Z",
+    "transitions": [
+      {
+        "from": "kitchen_table",
+        "to": "kitchen_table",
+        "at": "2025-10-30T10:30:05Z",
+        "conductor_note": "Rhizome conducting kitchen_table phase"
+      },
+      {
+        "from": "kitchen_table",
+        "to": "garden",
+        "at": "2025-10-30T10:33:06Z",
+        "conductor_note": "Rhizome conducting garden phase"
+      }
+    ]
+  },
+  "sprouts": []
+}
