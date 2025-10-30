@@ -1,0 +1,17 @@
+node_modules
+src
+test
+test-workspace
+.vscode
+**/*.test.ts
+**/*.test.js
+**/*.map
+**/*.ts
+.git
+.gitignore
+.rhizome
+package-lock.json
+tsconfig.json
+generated
+decohere.config.json
+*.md
