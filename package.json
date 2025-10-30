@@ -74,7 +74,8 @@
     "esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
     "typecheck": "tsc --noEmit",
     "test": "mocha --require ts-node/register --extensions ts src/**/*.test.ts",
-    "test:watch": "mocha --require ts-node/register --extensions ts --watch src/**/*.test.ts"
+    "test:watch": "mocha --require ts-node/register --extensions ts --watch src/**/*.test.ts",
+    "dev": "bash scripts/dev.sh"
   },
   "dependencies": {
     "@babel/parser": "^7.23.0"
