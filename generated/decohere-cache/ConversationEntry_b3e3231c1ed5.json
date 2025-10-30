@@ -1,0 +1,89 @@
+{
+  "typeText": "ConversationEntry",
+  "fingerprint": "e688f0842f9a1bb7ceea47c2f1c7eab6d2f9edb0f0496bc5d9fafcee7280bdd3",
+  "dependencies": [
+    {
+      "name": "ConversationEntry",
+      "sourceFile": "/Users/hallie/Documents/repos/vscode-rhizome/src/rubberDuck/SessionState.ts",
+      "hash": "05ab4e0bc879fd41db40be2e519de8fc2b975599f8efb4abd40d728fe75e3077",
+      "text": "export type ConversationEntry = InferFromUsage<Record<string, any>>;"
+    }
+  ],
+  "model": "gpt-4.1-mini",
+  "value": {
+    "id": "12345",
+    "timestamp": 1684320000000,
+    "sender": "user",
+    "message": "Hello, how can I help you today?",
+    "metadata": {}
+  },
+  "createdAt": "2025-10-30T12:35:20.630Z",
+  "attempts": [
+    {
+      "attempt": 1,
+      "model": "gpt-4.1-mini",
+      "feedback": "Best candidate only 54.0% confident. Try other approaches.",
+      "explanation": "The synthesized value contains typical keys found in conversation entries: 'id', 'timestamp', 'sender', 'message', and 'metadata'. Each heuristic checks specific properties' types and ensures the value matches the expected structure for a conversation entry. Candidate validators provide different verification strategies ranging from strict, full structure checks to minimal key presence with proper types and JSON serializability checks, capturing the essence of the ConversationEntry type."
+    }
+  ],
+  "factoryPath": "generated/decohere-cache/ConversationEntry_b3e3231c1ed5.decohered.ts",
+  "heuristicsPath": "generated/decohere-cache/ConversationEntry_b3e3231c1ed5.heuristics.ts",
+  "heuristics": [
+    {
+      "name": "hasIdAsString",
+      "description": "The id property is a string identifying the conversation entry",
+      "predicate": "(value) => typeof value.id === \"string\""
+    },
+    {
+      "name": "hasTimestampAsNumber",
+      "description": "The timestamp property is a finite number representing when the entry was created",
+      "predicate": "(value) => typeof value.timestamp === \"number\" && Number.isFinite(value.timestamp)"
+    },
+    {
+      "name": "hasSenderAsString",
+      "description": "The sender property is a string identifying who sent the message",
+      "predicate": "(value) => typeof value.sender === \"string\""
+    },
+    {
+      "name": "hasMessageAsString",
+      "description": "The message property is a string containing the message text",
+      "predicate": "(value) => typeof value.message === \"string\""
+    },
+    {
+      "name": "hasMetadataAsObject",
+      "description": "The metadata property is an object holding auxiliary data for the entry",
+      "predicate": "(value) => value.metadata !== null && typeof value.metadata === \"object\" && !Array.isArray(value.metadata)"
+    }
+  ],
+  "resolvedType": "ConversationEntry",
+  "candidateSelectionAudit": {
+    "attempt": 1,
+    "selectedCandidateIndex": 0,
+    "selectedCandidateName": "minimalRequiredKeys",
+    "candidateScores": [
+      {
+        "name": "minimalRequiredKeys",
+        "totalScore": 0.5402,
+        "complexityScore": 0.634,
+        "coverageScore": 0.5,
+        "reusabilityScore": 0.5
+      },
+      {
+        "name": "typeAndStructureCheck",
+        "totalScore": 0.48560000000000003,
+        "complexityScore": 0.45199999999999996,
+        "coverageScore": 0.5,
+        "reusabilityScore": 0.5
+      },
+      {
+        "name": "jsonStringifiedCheck",
+        "totalScore": 0.43100000000000005,
+        "complexityScore": 0.27,
+        "coverageScore": 0.5,
+        "reusabilityScore": 0.5
+      }
+    ],
+    "confidence": 0.5402,
+    "selectionReason": "Best of available (54.0% confidence)"
+  }
+}
